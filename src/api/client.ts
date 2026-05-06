@@ -1,0 +1,107 @@
+import { EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
+import type { ExcelRow, Trip, User } from "../types/domain";
+
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const USE_MOCK = !API_URL;
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+let mockTrips: Trip[] = [...SEED_TRIPS];
+
+async function http<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    ...init,
+  });
+  if (!res.ok) {
+    throw new Error(`${res.status} ${res.statusText}`);
+  }
+  return (await res.json()) as T;
+}
+
+export const api = {
+  async login(user: string, pass: string): Promise<User> {
+    if (USE_MOCK) {
+      await wait(400);
+      if (!user || !pass) throw new Error("Usuario y contraseña requeridos");
+      return { user };
+    }
+    return http<User>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ user, pass }),
+    });
+  },
+
+  async listTrips(): Promise<Trip[]> {
+    if (USE_MOCK) {
+      await wait(150);
+      return [...mockTrips];
+    }
+    return http<Trip[]>("/trips");
+  },
+
+  async createTrip(trip: Partial<Trip>): Promise<Trip> {
+    if (USE_MOCK) {
+      await wait(250);
+      const id = "RX-0" + (8420 + mockTrips.length + 1);
+      const created = { ...(trip as Trip), id, est: trip.est ?? "PENDIENTE" };
+      mockTrips = [created, ...mockTrips];
+      return created;
+    }
+    return http<Trip>("/trips", { method: "POST", body: JSON.stringify(trip) });
+  },
+
+  async updateTrip(trip: Trip): Promise<Trip> {
+    if (USE_MOCK) {
+      await wait(200);
+      mockTrips = mockTrips.map((t) => (t.id === trip.id ? trip : t));
+      return trip;
+    }
+    return http<Trip>(`/trips/${trip.id}`, {
+      method: "PUT",
+      body: JSON.stringify(trip),
+    });
+  },
+
+  async cancelTrip(id: string, reason: string): Promise<Trip> {
+    if (USE_MOCK) {
+      await wait(200);
+      const next = mockTrips.find((t) => t.id === id);
+      if (!next) throw new Error("Viaje no encontrado");
+      const updated: Trip = {
+        ...next,
+        est: "CANCELADO",
+        obs: next.obs + (next.obs ? " · " : "") + "Cancelado: " + reason,
+      };
+      mockTrips = mockTrips.map((t) => (t.id === id ? updated : t));
+      return updated;
+    }
+    return http<Trip>(`/trips/${id}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  },
+
+  async parseExcel(_file: File): Promise<ExcelRow[]> {
+    if (USE_MOCK) {
+      await wait(600);
+      return EXCEL_SAMPLE;
+    }
+    const fd = new FormData();
+    fd.append("file", _file);
+    const res = await fetch(`${API_URL}/trips/excel/parse`, { method: "POST", body: fd });
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return (await res.json()) as ExcelRow[];
+  },
+
+  async syncExcelRows(rows: number[]): Promise<{ count: number }> {
+    if (USE_MOCK) {
+      await wait(500);
+      return { count: rows.length };
+    }
+    return http<{ count: number }>("/trips/excel/sync", {
+      method: "POST",
+      body: JSON.stringify({ rows }),
+    });
+  },
+};

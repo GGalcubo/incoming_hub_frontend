@@ -1,0 +1,129 @@
+/* =============================================================
+   Proxy — design tokens (dark theme · matches proxyco.app)
+   ============================================================= */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+
+:root {
+  /* ---------- COLOR · dark surfaces -------------------------- */
+  --bg-app:       #0A0E14;   /* page bg, near-black with cool tint */
+  --bg-surface:   #11161E;   /* card surface */
+  --bg-elevated:  #1A2029;   /* hover on surface, modal bg */
+  --bg-subtle:    #161B23;   /* sidebar surface */
+  --bg-overlay:   rgba(10,14,20,.72);
+
+  /* ---------- COLOR · neutrals (cool dark scale) ------------- */
+  --neutral-0:   #FFFFFF;
+  --neutral-100: #E7EBF2;
+  --neutral-200: #C2C9D6;
+  --neutral-300: #8B95A7;
+  --neutral-400: #5E6878;   /* secondary fg */
+  --neutral-500: #3F4856;   /* hairline border on dark */
+  --neutral-600: #2A323F;
+  --neutral-700: #1F2733;
+  --neutral-800: #161B23;
+  --neutral-900: #0A0E14;
+
+  /* ---------- COLOR · brand accents -------------------------- */
+  --brand-teal-50:  #C9F2DD;
+  --brand-teal-300: #4FD79A;
+  --brand-teal-500: #1FB874;   /* logo, community badges, success */
+  --brand-teal-700: #0F7A4D;
+
+  --accent-amber-50:  #FBE4A6;
+  --accent-amber-300: #F6C24A;
+  --accent-amber-500: #E8A317;   /* PRXY tokens, "Destacada", warnings */
+  --accent-amber-700: #A66E00;
+
+  /* ---------- COLOR · semantic foreground -------------------- */
+  --fg-primary:   #F5F7FB;
+  --fg-secondary: #B5BCC9;
+  --fg-tertiary:  #8B95A7;
+  --fg-muted:     #5E6878;
+  --fg-on-brand:  #0A0E14;
+  --fg-link:      var(--brand-teal-300);
+
+  --border-subtle: #1F2733;
+  --border-strong: #2A323F;
+  --border-brand:  var(--brand-teal-500);
+
+  /* ---------- COLOR · status (8 trip statuses) --------------- */
+  --status-pendiente-bg:    rgba(232,163,23,.16);  --status-pendiente-fg:    #F6C24A;
+  --status-confirmado-bg:   rgba(31,184,116,.16);  --status-confirmado-fg:   #4FD79A;
+  --status-encurso-bg:      rgba(74,144,226,.18);  --status-encurso-fg:      #6FAEFF;
+  --status-finalizado-bg:   rgba(139,149,167,.16); --status-finalizado-fg:   #B5BCC9;
+  --status-cancelado-bg:    rgba(232,68,68,.16);   --status-cancelado-fg:    #FF7A7A;
+  --status-noshow-bg:       rgba(232,68,128,.16);  --status-noshow-fg:       #FF85A8;
+  --status-reprogramado-bg: rgba(154,108,232,.18); --status-reprogramado-fg: #B89BFF;
+  --status-enespera-bg:     rgba(95,107,128,.20);  --status-enespera-fg:     #C2C9D6;
+
+  --feedback-success: var(--brand-teal-300);
+  --feedback-warning: var(--accent-amber-300);
+  --feedback-danger:  #FF7A7A;
+  --feedback-info:    #6FAEFF;
+
+  /* ---------- TYPE · families -------------------------------- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* ---------- TYPE · semantic scale -------------------------- */
+  --text-display-size: 28px;
+  --text-h1-size:      22px;
+  --text-h2-size:      17px;
+  --text-body-size:    14px;
+  --text-small-size:   13px;
+  --text-micro-size:   11px;
+
+  /* ---------- SPACING ---------------------------------------- */
+  --space-1:4px;  --space-2:8px;  --space-3:12px; --space-4:16px;
+  --space-5:20px; --space-6:24px; --space-8:32px; --space-10:40px;
+  --space-14:56px;--space-20:80px;
+
+  /* ---------- RADIUS ----------------------------------------- */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;        /* card default */
+  --r-lg: 16px;
+  --r-pill: 9999px;    /* buttons + chips on proxyco are pill */
+
+  /* ---------- SHADOW (subtle on dark) ------------------------ */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.40);
+  --shadow-md: 0 6px 16px rgba(0,0,0,.45), 0 2px 4px rgba(0,0,0,.30);
+  --shadow-lg: 0 24px 48px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.35);
+  --glow-brand: 0 0 0 3px rgba(31,184,116,.25);
+
+  /* ---------- MOTION ----------------------------------------- */
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --dur-1: 120ms; --dur-2: 180ms; --dur-3: 240ms;
+
+  /* ---------- LAYOUT ----------------------------------------- */
+  --sidebar-w: 64px;     /* proxyco rail is icon-only, narrow */
+  --topbar-h: 56px;
+  --row-h: 48px;
+}
+
+/* ================ semantic helper classes ================== */
+.t-display { font:600 28px/34px var(--font-sans); letter-spacing:-.01em; color:var(--fg-primary); }
+.t-h1      { font:600 22px/28px var(--font-sans); letter-spacing:-.005em; color:var(--fg-primary); }
+.t-h2      { font:600 17px/24px var(--font-sans); color:var(--fg-primary); }
+.t-body    { font:400 14px/20px var(--font-sans); color:var(--fg-primary); }
+.t-small   { font:400 13px/18px var(--font-sans); color:var(--fg-secondary); }
+.t-micro   { font:600 11px/14px var(--font-sans); letter-spacing:.06em; text-transform:uppercase; color:var(--fg-tertiary); }
+.t-mono    { font-family:var(--font-mono); }
+.t-tnum    { font-feature-settings:"tnum" 1; }
+
+html, body {
+  margin:0; padding:0;
+  background:var(--bg-app);
+  color:var(--fg-primary);
+  font:400 14px/20px var(--font-sans);
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+* { box-sizing:border-box; }
+::selection { background: rgba(31,184,116,.30); }
+
+/* scrollbars on dark */
+::-webkit-scrollbar { width:10px; height:10px; }
+::-webkit-scrollbar-thumb { background:#2A323F; border-radius:8px; }
+::-webkit-scrollbar-thumb:hover { background:#3F4856; }
+::-webkit-scrollbar-track { background:transparent; }

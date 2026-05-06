@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(mkdir -p /tmp/design)",
+      "Read(//tmp/**)",
+      "Bash(cp \"C:/Users/calta/.claude/projects/C--caltamirano-logos2/14106d8b-abaa-4f48-bdd0-c1cfa8c91a0d/tool-results/webfetch-1778089356375-y3j871.bin\" design.gz)",
+      "Bash(gunzip -c design.gz)",
+      "Bash(mkdir -p extracted)",
+      "Bash(tar -xf design.tar -C extracted)",
+      "Bash(npm --version)",
+      "Bash(npm create *)",
+      "PowerShell(\"`n\" | & npm create vite@latest . -- --template react-ts 2>&1 | Select-Object -Last 40)",
+      "Bash(npm install *)",
+      "Bash(cp /tmp/design/extracted/proxy-traslados-design-system/project/assets/favicon.svg /c/caltamirano/logos2/public/favicon.svg)",
+      "Bash(cp /tmp/design/extracted/proxy-traslados-design-system/project/assets/logo.svg /c/caltamirano/logos2/public/logo.svg)",
+      "Bash(cp /tmp/design/extracted/proxy-traslados-design-system/project/assets/logo-mark.svg /c/caltamirano/logos2/public/logo-mark.svg)",
+      "Bash(cp /tmp/design/extracted/proxy-traslados-design-system/project/assets/illustration-empty.svg /c/caltamirano/logos2/public/illustration-empty.svg)",
+      "Bash(cp /tmp/design/extracted/proxy-traslados-design-system/project/colors_and_type.css /c/caltamirano/logos2/src/styles/tokens.css)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/)",
+      "Bash(curl -s http://localhost:5173/)"
+    ]
+  }
+}
