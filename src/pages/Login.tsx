@@ -11,7 +11,7 @@ interface LoginProps {
 
 export function Login({ onLogin }: LoginProps) {
   const navigate = useNavigate();
-  const [user, setUser] = useState("operador@proxy");
+  const [user, setUser] = useState("operador@incoming_hub.com");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState<{ user?: string; pass?: string; form?: string }>({});
   const [loading, setLoading] = useState(false);
