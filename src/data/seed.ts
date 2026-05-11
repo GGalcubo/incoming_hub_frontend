@@ -89,8 +89,8 @@ const mk = (
   ],
   costs: { total: 38500, viaje: 32000, espera: 2500, peajes: 1500, estacionamiento: 1500, otros: 1000 },
   history: [
-    { ts: "06/05 09:14", user: "operador@proxy", action: "Creación de viaje" },
-    { ts: "06/05 09:18", user: "operador@proxy", action: "Confirmación enviada a Central" },
+    { ts: "06/05 09:14", user: "operador@incoming-hub", action: "Creación de viaje" },
+    { ts: "06/05 09:18", user: "operador@incoming-hub", action: "Confirmación enviada a Central" },
   ],
 });
 

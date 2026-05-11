@@ -68,7 +68,7 @@ export function Login({ onLogin }: LoginProps) {
               color: "#F5F7FB",
             }}
           >
-            Plataforma de Viajes<span style={{ color: "#1FB874" }}>·</span>
+            Incoming Hub<span style={{ color: "#1FB874" }}>·</span>
           </span>
         </div>
 
