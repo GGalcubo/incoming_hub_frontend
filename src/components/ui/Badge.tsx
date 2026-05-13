@@ -5,13 +5,17 @@ interface BadgeProps {
   status: TripStatus | string;
 }
 
+function tokenKey(id: string) {
+  return id.toLowerCase().replace(/_/g, "");
+}
+
 export function Badge({ status }: BadgeProps) {
-  const s =
-    STATUSES.find((x) => x.id === status) ?? {
-      label: String(status),
-      bg: "rgba(95,107,128,.20)",
-      fg: "#C2C9D6",
-    };
+  const meta = STATUSES.find((x) => x.id === status);
+  const id = meta?.id ?? String(status);
+  const label = meta?.label ?? String(status);
+  const key = tokenKey(id);
+  const bg = `var(--status-${key}-bg, var(--status-enespera-bg))`;
+  const fg = `var(--status-${key}-fg, var(--status-enespera-fg))`;
 
   return (
     <span
@@ -25,14 +29,12 @@ export function Badge({ status }: BadgeProps) {
         font: "600 11px/14px Inter",
         letterSpacing: ".06em",
         textTransform: "uppercase",
-        background: s.bg,
-        color: s.fg,
+        background: bg,
+        color: fg,
       }}
     >
-      <span
-        style={{ width: 6, height: 6, borderRadius: 9999, background: s.fg }}
-      />
-      {s.label}
+      <span style={{ width: 6, height: 6, borderRadius: 9999, background: fg }} />
+      {label}
     </span>
   );
 }

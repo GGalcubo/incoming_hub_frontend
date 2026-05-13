@@ -14,14 +14,14 @@ export const AGENCIES = [
 export const CATEGORIES = ["Ejecutivo", "Premium", "Van 7", "Van 11", "Minibús"];
 
 export const STATUSES: StatusMeta[] = [
-  { id: "PENDIENTE", label: "Pendiente", bg: "rgba(232,163,23,.16)", fg: "#F6C24A" },
-  { id: "CONFIRMADO", label: "Confirmado", bg: "rgba(31,184,116,.16)", fg: "#4FD79A" },
-  { id: "EN_CURSO", label: "En curso", bg: "rgba(74,144,226,.18)", fg: "#6FAEFF" },
-  { id: "FINALIZADO", label: "Finalizado", bg: "rgba(139,149,167,.16)", fg: "#B5BCC9" },
-  { id: "CANCELADO", label: "Cancelado", bg: "rgba(232,68,68,.16)", fg: "#FF7A7A" },
-  { id: "NO_SHOW", label: "No show", bg: "rgba(232,68,128,.16)", fg: "#FF85A8" },
-  { id: "REPROGRAMADO", label: "Reprogramado", bg: "rgba(154,108,232,.18)", fg: "#B89BFF" },
-  { id: "EN_ESPERA", label: "En espera", bg: "rgba(95,107,128,.20)", fg: "#C2C9D6" },
+  { id: "PENDIENTE", label: "Pendiente" },
+  { id: "CONFIRMADO", label: "Confirmado" },
+  { id: "EN_CURSO", label: "En curso" },
+  { id: "FINALIZADO", label: "Finalizado" },
+  { id: "CANCELADO", label: "Cancelado" },
+  { id: "NO_SHOW", label: "No show" },
+  { id: "REPROGRAMADO", label: "Reprogramado" },
+  { id: "EN_ESPERA", label: "En espera" },
 ];
 
 export const PLACES = [

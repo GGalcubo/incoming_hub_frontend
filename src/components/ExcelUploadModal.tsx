@@ -106,38 +106,42 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     >
       {stage === "pick" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ font: "400 13px/18px Inter", color: "#B5BCC9" }}>
+          <div style={{ font: "400 13px/18px Inter", color: "var(--fg-tertiary)" }}>
             Subí un archivo .xlsx con la plantilla de Proxy. Vamos a validar fila por fila antes
             de sincronizar con Central.
           </div>
           <label
             style={{
-              border: "1.5px dashed #2A323F",
+              border: "1.5px dashed var(--border-strong)",
               borderRadius: 12,
               padding: 36,
               textAlign: "center",
-              background: "#0A0E14",
+              background: "var(--bg-app)",
               cursor: "pointer",
               display: "flex",
               flexDirection: "column",
               gap: 8,
               alignItems: "center",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "#1FB874")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "#2A323F")}
+            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand-500)")}
+            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-strong)")}
           >
-            <Icon name="upload" size={28} style={{ color: "#8B95A7" }} />
-            <div style={{ font: "600 14px/20px Inter", color: "#F5F7FB" }}>
+            <Icon name="upload" size={28} style={{ color: "var(--fg-muted)" }} />
+            <div style={{ font: "600 14px/20px Inter", color: "var(--fg-primary)" }}>
               Arrastrá el archivo o hacé clic para seleccionar
             </div>
-            <div style={{ font: "400 12px/16px Inter", color: "#8B95A7" }}>
+            <div style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>
               Formato .xlsx · máximo 200 filas
             </div>
             <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
           </label>
           <a
             href="#"
-            style={{ font: "500 13px/18px Inter", color: "#4FD79A", textDecoration: "none" }}
+            style={{
+              font: "500 13px/18px Inter",
+              color: "var(--fg-link)",
+              textDecoration: "none",
+            }}
           >
             Descargar plantilla
           </a>
@@ -152,37 +156,31 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
               alignItems: "center",
               gap: 8,
               font: "400 13px/18px Inter",
-              color: "#E7EBF2",
+              color: "var(--fg-secondary)",
             }}
           >
-            <Icon name="excel" size={16} style={{ color: "#4FD79A" }} />
+            <Icon name="excel" size={16} style={{ color: "var(--success-fg)" }} />
             <span style={{ fontWeight: 500 }}>{filename}</span>
-            <span style={{ color: "#8B95A7" }}>· {rows.length} filas detectadas</span>
+            <span style={{ color: "var(--fg-muted)" }}>· {rows.length} filas detectadas</span>
           </div>
 
           <div style={{ display: "flex", gap: 10 }}>
-            <Pill label={`${summary.ok} listos`} bg="rgba(31,184,116,.16)" fg="#4FD79A" />
-            {summary.warn > 0 && (
-              <Pill
-                label={`${summary.warn} con avisos`}
-                bg="rgba(232,163,23,.16)"
-                fg="#F6C24A"
-              />
-            )}
-            {summary.err > 0 && (
-              <Pill
-                label={`${summary.err} con errores`}
-                bg="rgba(232,68,68,.16)"
-                fg="#FF7A7A"
-              />
-            )}
+            <Pill label={`${summary.ok} listos`} tone="success" />
+            {summary.warn > 0 && <Pill label={`${summary.warn} con avisos`} tone="warning" />}
+            {summary.err > 0 && <Pill label={`${summary.err} con errores`} tone="danger" />}
           </div>
 
-          <div style={{ border: "1px solid #1F2733", borderRadius: 12, overflow: "hidden" }}>
+          <div
+            style={{
+              border: "1px solid var(--border-subtle)",
+              borderRadius: 12,
+              overflow: "hidden",
+            }}
+          >
             <table
               style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Inter" }}
             >
-              <thead style={{ background: "#0A0E14" }}>
+              <thead style={{ background: "var(--bg-app)" }}>
                 <tr>
                   <th style={{ ...th, width: 32 }}>
                     <input
@@ -212,7 +210,11 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                 {rows.map((r) => (
                   <tr
                     key={r.row}
-                    style={{ background: r.errors.length ? "rgba(232,68,68,.06)" : "#11161E" }}
+                    style={{
+                      background: r.errors.length
+                        ? "var(--danger-bg-soft)"
+                        : "var(--bg-surface)",
+                    }}
                   >
                     <td style={td}>
                       <input
@@ -229,23 +231,23 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                         ...td,
                         fontFamily: "JetBrains Mono",
                         fontSize: 12,
-                        color: "#8B95A7",
+                        color: "var(--fg-muted)",
                       }}
                     >
                       {r.row}
                     </td>
-                    <td style={{ ...td, color: "#E7EBF2" }}>
+                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
                       {r.date} ·{" "}
-                      {r.time || <span style={{ color: "#5E6878" }}>—</span>}
+                      {r.time || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
                     </td>
-                    <td style={{ ...td, color: "#E7EBF2" }}>
-                      {r.passenger || <span style={{ color: "#5E6878" }}>—</span>}
+                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
+                      {r.passenger || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
                     </td>
-                    <td style={{ ...td, color: "#E7EBF2" }}>
+                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
                       {r.origin} → {r.destination}
                     </td>
-                    <td style={{ ...td, color: "#E7EBF2" }}>
-                      {r.agency || <span style={{ color: "#5E6878" }}>—</span>}
+                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
+                      {r.agency || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
                     </td>
                     <td style={td}>
                       {r.errors.length > 0 ? (
@@ -257,7 +259,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 4,
-                                color: "#FF7A7A",
+                                color: "var(--danger-fg)",
                                 font: "500 12px/16px Inter",
                               }}
                             >
@@ -275,7 +277,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                 display: "inline-flex",
                                 alignItems: "center",
                                 gap: 4,
-                                color: "#F6C24A",
+                                color: "var(--warning-fg)",
                                 font: "500 12px/16px Inter",
                               }}
                             >
@@ -290,7 +292,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                             display: "inline-flex",
                             alignItems: "center",
                             gap: 4,
-                            color: "#4FD79A",
+                            color: "var(--success-fg)",
                             font: "500 12px/16px Inter",
                           }}
                         >
@@ -305,7 +307,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             </table>
           </div>
 
-          <div style={{ font: "400 12px/16px Inter", color: "#8B95A7" }}>
+          <div style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>
             Solo se sincronizan los viajes seleccionados. Los que tienen errores no se pueden
             seleccionar — corregí el archivo y volvé a subir.
           </div>
@@ -315,7 +317,16 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   );
 }
 
-function Pill({ label, bg, fg }: { label: string; bg: string; fg: string }) {
+type PillTone = "success" | "warning" | "danger";
+
+const PILL_TOKENS: Record<PillTone, { bg: string; fg: string }> = {
+  success: { bg: "var(--success-bg)", fg: "var(--success-fg)" },
+  warning: { bg: "var(--warning-bg)", fg: "var(--warning-fg)" },
+  danger: { bg: "var(--danger-bg)", fg: "var(--danger-fg)" },
+};
+
+function Pill({ label, tone }: { label: string; tone: PillTone }) {
+  const { bg, fg } = PILL_TOKENS[tone];
   return (
     <span
       style={{
@@ -338,14 +349,14 @@ const th: CSSProperties = {
   font: "600 11px/14px Inter",
   letterSpacing: ".06em",
   textTransform: "uppercase",
-  color: "#8B95A7",
+  color: "var(--fg-muted)",
   textAlign: "left",
   padding: "10px 12px",
-  borderBottom: "1px solid #1F2733",
+  borderBottom: "1px solid var(--border-subtle)",
 };
 const td: CSSProperties = {
   padding: "10px 12px",
-  borderBottom: "1px solid #161B23",
+  borderBottom: "1px solid var(--border-subtle)",
   verticalAlign: "middle",
   whiteSpace: "nowrap",
 };

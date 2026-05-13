@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTheme } from "../hooks/useTheme";
 import type { User } from "../types/domain";
+import { ThemeToggle } from "./ThemeToggle";
 import { Icon } from "./ui/Icon";
 
 interface SidebarProps {
@@ -27,8 +29,8 @@ function Item({ active, icon, label, collapsed, onClick }: ItemProps) {
         alignItems: "center",
         gap: 10,
         width: "100%",
-        background: active ? "rgba(31,184,116,.10)" : "transparent",
-        color: active ? "#F5F7FB" : "#8B95A7",
+        background: active ? "var(--brand-tint-soft)" : "transparent",
+        color: active ? "var(--fg-primary)" : "var(--fg-muted)",
         font: active ? "600 14px/20px Inter" : "500 14px/20px Inter",
         border: "none",
         textAlign: "left",
@@ -40,14 +42,14 @@ function Item({ active, icon, label, collapsed, onClick }: ItemProps) {
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.background = "#1A2029";
-          e.currentTarget.style.color = "#E7EBF2";
+          e.currentTarget.style.background = "var(--bg-elevated)";
+          e.currentTarget.style.color = "var(--fg-secondary)";
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
           e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = "#8B95A7";
+          e.currentTarget.style.color = "var(--fg-muted)";
         }
       }}
     >
@@ -60,7 +62,7 @@ function Item({ active, icon, label, collapsed, onClick }: ItemProps) {
             bottom: 8,
             width: 2,
             borderRadius: 2,
-            background: "#1FB874",
+            background: "var(--brand-500)",
           }}
         />
       )}
@@ -75,6 +77,7 @@ const STORAGE_KEY = "proxy:sidebarCollapsed";
 export function Sidebar({ view, user, onLogout }: SidebarProps) {
   const navigate = useNavigate();
   const initial = (user?.user || "?")[0].toUpperCase();
+  const { mode, setMode } = useTheme();
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -99,8 +102,8 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
       style={{
         width: collapsed ? 64 : 240,
         flex: "none",
-        background: "#0A0E14",
-        borderRight: "1px solid #1F2733",
+        background: "var(--bg-app)",
+        borderRight: "1px solid var(--border-subtle)",
         display: "flex",
         flexDirection: "column",
         padding: collapsed ? "16px 8px" : "16px 12px",
@@ -123,10 +126,10 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             style={{
               font: "600 16px/22px Inter",
               letterSpacing: "-.005em",
-              color: "#F5F7FB",
+              color: "var(--fg-primary)",
             }}
           >
-            Incoming Hub<span style={{ color: "#1FB874" }}>·</span>
+            Incoming Hub<span style={{ color: "var(--brand-500)" }}>·</span>
           </span>
         )}
       </div>
@@ -141,9 +144,9 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
           width: 24,
           height: 24,
           borderRadius: 9999,
-          background: "#11161E",
-          border: "1px solid #1F2733",
-          color: "#8B95A7",
+          background: "var(--bg-surface)",
+          border: "1px solid var(--border-subtle)",
+          color: "var(--fg-muted)",
           cursor: "pointer",
           display: "flex",
           alignItems: "center",
@@ -153,14 +156,14 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
           transition: "all 180ms cubic-bezier(.2,.8,.2,1)",
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.background = "#1A2029";
-          e.currentTarget.style.color = "#F5F7FB";
-          e.currentTarget.style.borderColor = "#2A323F";
+          e.currentTarget.style.background = "var(--bg-elevated)";
+          e.currentTarget.style.color = "var(--fg-primary)";
+          e.currentTarget.style.borderColor = "var(--border-strong)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = "#11161E";
-          e.currentTarget.style.color = "#8B95A7";
-          e.currentTarget.style.borderColor = "#1F2733";
+          e.currentTarget.style.background = "var(--bg-surface)";
+          e.currentTarget.style.color = "var(--fg-muted)";
+          e.currentTarget.style.borderColor = "var(--border-subtle)";
         }}
       >
         <Icon name={collapsed ? "chevright" : "chevleft"} size={14} />
@@ -187,7 +190,32 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
 
       <div
         style={{
-          borderTop: "1px solid #1F2733",
+          padding: collapsed ? "12px 0" : "12px 6px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: collapsed ? "center" : "stretch",
+          gap: 8,
+        }}
+      >
+        {!collapsed && (
+          <span
+            style={{
+              font: "600 10px/14px Inter",
+              letterSpacing: ".08em",
+              textTransform: "uppercase",
+              color: "var(--fg-muted)",
+              paddingLeft: 2,
+            }}
+          >
+            Tema
+          </span>
+        )}
+        <ThemeToggle mode={mode} onChange={setMode} collapsed={collapsed} />
+      </div>
+
+      <div
+        style={{
+          borderTop: "1px solid var(--border-subtle)",
           padding: collapsed ? "12px 0 4px" : "12px 6px 4px",
           display: "flex",
           alignItems: "center",
@@ -201,8 +229,8 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             width: 28,
             height: 28,
             borderRadius: 9999,
-            background: "#1FB874",
-            color: "#0A0E14",
+            background: "var(--brand-500)",
+            color: "var(--fg-on-brand)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -217,7 +245,7 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             <div
               style={{
                 font: "500 13px/18px Inter",
-                color: "#E7EBF2",
+                color: "var(--fg-secondary)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
@@ -225,7 +253,7 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             >
               {user?.user}
             </div>
-            <div style={{ font: "400 11px/14px Inter", color: "#8B95A7" }}>Operador</div>
+            <div style={{ font: "400 11px/14px Inter", color: "var(--fg-muted)" }}>Operador</div>
           </div>
         )}
         <button
@@ -235,7 +263,7 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             background: "transparent",
             border: "none",
             cursor: "pointer",
-            color: "#8B95A7",
+            color: "var(--fg-muted)",
             padding: 4,
             borderRadius: 6,
           }}

@@ -23,21 +23,33 @@ interface ButtonProps {
 }
 
 const VARIANTS: Record<ButtonKind, CSSProperties> = {
-  primary: { background: "#1FB874", color: "#0A0E14", fontWeight: 600 },
-  secondary: { background: "#1A2029", color: "#F5F7FB", borderColor: "#2A323F" },
-  ghost: { background: "transparent", color: "#B5BCC9" },
-  danger: { background: "transparent", color: "#FF7A7A", borderColor: "rgba(232,68,68,.30)" },
-  dangerSolid: { background: "#E84444", color: "#fff", fontWeight: 600 },
-  amber: { background: "#E8A317", color: "#0A0E14", fontWeight: 600 },
+  primary: { background: "var(--brand-500)", color: "var(--fg-on-brand)", fontWeight: 600 },
+  secondary: {
+    background: "var(--bg-elevated)",
+    color: "var(--fg-primary)",
+    borderColor: "var(--border-strong)",
+  },
+  ghost: { background: "transparent", color: "var(--fg-tertiary)" },
+  danger: {
+    background: "transparent",
+    color: "var(--danger-fg)",
+    borderColor: "var(--danger-border)",
+  },
+  dangerSolid: {
+    background: "var(--danger-solid)",
+    color: "var(--fg-on-danger)",
+    fontWeight: 600,
+  },
+  amber: { background: "var(--warning-solid)", color: "var(--fg-on-brand)", fontWeight: 600 },
 };
 
 const HOVER: Record<ButtonKind, string> = {
-  primary: "#4FD79A",
-  secondary: "#1F2733",
-  ghost: "#1A2029",
-  danger: "rgba(232,68,68,.16)",
-  dangerSolid: "#FF6B6B",
-  amber: "#F6C24A",
+  primary: "var(--brand-400)",
+  secondary: "var(--border-subtle)",
+  ghost: "var(--bg-elevated)",
+  danger: "var(--danger-bg)",
+  dangerSolid: "var(--danger-solid-hover)",
+  amber: "var(--warning-solid-hover)",
 };
 
 export function Button({
@@ -76,13 +88,13 @@ export function Button({
       onMouseEnter={(e) => {
         if (disabled) return;
         e.currentTarget.style.background = HOVER[kind];
-        if (kind === "ghost") e.currentTarget.style.color = "#F5F7FB";
-        if (kind === "secondary") e.currentTarget.style.borderColor = "#3F4856";
+        if (kind === "ghost") e.currentTarget.style.color = "var(--fg-primary)";
+        if (kind === "secondary") e.currentTarget.style.borderColor = "var(--border-stronger)";
       }}
       onMouseLeave={(e) => {
         e.currentTarget.style.background = (VARIANTS[kind].background as string) ?? "";
-        if (kind === "ghost") e.currentTarget.style.color = "#B5BCC9";
-        if (kind === "secondary") e.currentTarget.style.borderColor = "#2A323F";
+        if (kind === "ghost") e.currentTarget.style.color = "var(--fg-tertiary)";
+        if (kind === "secondary") e.currentTarget.style.borderColor = "var(--border-strong)";
       }}
     >
       {icon && <Icon name={icon} size={size === "sm" ? 14 : 16} />}

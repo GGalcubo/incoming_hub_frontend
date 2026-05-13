@@ -63,8 +63,6 @@ export interface Trip {
 export interface StatusMeta {
   id: TripStatus;
   label: string;
-  bg: string;
-  fg: string;
 }
 
 export interface User {

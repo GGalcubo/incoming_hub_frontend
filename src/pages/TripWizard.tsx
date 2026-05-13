@@ -107,13 +107,13 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
         flexDirection: "column",
         height: "100%",
         overflow: "hidden",
-        background: "#0A0E14",
+        background: "var(--bg-app)",
       }}
     >
       <div
         style={{
-          background: "#0A0E14",
-          borderBottom: "1px solid #1F2733",
+          background: "var(--bg-app)",
+          borderBottom: "1px solid var(--border-subtle)",
           padding: pad,
           display: "flex",
           flexDirection: isMobile ? "column" : "row",
@@ -138,12 +138,12 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                     font: "600 11px/14px Inter",
                     letterSpacing: ".06em",
                     textTransform: "uppercase",
-                    color: "#8B95A7",
+                    color: "var(--fg-muted)",
                   }}
                 >
                   Paso {stepIdx + 1} de {stepsBase.length}
                 </span>
-                <span style={{ font: "600 14px/20px Inter", color: "#F5F7FB" }}>
+                <span style={{ font: "600 14px/20px Inter", color: "var(--fg-primary)" }}>
                   · {step.label}
                 </span>
               </div>
@@ -153,8 +153,8 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                   title="Cancelar viaje"
                   style={{
                     background: "transparent",
-                    border: "1px solid rgba(232,68,68,.30)",
-                    color: "#FF7A7A",
+                    border: "1px solid var(--danger-border)",
+                    color: "var(--danger-fg)",
                     width: 32,
                     height: 32,
                     borderRadius: 9999,
@@ -188,11 +188,15 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                         alignItems: "center",
                         justifyContent: "center",
                         background: active
-                          ? "#1FB874"
+                          ? "var(--brand-500)"
                           : done
-                            ? "rgba(31,184,116,.16)"
-                            : "#1A2029",
-                        color: active ? "#0A0E14" : done ? "#4FD79A" : "#B5BCC9",
+                            ? "var(--brand-tint)"
+                            : "var(--bg-elevated)",
+                        color: active
+                          ? "var(--fg-on-brand)"
+                          : done
+                            ? "var(--success-fg)"
+                            : "var(--fg-tertiary)",
                         font: "600 12px/14px Inter",
                         border: "none",
                         cursor: i <= stepIdx ? "pointer" : "default",
@@ -202,7 +206,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                       {done ? "✓" : i + 1}
                     </button>
                     {i < stepsBase.length - 1 && (
-                      <span style={{ flex: 1, height: 1, background: "#2A323F" }} />
+                      <span style={{ flex: 1, height: 1, background: "var(--border-strong)" }} />
                     )}
                   </Fragment>
                 );
@@ -232,8 +236,12 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                       padding: "6px 12px",
                       borderRadius: 8,
                       border: "none",
-                      background: active ? "rgba(31,184,116,.10)" : "transparent",
-                      color: active ? "#F5F7FB" : done ? "#4FD79A" : "#8B95A7",
+                      background: active ? "var(--brand-tint-soft)" : "transparent",
+                      color: active
+                        ? "var(--fg-primary)"
+                        : done
+                          ? "var(--success-fg)"
+                          : "var(--fg-muted)",
                       font: active ? "600 13px/18px Inter" : "500 13px/18px Inter",
                       cursor: i <= stepIdx ? "pointer" : "default",
                     }}
@@ -247,11 +255,15 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                         alignItems: "center",
                         justifyContent: "center",
                         background: active
-                          ? "#1FB874"
+                          ? "var(--brand-500)"
                           : done
-                            ? "rgba(31,184,116,.16)"
-                            : "#1A2029",
-                        color: active ? "#0A0E14" : done ? "#4FD79A" : "#B5BCC9",
+                            ? "var(--brand-tint)"
+                            : "var(--bg-elevated)",
+                        color: active
+                          ? "var(--fg-on-brand)"
+                          : done
+                            ? "var(--success-fg)"
+                            : "var(--fg-tertiary)",
                         font: "600 12px/14px Inter",
                       }}
                     >
@@ -260,7 +272,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                     {s.label}
                   </button>
                   {i < stepsBase.length - 1 && (
-                    <span style={{ width: 18, height: 1, background: "#2A323F" }} />
+                    <span style={{ width: 18, height: 1, background: "var(--border-strong)" }} />
                   )}
                 </Fragment>
               );
@@ -274,7 +286,9 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             )}
             {mode === "edit" && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
-                <span style={{ font: "500 12px/16px Inter", color: "#8B95A7" }}>Estado</span>
+                <span style={{ font: "500 12px/16px Inter", color: "var(--fg-muted)" }}>
+                  Estado
+                </span>
                 <Badge status={t.est} />
               </div>
             )}
@@ -282,13 +296,20 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
         )}
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", padding: contentPad, background: "#0A0E14" }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: "auto",
+          padding: contentPad,
+          background: "var(--bg-app)",
+        }}
+      >
         <div
           style={{
             maxWidth: step.id === "resumen" ? 880 : 720,
             margin: "0 auto",
-            background: "#11161E",
-            border: "1px solid #1F2733",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
             borderRadius: 12,
             padding: cardPad,
           }}
@@ -308,8 +329,8 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
         style={{
           minHeight: 64,
           padding: isMobile ? "10px 16px" : "0 28px",
-          borderTop: "1px solid #1F2733",
-          background: "#0A0E14",
+          borderTop: "1px solid var(--border-subtle)",
+          background: "var(--bg-app)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -375,7 +396,13 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             </>
           }
         >
-          <div style={{ font: "400 13px/18px Inter", color: "#B5BCC9", marginBottom: 14 }}>
+          <div
+            style={{
+              font: "400 13px/18px Inter",
+              color: "var(--fg-tertiary)",
+              marginBottom: 14,
+            }}
+          >
             Una vez cancelado el viaje no se puede revertir. Indicá el motivo:
           </div>
           <Field label="Motivo de cancelación" required>
@@ -454,11 +481,11 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
         <div
           key={i}
           style={{
-            border: "1px solid #1F2733",
+            border: "1px solid var(--border-subtle)",
             borderRadius: 12,
             padding: isMobile ? 14 : 18,
             marginTop: 14,
-            background: "#0A0E14",
+            background: "var(--bg-app)",
           }}
         >
           <div
@@ -469,14 +496,16 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
               marginBottom: 14,
             }}
           >
-            <div style={{ font: "600 13px/18px Inter", color: "#F5F7FB" }}>Tramo {i + 1}</div>
+            <div style={{ font: "600 13px/18px Inter", color: "var(--fg-primary)" }}>
+              Tramo {i + 1}
+            </div>
             {t.legs.length > 1 && (
               <button
                 onClick={() => rmLeg(i)}
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "#FF7A7A",
+                  color: "var(--danger-fg)",
                   cursor: "pointer",
                   font: "500 13px/18px Inter",
                   display: "inline-flex",
@@ -561,10 +590,10 @@ function PlaceCombo({ value, onChange }: { value: string; onChange: (v: string) 
             left: 0,
             right: 0,
             zIndex: 5,
-            background: "#11161E",
-            border: "1px solid #1F2733",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
             borderRadius: 8,
-            boxShadow: "0 6px 16px rgba(0,0,0,.45)",
+            boxShadow: "var(--shadow-md)",
             maxHeight: 200,
             overflow: "auto",
           }}
@@ -583,12 +612,12 @@ function PlaceCombo({ value, onChange }: { value: string; onChange: (v: string) 
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                color: "#E7EBF2",
+                color: "var(--fg-secondary)",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "#1A2029")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              <Icon name="mappin" size={13} style={{ color: "#8B95A7" }} />
+              <Icon name="mappin" size={13} style={{ color: "var(--fg-muted)" }} />
               {m}
             </div>
           ))}
@@ -640,11 +669,11 @@ function StepPasajeros({ t, set, errs, isMobile }: StepProps) {
         <div
           key={i}
           style={{
-            border: "1px solid #1F2733",
+            border: "1px solid var(--border-subtle)",
             borderRadius: 12,
             padding: isMobile ? 14 : 18,
             marginTop: 12,
-            background: "#0A0E14",
+            background: "var(--bg-app)",
           }}
         >
           <div
@@ -655,7 +684,7 @@ function StepPasajeros({ t, set, errs, isMobile }: StepProps) {
               marginBottom: 14,
             }}
           >
-            <div style={{ font: "600 13px/18px Inter", color: "#F5F7FB" }}>
+            <div style={{ font: "600 13px/18px Inter", color: "var(--fg-primary)" }}>
               Pasajero {i + 1}
             </div>
             {t.passengers.length > 1 && (
@@ -664,7 +693,7 @@ function StepPasajeros({ t, set, errs, isMobile }: StepProps) {
                 style={{
                   background: "transparent",
                   border: "none",
-                  color: "#FF7A7A",
+                  color: "var(--danger-fg)",
                   cursor: "pointer",
                   font: "500 13px/18px Inter",
                   display: "inline-flex",
@@ -724,12 +753,12 @@ function StepCostos({ t }: { t: Trip }) {
         display: "flex",
         justifyContent: "space-between",
         padding: "10px 14px",
-        borderBottom: "1px solid #1F2733",
+        borderBottom: "1px solid var(--border-subtle)",
         font: "400 14px/20px Inter",
-        color: "#E7EBF2",
+        color: "var(--fg-secondary)",
       }}
     >
-      <span style={{ color: "#8B95A7" }}>{l}</span>
+      <span style={{ color: "var(--fg-muted)" }}>{l}</span>
       <span style={{ fontFeatureSettings: '"tnum" 1' }}>
         $ {c[k].toLocaleString("es-AR", { minimumFractionDigits: 2 })}
       </span>
@@ -744,9 +773,9 @@ function StepCostos({ t }: { t: Trip }) {
             font: "500 11px/14px Inter",
             letterSpacing: ".06em",
             textTransform: "uppercase",
-            color: "#8B95A7",
-            background: "#1A2029",
-            border: "1px solid #1F2733",
+            color: "var(--fg-muted)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-subtle)",
             padding: "2px 8px",
             borderRadius: 9999,
           }}
@@ -759,7 +788,12 @@ function StepCostos({ t }: { t: Trip }) {
         administrador.
       </p>
       <div
-        style={{ border: "1px solid #1F2733", borderRadius: 12, overflow: "hidden", marginTop: 8 }}
+        style={{
+          border: "1px solid var(--border-subtle)",
+          borderRadius: 12,
+          overflow: "hidden",
+          marginTop: 8,
+        }}
       >
         {row("viaje", "Viaje")}
         {row("espera", "Espera")}
@@ -771,9 +805,9 @@ function StepCostos({ t }: { t: Trip }) {
             display: "flex",
             justifyContent: "space-between",
             padding: "14px",
-            background: "#0A0E14",
+            background: "var(--bg-app)",
             font: "600 14px/20px Inter",
-            color: "#F5F7FB",
+            color: "var(--fg-primary)",
           }}
         >
           <span>Total</span>
@@ -819,7 +853,7 @@ function StepResumen({ t }: { t: Trip }) {
       style={{
         display: "flex",
         padding: "8px 0",
-        borderBottom: "1px dashed #1F2733",
+        borderBottom: "1px dashed var(--border-subtle)",
         gap: 18,
       }}
     >
@@ -828,14 +862,14 @@ function StepResumen({ t }: { t: Trip }) {
           font: "500 12px/16px Inter",
           letterSpacing: ".06em",
           textTransform: "uppercase",
-          color: "#8B95A7",
+          color: "var(--fg-muted)",
           width: 160,
           flex: "none",
         }}
       >
         {l}
       </span>
-      <span style={{ font: "400 14px/20px Inter", color: "#E7EBF2" }}>{v}</span>
+      <span style={{ font: "400 14px/20px Inter", color: "var(--fg-secondary)" }}>{v}</span>
     </div>
   );
   return (
@@ -857,7 +891,7 @@ function StepResumen({ t }: { t: Trip }) {
                   {l.flight && (
                     <span
                       style={{
-                        color: "#8B95A7",
+                        color: "var(--fg-muted)",
                         fontFamily: "JetBrains Mono",
                         fontSize: 12,
                       }}
@@ -889,22 +923,30 @@ function StepResumen({ t }: { t: Trip }) {
   );
 }
 
-const h2: CSSProperties = { font: "600 17px/24px Inter", margin: "0 0 4px", color: "#F5F7FB" };
-const p: CSSProperties = { font: "400 13px/18px Inter", color: "#8B95A7", margin: "0 0 14px" };
+const h2: CSSProperties = {
+  font: "600 17px/24px Inter",
+  margin: "0 0 4px",
+  color: "var(--fg-primary)",
+};
+const p: CSSProperties = {
+  font: "400 13px/18px Inter",
+  color: "var(--fg-muted)",
+  margin: "0 0 14px",
+};
 const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" };
 const grid1: CSSProperties = { display: "grid", gridTemplateColumns: "1fr", gap: "14px" };
 const th: CSSProperties = {
   font: "600 11px/14px Inter",
   letterSpacing: ".06em",
   textTransform: "uppercase",
-  color: "#8B95A7",
+  color: "var(--fg-muted)",
   textAlign: "left",
   padding: "10px 14px",
-  borderBottom: "1px solid #1F2733",
+  borderBottom: "1px solid var(--border-subtle)",
 };
 const tdHist: CSSProperties = {
   padding: "10px 14px",
-  borderBottom: "1px solid #161B23",
+  borderBottom: "1px solid var(--border-subtle)",
   font: "400 13px/18px Inter",
-  color: "#E7EBF2",
+  color: "var(--fg-secondary)",
 };

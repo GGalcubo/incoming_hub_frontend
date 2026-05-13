@@ -1,67 +1,12 @@
 /* =============================================================
-   Proxy — design tokens (dark theme · matches proxyco.app)
+   Incoming Hub — design tokens
+   Color tokens live under [data-theme="dark"] and [data-theme="light"].
+   Non-color tokens (type, spacing, radius, motion) stay in :root.
    ============================================================= */
 
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 
 :root {
-  /* ---------- COLOR · dark surfaces -------------------------- */
-  --bg-app:       #0A0E14;   /* page bg, near-black with cool tint */
-  --bg-surface:   #11161E;   /* card surface */
-  --bg-elevated:  #1A2029;   /* hover on surface, modal bg */
-  --bg-subtle:    #161B23;   /* sidebar surface */
-  --bg-overlay:   rgba(10,14,20,.72);
-
-  /* ---------- COLOR · neutrals (cool dark scale) ------------- */
-  --neutral-0:   #FFFFFF;
-  --neutral-100: #E7EBF2;
-  --neutral-200: #C2C9D6;
-  --neutral-300: #8B95A7;
-  --neutral-400: #5E6878;   /* secondary fg */
-  --neutral-500: #3F4856;   /* hairline border on dark */
-  --neutral-600: #2A323F;
-  --neutral-700: #1F2733;
-  --neutral-800: #161B23;
-  --neutral-900: #0A0E14;
-
-  /* ---------- COLOR · brand accents -------------------------- */
-  --brand-teal-50:  #C9F2DD;
-  --brand-teal-300: #4FD79A;
-  --brand-teal-500: #1FB874;   /* logo, community badges, success */
-  --brand-teal-700: #0F7A4D;
-
-  --accent-amber-50:  #FBE4A6;
-  --accent-amber-300: #F6C24A;
-  --accent-amber-500: #E8A317;   /* PRXY tokens, "Destacada", warnings */
-  --accent-amber-700: #A66E00;
-
-  /* ---------- COLOR · semantic foreground -------------------- */
-  --fg-primary:   #F5F7FB;
-  --fg-secondary: #B5BCC9;
-  --fg-tertiary:  #8B95A7;
-  --fg-muted:     #5E6878;
-  --fg-on-brand:  #0A0E14;
-  --fg-link:      var(--brand-teal-300);
-
-  --border-subtle: #1F2733;
-  --border-strong: #2A323F;
-  --border-brand:  var(--brand-teal-500);
-
-  /* ---------- COLOR · status (8 trip statuses) --------------- */
-  --status-pendiente-bg:    rgba(232,163,23,.16);  --status-pendiente-fg:    #F6C24A;
-  --status-confirmado-bg:   rgba(31,184,116,.16);  --status-confirmado-fg:   #4FD79A;
-  --status-encurso-bg:      rgba(74,144,226,.18);  --status-encurso-fg:      #6FAEFF;
-  --status-finalizado-bg:   rgba(139,149,167,.16); --status-finalizado-fg:   #B5BCC9;
-  --status-cancelado-bg:    rgba(232,68,68,.16);   --status-cancelado-fg:    #FF7A7A;
-  --status-noshow-bg:       rgba(232,68,128,.16);  --status-noshow-fg:       #FF85A8;
-  --status-reprogramado-bg: rgba(154,108,232,.18); --status-reprogramado-fg: #B89BFF;
-  --status-enespera-bg:     rgba(95,107,128,.20);  --status-enespera-fg:     #C2C9D6;
-
-  --feedback-success: var(--brand-teal-300);
-  --feedback-warning: var(--accent-amber-300);
-  --feedback-danger:  #FF7A7A;
-  --feedback-info:    #6FAEFF;
-
   /* ---------- TYPE · families -------------------------------- */
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -82,24 +27,173 @@
   /* ---------- RADIUS ----------------------------------------- */
   --r-xs: 6px;
   --r-sm: 8px;
-  --r-md: 12px;        /* card default */
+  --r-md: 12px;
   --r-lg: 16px;
-  --r-pill: 9999px;    /* buttons + chips on proxyco are pill */
-
-  /* ---------- SHADOW (subtle on dark) ------------------------ */
-  --shadow-sm: 0 1px 2px rgba(0,0,0,.40);
-  --shadow-md: 0 6px 16px rgba(0,0,0,.45), 0 2px 4px rgba(0,0,0,.30);
-  --shadow-lg: 0 24px 48px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.35);
-  --glow-brand: 0 0 0 3px rgba(31,184,116,.25);
+  --r-pill: 9999px;
 
   /* ---------- MOTION ----------------------------------------- */
   --ease: cubic-bezier(.2, .8, .2, 1);
   --dur-1: 120ms; --dur-2: 180ms; --dur-3: 240ms;
 
   /* ---------- LAYOUT ----------------------------------------- */
-  --sidebar-w: 64px;     /* proxyco rail is icon-only, narrow */
+  --sidebar-w: 64px;
   --topbar-h: 56px;
   --row-h: 48px;
+}
+
+/* ============== DARK theme (default) ======================== */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* surfaces */
+  --bg-app:       #0A0E14;
+  --bg-surface:   #11161E;
+  --bg-elevated:  #1A2029;
+  --bg-subtle:    #161B23;
+  --bg-overlay:   rgba(10,14,20,.72);
+
+  /* foreground */
+  --fg-primary:    #F5F7FB;
+  --fg-secondary:  #E7EBF2;
+  --fg-tertiary:   #B5BCC9;
+  --fg-muted:      #8B95A7;
+  --fg-disabled:   #5E6878;
+  --fg-on-brand:   #0A0E14;
+  --fg-on-danger:  #FFFFFF;
+  --fg-link:       #4FD79A;
+
+  /* borders */
+  --border-subtle:   #1F2733;
+  --border-strong:   #2A323F;
+  --border-stronger: #3F4856;
+
+  /* brand */
+  --brand-500:        #1FB874;
+  --brand-400:        #4FD79A;
+  --brand-tint-soft:  rgba(31,184,116,.10);
+  --brand-tint:       rgba(31,184,116,.16);
+  --brand-glow:       rgba(31,184,116,.25);
+
+  /* feedback */
+  --danger-bg:          rgba(232,68,68,.16);
+  --danger-bg-soft:     rgba(232,68,68,.06);
+  --danger-border:      rgba(232,68,68,.30);
+  --danger-fg:          #FF7A7A;
+  --danger-solid:       #E84444;
+  --danger-solid-hover: #FF6B6B;
+  --warning-bg:         rgba(232,163,23,.16);
+  --warning-fg:         #F6C24A;
+  --warning-solid:      #E8A317;
+  --warning-solid-hover:#F6C24A;
+  --info-bg:            rgba(74,144,226,.18);
+  --info-fg:            #6FAEFF;
+  --success-bg:         rgba(31,184,116,.16);
+  --success-fg:         #4FD79A;
+  --success-solid:      #1FB874;
+
+  /* status badges */
+  --status-pendiente-bg:    rgba(232,163,23,.16);  --status-pendiente-fg:    #F6C24A;
+  --status-confirmado-bg:   rgba(31,184,116,.16);  --status-confirmado-fg:   #4FD79A;
+  --status-encurso-bg:      rgba(74,144,226,.18);  --status-encurso-fg:      #6FAEFF;
+  --status-finalizado-bg:   rgba(139,149,167,.16); --status-finalizado-fg:   #B5BCC9;
+  --status-cancelado-bg:    rgba(232,68,68,.16);   --status-cancelado-fg:    #FF7A7A;
+  --status-noshow-bg:       rgba(232,68,128,.16);  --status-noshow-fg:       #FF85A8;
+  --status-reprogramado-bg: rgba(154,108,232,.18); --status-reprogramado-fg: #B89BFF;
+  --status-enespera-bg:     rgba(95,107,128,.20);  --status-enespera-fg:     #C2C9D6;
+
+  /* scrollbar */
+  --scrollbar-thumb:       #2A323F;
+  --scrollbar-thumb-hover: #3F4856;
+
+  /* shadow */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.40);
+  --shadow-md: 0 6px 16px rgba(0,0,0,.45), 0 2px 4px rgba(0,0,0,.30);
+  --shadow-lg: 0 24px 48px rgba(0,0,0,.55), 0 8px 16px rgba(0,0,0,.35);
+
+  /* login grid pattern */
+  --login-grid-stroke: #1F2733;
+  --login-grid-glow:   rgba(31,184,116,.10);
+
+  /* select chevron stroke (must stay as hex for data-url) */
+  --select-chevron: %238B95A7;
+}
+
+/* ============== LIGHT theme ================================ */
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* surfaces */
+  --bg-app:       #F5F7FB;
+  --bg-surface:   #FFFFFF;
+  --bg-elevated:  #ECEFF4;
+  --bg-subtle:    #F0F2F7;
+  --bg-overlay:   rgba(20,28,40,.40);
+
+  /* foreground */
+  --fg-primary:    #0A0E14;
+  --fg-secondary:  #1F2733;
+  --fg-tertiary:   #5E6878;
+  --fg-muted:      #8B95A7;
+  --fg-disabled:   #B5BCC9;
+  --fg-on-brand:   #FFFFFF;
+  --fg-on-danger:  #FFFFFF;
+  --fg-link:       #0F7A4D;
+
+  /* borders */
+  --border-subtle:   #E2E6ED;
+  --border-strong:   #C2C9D6;
+  --border-stronger: #8B95A7;
+
+  /* brand */
+  --brand-500:        #1FB874;
+  --brand-400:        #0F7A4D;
+  --brand-tint-soft:  rgba(31,184,116,.10);
+  --brand-tint:       rgba(31,184,116,.18);
+  --brand-glow:       rgba(31,184,116,.25);
+
+  /* feedback */
+  --danger-bg:          rgba(232,68,68,.12);
+  --danger-bg-soft:     rgba(232,68,68,.06);
+  --danger-border:      rgba(232,68,68,.40);
+  --danger-fg:          #C92A2A;
+  --danger-solid:       #E84444;
+  --danger-solid-hover: #C92A2A;
+  --warning-bg:         rgba(232,163,23,.18);
+  --warning-fg:         #A66E00;
+  --warning-solid:      #E8A317;
+  --warning-solid-hover:#C28800;
+  --info-bg:            rgba(74,144,226,.18);
+  --info-fg:            #1E5BC6;
+  --success-bg:         rgba(31,184,116,.16);
+  --success-fg:         #0F7A4D;
+  --success-solid:      #1FB874;
+
+  /* status badges */
+  --status-pendiente-bg:    rgba(232,163,23,.18);  --status-pendiente-fg:    #A66E00;
+  --status-confirmado-bg:   rgba(31,184,116,.18);  --status-confirmado-fg:   #0F7A4D;
+  --status-encurso-bg:      rgba(74,144,226,.18);  --status-encurso-fg:      #1E5BC6;
+  --status-finalizado-bg:   rgba(139,149,167,.20); --status-finalizado-fg:   #3F4856;
+  --status-cancelado-bg:    rgba(232,68,68,.16);   --status-cancelado-fg:    #B22222;
+  --status-noshow-bg:       rgba(232,68,128,.16);  --status-noshow-fg:       #B22265;
+  --status-reprogramado-bg: rgba(154,108,232,.20); --status-reprogramado-fg: #5E3FBF;
+  --status-enespera-bg:     rgba(95,107,128,.18);  --status-enespera-fg:     #3F4856;
+
+  /* scrollbar */
+  --scrollbar-thumb:       #C2C9D6;
+  --scrollbar-thumb-hover: #8B95A7;
+
+  /* shadow */
+  --shadow-sm: 0 1px 2px rgba(20,28,40,.06);
+  --shadow-md: 0 6px 16px rgba(20,28,40,.10), 0 2px 4px rgba(20,28,40,.06);
+  --shadow-lg: 0 24px 48px rgba(20,28,40,.14), 0 8px 16px rgba(20,28,40,.08);
+
+  /* login grid pattern */
+  --login-grid-stroke: #E2E6ED;
+  --login-grid-glow:   rgba(31,184,116,.08);
+
+  /* select chevron stroke (encoded for data-url; #5E6878 → %235E6878) */
+  --select-chevron: %235E6878;
 }
 
 /* ================ semantic helper classes ================== */
@@ -122,8 +216,8 @@ html, body {
 * { box-sizing:border-box; }
 ::selection { background: rgba(31,184,116,.30); }
 
-/* scrollbars on dark */
+/* scrollbars */
 ::-webkit-scrollbar { width:10px; height:10px; }
-::-webkit-scrollbar-thumb { background:#2A323F; border-radius:8px; }
-::-webkit-scrollbar-thumb:hover { background:#3F4856; }
+::-webkit-scrollbar-thumb { background:var(--scrollbar-thumb); border-radius:8px; }
+::-webkit-scrollbar-thumb:hover { background:var(--scrollbar-thumb-hover); }
 ::-webkit-scrollbar-track { background:transparent; }

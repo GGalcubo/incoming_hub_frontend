@@ -17,3 +17,12 @@ button {
 a {
   color: inherit;
 }
+
+.login-bg {
+  background-color: var(--bg-app);
+  background-image:
+    radial-gradient(ellipse 600px 400px at 50% 30%, var(--login-grid-glow), transparent 70%),
+    linear-gradient(to right, var(--login-grid-stroke) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--login-grid-stroke) 1px, transparent 1px);
+  background-size: auto, 32px 32px, 32px 32px;
+}

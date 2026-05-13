@@ -146,7 +146,7 @@ export function App() {
           display: "flex",
           height: "100vh",
           overflow: "hidden",
-          background: "#0A0E14",
+          background: "var(--bg-app)",
         }}
       >
         <Sidebar view={view} user={user} onLogout={onLogout} />
@@ -246,7 +246,7 @@ function EditTripRoute({
 
   if (trips.length === 0) {
     return (
-      <div style={{ padding: 28, color: "#8B95A7" }}>
+      <div style={{ padding: 28, color: "var(--fg-muted)" }}>
         Cargando viaje…
       </div>
     );

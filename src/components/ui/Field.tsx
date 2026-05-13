@@ -21,15 +21,17 @@ export function Field({ label, required, error, hint, children, span = 1, style 
         ...style,
       }}
     >
-      <span style={{ font: "500 13px/18px Inter", color: "#E7EBF2" }}>
+      <span style={{ font: "500 13px/18px Inter", color: "var(--fg-secondary)" }}>
         {label}
-        {required && <span style={{ color: "#FF7A7A" }}> ·</span>}
+        {required && <span style={{ color: "var(--danger-fg)" }}> ·</span>}
       </span>
       {children}
       {hint && !error && (
-        <span style={{ font: "400 12px/16px Inter", color: "#8B95A7" }}>{hint}</span>
+        <span style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>{hint}</span>
       )}
-      {error && <span style={{ font: "400 12px/16px Inter", color: "#FF7A7A" }}>{error}</span>}
+      {error && (
+        <span style={{ font: "400 12px/16px Inter", color: "var(--danger-fg)" }}>{error}</span>
+      )}
     </label>
   );
 }
@@ -37,10 +39,10 @@ export function Field({ label, required, error, hint, children, span = 1, style 
 const inputStyle: CSSProperties = {
   font: "400 14px/20px Inter",
   padding: "9px 12px",
-  border: "1px solid #2A323F",
+  border: "1px solid var(--border-strong)",
   borderRadius: 8,
-  background: "#11161E",
-  color: "#F5F7FB",
+  background: "var(--bg-surface)",
+  color: "var(--fg-primary)",
   outline: "none",
   transition: "all 180ms cubic-bezier(.2,.8,.2,1)",
   width: "100%",
@@ -52,12 +54,12 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
       {...props}
       style={{ ...inputStyle, ...props.style }}
       onFocus={(e) => {
-        e.currentTarget.style.borderColor = "#1FB874";
-        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(31,184,116,.25)";
+        e.currentTarget.style.borderColor = "var(--brand-500)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px var(--brand-glow)";
         props.onFocus?.(e);
       }}
       onBlur={(e) => {
-        e.currentTarget.style.borderColor = "#2A323F";
+        e.currentTarget.style.borderColor = "var(--border-strong)";
         e.currentTarget.style.boxShadow = "none";
         props.onBlur?.(e);
       }}

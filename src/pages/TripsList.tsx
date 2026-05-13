@@ -106,7 +106,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
         gap: 0,
         height: "100%",
         overflow: "hidden",
-        background: "#0A0E14",
+        background: "var(--bg-app)",
       }}
     >
       <div
@@ -115,16 +115,16 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
           alignItems: "center",
           gap: 12,
           padding: "16px 28px",
-          background: "#0A0E14",
-          borderBottom: "1px solid #1F2733",
+          background: "var(--bg-app)",
+          borderBottom: "1px solid var(--border-subtle)",
           flex: "none",
         }}
       >
         <div
           style={{
             display: "flex",
-            background: "#11161E",
-            border: "1px solid #1F2733",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
             borderRadius: 9999,
             padding: 3,
           }}
@@ -138,8 +138,8 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
               onClick={() => setDateFilter(o.id)}
               style={{
                 border: "none",
-                background: dateFilter === o.id ? "#1FB874" : "transparent",
-                color: dateFilter === o.id ? "#0A0E14" : "#B5BCC9",
+                background: dateFilter === o.id ? "var(--brand-500)" : "transparent",
+                color: dateFilter === o.id ? "var(--fg-on-brand)" : "var(--fg-tertiary)",
                 font: dateFilter === o.id ? "600 13px/18px Inter" : "500 13px/18px Inter",
                 padding: "5px 14px",
                 borderRadius: 9999,
@@ -158,12 +158,12 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
-              background: "#1A2029",
-              border: "1px solid #2A323F",
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border-strong)",
               borderRadius: 9999,
               padding: "7px 14px",
               font: "500 13px/18px Inter",
-              color: "#F5F7FB",
+              color: "var(--fg-primary)",
               cursor: "pointer",
             }}
           >
@@ -178,10 +178,10 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                 top: "calc(100% + 6px)",
                 left: 0,
                 zIndex: 10,
-                background: "#11161E",
-                border: "1px solid #1F2733",
+                background: "var(--bg-surface)",
+                border: "1px solid var(--border-subtle)",
                 borderRadius: 12,
-                boxShadow: "0 6px 16px rgba(0,0,0,.45), 0 2px 4px rgba(0,0,0,.30)",
+                boxShadow: "var(--shadow-md)",
                 padding: 6,
                 minWidth: 220,
               }}
@@ -197,9 +197,9 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                     borderRadius: 6,
                     cursor: "pointer",
                     font: "400 13px/18px Inter",
-                    color: "#E7EBF2",
+                    color: "var(--fg-secondary)",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#1A2029")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <input
@@ -216,7 +216,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                   style={{
                     background: "transparent",
                     border: "none",
-                    color: "#4FD79A",
+                    color: "var(--fg-link)",
                     font: "500 13px/18px Inter",
                     padding: "7px 10px",
                     cursor: "pointer",
@@ -238,7 +238,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
               left: 11,
               top: "50%",
               transform: "translateY(-50%)",
-              color: "#8B95A7",
+              color: "var(--fg-muted)",
             }}
           />
           <Input
@@ -262,12 +262,12 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
         </Button>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", background: "#0A0E14" }}>
+      <div style={{ flex: 1, overflow: "auto", background: "var(--bg-app)" }}>
         <table
           style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Inter" }}
         >
           <thead>
-            <tr style={{ position: "sticky", top: 0, zIndex: 1, background: "#0A0E14" }}>
+            <tr style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-app)" }}>
               {COLS.map(([k, l, w]) => (
                 <SortableTH
                   key={k}
@@ -276,10 +276,10 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                     font: "600 11px/14px Inter",
                     letterSpacing: ".06em",
                     textTransform: "uppercase",
-                    color: "#8B95A7",
+                    color: "var(--fg-muted)",
                     textAlign: "left",
                     padding: "12px 14px",
-                    borderBottom: "1px solid #1F2733",
+                    borderBottom: "1px solid var(--border-subtle)",
                     width: w ? w : "auto",
                     whiteSpace: "nowrap",
                   }}
@@ -295,7 +295,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                 key={t.id}
                 onClick={() => onOpen(t)}
                 style={{ cursor: "pointer" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#11161E")}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-surface)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <td style={tdMono}>{t.id}</td>
@@ -324,7 +324,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 6,
-                        color: "#6FAEFF",
+                        color: "var(--info-fg)",
                         font: "500 13px JetBrains Mono",
                       }}
                     >
@@ -332,9 +332,9 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                       {t.passengers[0].phone}
                     </span>
                   ) : (
-                    <span style={{ color: "#B5BCC9" }}>
+                    <span style={{ color: "var(--fg-tertiary)" }}>
                       {t.obs || (
-                        <span style={{ color: "#5E6878" }}>— ver pasajero</span>
+                        <span style={{ color: "var(--fg-disabled)" }}>— ver pasajero</span>
                       )}
                     </span>
                   )}
@@ -345,9 +345,14 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
               <tr>
                 <td
                   colSpan={12}
-                  style={{ padding: "60px 24px", textAlign: "center", color: "#8B95A7" }}
+                  style={{ padding: "60px 24px", textAlign: "center", color: "var(--fg-muted)" }}
                 >
-                  <div style={{ font: "500 14px/20px Inter", color: "#E7EBF2" }}>
+                  <div
+                    style={{
+                      font: "500 14px/20px Inter",
+                      color: "var(--fg-secondary)",
+                    }}
+                  >
                     No hay viajes para mostrar.
                   </div>
                   <div style={{ font: "400 13px/18px Inter" }}>
@@ -364,19 +369,19 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
         style={{
           minHeight: 48,
           padding: isMobile ? "10px 16px" : "0 28px",
-          borderTop: "1px solid #1F2733",
-          background: "#0A0E14",
+          borderTop: "1px solid var(--border-subtle)",
+          background: "var(--bg-app)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           flex: "none",
           font: "400 13px/18px Inter",
-          color: "#8B95A7",
+          color: "var(--fg-muted)",
           gap: 12,
         }}
       >
         <div style={{ whiteSpace: "nowrap" }}>
-          <span style={{ color: "#F5F7FB", fontWeight: 500 }}>{filtered.length}</span>{" "}
+          <span style={{ color: "var(--fg-primary)", fontWeight: 500 }}>{filtered.length}</span>{" "}
           viajes · {dateFilter === "today" ? "Hoy" : "Mañana"}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -391,7 +396,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
           <span
             style={{
               font: "500 13px/18px Inter",
-              color: "#F5F7FB",
+              color: "var(--fg-primary)",
               padding: "0 6px",
               fontFeatureSettings: '"tnum" 1',
             }}
@@ -414,20 +419,25 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
 
 const td: CSSProperties = {
   padding: "12px 14px",
-  borderBottom: "1px solid #161B23",
-  color: "#E7EBF2",
+  borderBottom: "1px solid var(--border-subtle)",
+  color: "var(--fg-secondary)",
   verticalAlign: "middle",
   whiteSpace: "nowrap",
 };
-const tdMono: CSSProperties = { ...td, fontFamily: "JetBrains Mono", fontSize: 12, color: "#8B95A7" };
+const tdMono: CSSProperties = {
+  ...td,
+  fontFamily: "JetBrains Mono",
+  fontSize: 12,
+  color: "var(--fg-muted)",
+};
 
 const paginationBtn: CSSProperties = {
   width: 32,
   height: 32,
   borderRadius: 9999,
-  background: "#1A2029",
-  border: "1px solid #2A323F",
-  color: "#8B95A7",
+  background: "var(--bg-elevated)",
+  border: "1px solid var(--border-strong)",
+  color: "var(--fg-muted)",
   cursor: "not-allowed",
   display: "inline-flex",
   alignItems: "center",
