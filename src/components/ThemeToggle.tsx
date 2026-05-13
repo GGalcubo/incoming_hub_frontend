@@ -63,8 +63,10 @@ export function ThemeToggle({ mode, onChange, collapsed }: ThemeToggleProps) {
         background: "var(--bg-surface)",
         border: "1px solid var(--border-subtle)",
         borderRadius: 9999,
-        padding: 3,
+        padding: 2,
         gap: 2,
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
       {OPTIONS.map((o) => {
@@ -78,19 +80,22 @@ export function ThemeToggle({ mode, onChange, collapsed }: ThemeToggleProps) {
             title={o.label}
             style={{
               flex: 1,
+              minWidth: 0,
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 6,
+              gap: 4,
               border: "none",
-              padding: "5px 8px",
+              padding: "4px 4px",
               borderRadius: 9999,
               cursor: "pointer",
               background: active ? "var(--brand-500)" : "transparent",
               color: active ? "var(--fg-on-brand)" : "var(--fg-tertiary)",
-              font: active ? "600 11px/14px Inter" : "500 11px/14px Inter",
+              font: active ? "600 10px/13px Inter" : "500 10px/13px Inter",
               letterSpacing: ".02em",
               transition: "all 180ms cubic-bezier(.2,.8,.2,1)",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
             }}
             onMouseEnter={(e) => {
               if (!active) e.currentTarget.style.color = "var(--fg-primary)";
@@ -99,7 +104,7 @@ export function ThemeToggle({ mode, onChange, collapsed }: ThemeToggleProps) {
               if (!active) e.currentTarget.style.color = "var(--fg-tertiary)";
             }}
           >
-            <Icon name={o.icon} size={13} />
+            <Icon name={o.icon} size={12} />
             {o.label}
           </button>
         );
