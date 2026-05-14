@@ -106,8 +106,8 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     >
       {stage === "pick" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ font: "400 13px/18px Inter", color: "var(--fg-tertiary)" }}>
-            Subí un archivo .xlsx con la plantilla de Proxy. Vamos a validar fila por fila antes
+          <div style={{ font: "400 13px/18px Heming", color: "var(--fg-tertiary)" }}>
+            Subí un archivo .xlsx. Vamos a validar fila por fila antes
             de sincronizar con Central.
           </div>
           <label
@@ -127,10 +127,10 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-strong)")}
           >
             <Icon name="upload" size={28} style={{ color: "var(--fg-muted)" }} />
-            <div style={{ font: "600 14px/20px Inter", color: "var(--fg-primary)" }}>
+            <div style={{ font: "600 14px/20px Heming", color: "var(--fg-primary)" }}>
               Arrastrá el archivo o hacé clic para seleccionar
             </div>
-            <div style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>
+            <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>
               Formato .xlsx · máximo 200 filas
             </div>
             <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
@@ -138,7 +138,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
           <a
             href="#"
             style={{
-              font: "500 13px/18px Inter",
+              font: "500 13px/18px Heming",
               color: "var(--fg-link)",
               textDecoration: "none",
             }}
@@ -155,7 +155,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
               display: "flex",
               alignItems: "center",
               gap: 8,
-              font: "400 13px/18px Inter",
+              font: "400 13px/18px Heming",
               color: "var(--fg-secondary)",
             }}
           >
@@ -178,7 +178,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             }}
           >
             <table
-              style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Inter" }}
+              style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Heming" }}
             >
               <thead style={{ background: "var(--bg-app)" }}>
                 <tr>
@@ -260,7 +260,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                 alignItems: "center",
                                 gap: 4,
                                 color: "var(--danger-fg)",
-                                font: "500 12px/16px Inter",
+                                font: "500 12px/16px Heming",
                               }}
                             >
                               <Icon name="alert" size={12} />
@@ -278,7 +278,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                 alignItems: "center",
                                 gap: 4,
                                 color: "var(--warning-fg)",
-                                font: "500 12px/16px Inter",
+                                font: "500 12px/16px Heming",
                               }}
                             >
                               <Icon name="info" size={12} />
@@ -293,7 +293,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                             alignItems: "center",
                             gap: 4,
                             color: "var(--success-fg)",
-                            font: "500 12px/16px Inter",
+                            font: "500 12px/16px Heming",
                           }}
                         >
                           <Icon name="check" size={12} />
@@ -307,7 +307,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             </table>
           </div>
 
-          <div style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>
+          <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>
             Solo se sincronizan los viajes seleccionados. Los que tienen errores no se pueden
             seleccionar — corregí el archivo y volvé a subir.
           </div>
@@ -335,7 +335,7 @@ function Pill({ label, tone }: { label: string; tone: PillTone }) {
         height: 24,
         padding: "0 10px",
         borderRadius: 9999,
-        font: "600 12px/14px Inter",
+        font: "600 12px/14px Heming",
         background: bg,
         color: fg,
       }}
@@ -346,7 +346,7 @@ function Pill({ label, tone }: { label: string; tone: PillTone }) {
 }
 
 const th: CSSProperties = {
-  font: "600 11px/14px Inter",
+  font: "600 11px/14px Heming",
   letterSpacing: ".06em",
   textTransform: "uppercase",
   color: "var(--fg-muted)",

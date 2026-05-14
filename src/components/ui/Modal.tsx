@@ -51,7 +51,7 @@ export function Modal({ open, onClose, title, children, footer, width = 560 }: M
             justifyContent: "space-between",
           }}
         >
-          <span style={{ font: "600 17px/24px Inter", color: "var(--fg-primary)" }}>{title}</span>
+          <span style={{ font: "600 17px/24px Heming", color: "var(--fg-primary)" }}>{title}</span>
           <button
             onClick={onClose}
             style={{

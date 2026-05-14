@@ -26,3 +26,41 @@ a {
     linear-gradient(to bottom, var(--login-grid-stroke) 1px, transparent 1px);
   background-size: auto, 32px 32px, 32px 32px;
 }
+
+/* =====================================================
+   Form inputs — colores forzados contra UA, autofill,
+   y extensiones (password managers que inyectan estilos).
+   ===================================================== */
+input,
+select,
+textarea {
+  color: var(--input-fg) !important;
+  -webkit-text-fill-color: var(--input-fg) !important;
+  caret-color: var(--input-fg) !important;
+  background-color: var(--input-bg) !important;
+  background-image: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, Arial, sans-serif !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--input-placeholder) !important;
+  -webkit-text-fill-color: var(--input-placeholder) !important;
+  opacity: 1 !important;
+}
+
+/* Chrome / Edge autofill — todas las variantes (incluyendo internas) */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+input:-internal-autofill-selected,
+input:-internal-autofill-previewed {
+  -webkit-text-fill-color: var(--input-fg) !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  box-shadow: 0 0 0 1000px var(--input-bg) inset !important;
+  background-color: var(--input-bg) !important;
+  background-image: none !important;
+  caret-color: var(--input-fg) !important;
+  transition: background-color 600000s 0s, color 600000s 0s !important;
+}

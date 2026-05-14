@@ -57,22 +57,23 @@ export function Login({ onLogin }: LoginProps) {
           boxShadow: "var(--shadow-lg)",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-          <img src="/logo-mark.svg" alt="" style={{ height: 28 }} />
-          <span
-            style={{
-              font: "600 18px/24px Inter",
-              letterSpacing: "-.005em",
-              color: "var(--fg-primary)",
-            }}
-          >
-            Incoming Hub<span style={{ color: "var(--brand-500)" }}>·</span>
-          </span>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 28,
+          }}
+        >
+          <img
+            src="/brand/isologo-blanco.png"
+            alt="Incoming Hub"
+            style={{ height: 44, width: "auto", display: "block" }}
+          />
         </div>
 
         <div
           style={{
-            font: "600 22px/28px Inter",
+            font: "600 22px/28px Heming",
             letterSpacing: "-.005em",
             marginBottom: 6,
             color: "var(--fg-primary)",
@@ -82,7 +83,7 @@ export function Login({ onLogin }: LoginProps) {
         </div>
         <div
           style={{
-            font: "400 13px/18px Inter",
+            font: "400 13px/18px Heming",
             color: "var(--fg-muted)",
             marginBottom: 24,
           }}
@@ -107,7 +108,7 @@ export function Login({ onLogin }: LoginProps) {
             />
           </Field>
           {err.form && (
-            <div style={{ font: "400 12px/16px Inter", color: "var(--danger-fg)" }}>
+            <div style={{ font: "400 12px/16px Heming", color: "var(--danger-fg)" }}>
               {err.form}
             </div>
           )}
@@ -124,7 +125,7 @@ export function Login({ onLogin }: LoginProps) {
 
         <div
           style={{
-            font: "400 12px/16px Inter",
+            font: "400 12px/16px Heming",
             color: "var(--fg-disabled)",
             marginTop: 20,
             textAlign: "center",

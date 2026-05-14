@@ -66,7 +66,7 @@ export function Button({
     display: "inline-flex",
     alignItems: "center",
     gap: 8,
-    fontFamily: "Inter",
+    fontFamily: "Heming",
     fontWeight: 500,
     lineHeight: "20px",
     borderRadius: 9999,

@@ -26,7 +26,7 @@ export function Badge({ status }: BadgeProps) {
         height: 22,
         padding: "0 10px",
         borderRadius: 9999,
-        font: "600 11px/14px Inter",
+        font: "600 11px/14px Heming",
         letterSpacing: ".06em",
         textTransform: "uppercase",
         background: bg,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { STATUSES, TODAY, TOMORROW } from "../data/seed";
 import type { Trip, TripStatus } from "../types/domain";
@@ -11,16 +11,16 @@ import { useIsMobile } from "../hooks/useIsMobile";
 interface TripsListProps {
   trips: Trip[];
   onOpen: (t: Trip) => void;
-  onCargarExcel: () => void;
   onCopy: () => void;
   onExport: () => void;
 }
 
 type SortKey = keyof Trip | "id";
 
-export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: TripsListProps) {
+export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
   const isMobile = useIsMobile();
-  const [dateFilter, setDateFilter] = useState<"today" | "tomorrow">("today");
+  const [dateFilter, setDateFilter] = useState<string>(TODAY);
+  const dateInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<TripStatus[]>([]);
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
@@ -31,8 +31,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
   const [revealPhone, setRevealPhone] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    const targetDate = dateFilter === "today" ? TODAY : TOMORROW;
-    let r = trips.filter((t) => t.date === targetDate);
+    let r = trips.filter((t) => t.date === dateFilter);
     if (statusFilter.length) r = r.filter((t) => statusFilter.includes(t.est));
     if (q.trim()) {
       const s = q.toLowerCase();
@@ -123,6 +122,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
         <div
           style={{
             display: "flex",
+            alignItems: "center",
             background: "var(--bg-surface)",
             border: "1px solid var(--border-subtle)",
             borderRadius: 9999,
@@ -130,8 +130,8 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
           }}
         >
           {[
-            { id: "today" as const, l: "Hoy" },
-            { id: "tomorrow" as const, l: "Mañana" },
+            { id: TODAY, l: "Hoy" },
+            { id: TOMORROW, l: "Mañana" },
           ].map((o) => (
             <button
               key={o.id}
@@ -140,7 +140,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                 border: "none",
                 background: dateFilter === o.id ? "var(--brand-500)" : "transparent",
                 color: dateFilter === o.id ? "var(--fg-on-brand)" : "var(--fg-tertiary)",
-                font: dateFilter === o.id ? "600 13px/18px Inter" : "500 13px/18px Inter",
+                font: dateFilter === o.id ? "600 13px/18px Heming" : "500 13px/18px Heming",
                 padding: "5px 14px",
                 borderRadius: 9999,
                 cursor: "pointer",
@@ -149,6 +149,59 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
               {o.l}
             </button>
           ))}
+          {dateFilter !== TODAY && dateFilter !== TOMORROW && (
+            <span
+              style={{
+                background: "var(--brand-500)",
+                color: "var(--fg-on-brand)",
+                font: "600 13px/18px Heming",
+                padding: "5px 14px",
+                borderRadius: 9999,
+              }}
+            >
+              {fmtDateLong(dateFilter)}
+            </span>
+          )}
+          <button
+            onClick={() => {
+              const input = dateInputRef.current;
+              if (!input) return;
+              if (typeof input.showPicker === "function") input.showPicker();
+              else input.click();
+            }}
+            title="Elegir fecha"
+            aria-label="Elegir fecha"
+            style={{
+              border: "none",
+              background: "transparent",
+              color: "var(--fg-tertiary)",
+              padding: "5px 10px",
+              borderRadius: 9999,
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon name="calendar" size={14} />
+          </button>
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={dateFilter}
+            onChange={(e) => {
+              if (e.target.value) setDateFilter(e.target.value);
+            }}
+            style={{
+              position: "absolute",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+            }}
+            aria-hidden="true"
+            tabIndex={-1}
+          />
         </div>
 
         <div style={{ position: "relative" }}>
@@ -162,7 +215,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
               border: "1px solid var(--border-strong)",
               borderRadius: 9999,
               padding: "7px 14px",
-              font: "500 13px/18px Inter",
+              font: "500 13px/18px Heming",
               color: "var(--fg-primary)",
               cursor: "pointer",
             }}
@@ -196,7 +249,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                     padding: "7px 10px",
                     borderRadius: 6,
                     cursor: "pointer",
-                    font: "400 13px/18px Inter",
+                    font: "400 13px/18px Heming",
                     color: "var(--fg-secondary)",
                   }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
@@ -217,7 +270,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                     background: "transparent",
                     border: "none",
                     color: "var(--fg-link)",
-                    font: "500 13px/18px Inter",
+                    font: "500 13px/18px Heming",
                     padding: "7px 10px",
                     cursor: "pointer",
                   }}
@@ -257,14 +310,11 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
         <Button icon="excel" onClick={onExport}>
           Exportar Excel
         </Button>
-        <Button kind="primary" icon="upload" onClick={onCargarExcel}>
-          Cargar Excel
-        </Button>
       </div>
 
       <div style={{ flex: 1, overflow: "auto", background: "var(--bg-app)" }}>
         <table
-          style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Inter" }}
+          style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Heming" }}
         >
           <thead>
             <tr style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-app)" }}>
@@ -273,7 +323,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                   key={k}
                   k={k}
                   style={{
-                    font: "600 11px/14px Inter",
+                    font: "600 11px/14px Heming",
                     letterSpacing: ".06em",
                     textTransform: "uppercase",
                     color: "var(--fg-muted)",
@@ -349,13 +399,13 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
                 >
                   <div
                     style={{
-                      font: "500 14px/20px Inter",
+                      font: "500 14px/20px Heming",
                       color: "var(--fg-secondary)",
                     }}
                   >
                     No hay viajes para mostrar.
                   </div>
-                  <div style={{ font: "400 13px/18px Inter" }}>
+                  <div style={{ font: "400 13px/18px Heming" }}>
                     Probá cambiar la fecha o limpiar los filtros.
                   </div>
                 </td>
@@ -375,14 +425,14 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
           alignItems: "center",
           justifyContent: "space-between",
           flex: "none",
-          font: "400 13px/18px Inter",
+          font: "400 13px/18px Heming",
           color: "var(--fg-muted)",
           gap: 12,
         }}
       >
         <div style={{ whiteSpace: "nowrap" }}>
           <span style={{ color: "var(--fg-primary)", fontWeight: 500 }}>{filtered.length}</span>{" "}
-          viajes · {dateFilter === "today" ? "Hoy" : "Mañana"}
+          viajes · {dateFilter === TODAY ? "Hoy" : dateFilter === TOMORROW ? "Mañana" : fmtDateLong(dateFilter)}
         </div>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button
@@ -395,7 +445,7 @@ export function TripsList({ trips, onOpen, onCargarExcel, onCopy, onExport }: Tr
           </button>
           <span
             style={{
-              font: "500 13px/18px Inter",
+              font: "500 13px/18px Heming",
               color: "var(--fg-primary)",
               padding: "0 6px",
               fontFeatureSettings: '"tnum" 1',
@@ -449,4 +499,13 @@ const paginationBtn: CSSProperties = {
 function fmtDate(s: string) {
   const [, m, d] = s.split("-");
   return `${d}/${m}`;
+}
+
+const DAYS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MONTHS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+function fmtDateLong(s: string) {
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return `${DAYS[dt.getDay()]} ${d} ${MONTHS[m - 1]}`;
 }

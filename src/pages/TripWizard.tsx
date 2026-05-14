@@ -135,7 +135,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span
                   style={{
-                    font: "600 11px/14px Inter",
+                    font: "600 11px/14px Heming",
                     letterSpacing: ".06em",
                     textTransform: "uppercase",
                     color: "var(--fg-muted)",
@@ -143,7 +143,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                 >
                   Paso {stepIdx + 1} de {stepsBase.length}
                 </span>
-                <span style={{ font: "600 14px/20px Inter", color: "var(--fg-primary)" }}>
+                <span style={{ font: "600 14px/20px Heming", color: "var(--fg-primary)" }}>
                   · {step.label}
                 </span>
               </div>
@@ -197,7 +197,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                           : done
                             ? "var(--success-fg)"
                             : "var(--fg-tertiary)",
-                        font: "600 12px/14px Inter",
+                        font: "600 12px/14px Heming",
                         border: "none",
                         cursor: i <= stepIdx ? "pointer" : "default",
                         flex: "none",
@@ -242,7 +242,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                         : done
                           ? "var(--success-fg)"
                           : "var(--fg-muted)",
-                      font: active ? "600 13px/18px Inter" : "500 13px/18px Inter",
+                      font: active ? "600 13px/18px Heming" : "500 13px/18px Heming",
                       cursor: i <= stepIdx ? "pointer" : "default",
                     }}
                   >
@@ -264,7 +264,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                           : done
                             ? "var(--success-fg)"
                             : "var(--fg-tertiary)",
-                        font: "600 12px/14px Inter",
+                        font: "600 12px/14px Heming",
                       }}
                     >
                       {done ? "✓" : i + 1}
@@ -286,7 +286,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             )}
             {mode === "edit" && (
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
-                <span style={{ font: "500 12px/16px Inter", color: "var(--fg-muted)" }}>
+                <span style={{ font: "500 12px/16px Heming", color: "var(--fg-muted)" }}>
                   Estado
                 </span>
                 <Badge status={t.est} />
@@ -398,7 +398,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
         >
           <div
             style={{
-              font: "400 13px/18px Inter",
+              font: "400 13px/18px Heming",
               color: "var(--fg-tertiary)",
               marginBottom: 14,
             }}
@@ -496,7 +496,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
               marginBottom: 14,
             }}
           >
-            <div style={{ font: "600 13px/18px Inter", color: "var(--fg-primary)" }}>
+            <div style={{ font: "600 13px/18px Heming", color: "var(--fg-primary)" }}>
               Tramo {i + 1}
             </div>
             {t.legs.length > 1 && (
@@ -507,7 +507,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
                   border: "none",
                   color: "var(--danger-fg)",
                   cursor: "pointer",
-                  font: "500 13px/18px Inter",
+                  font: "500 13px/18px Heming",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 4,
@@ -607,7 +607,7 @@ function PlaceCombo({ value, onChange }: { value: string; onChange: (v: string) 
               }}
               style={{
                 padding: "8px 12px",
-                font: "400 13px/18px Inter",
+                font: "400 13px/18px Heming",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -684,7 +684,7 @@ function StepPasajeros({ t, set, errs, isMobile }: StepProps) {
               marginBottom: 14,
             }}
           >
-            <div style={{ font: "600 13px/18px Inter", color: "var(--fg-primary)" }}>
+            <div style={{ font: "600 13px/18px Heming", color: "var(--fg-primary)" }}>
               Pasajero {i + 1}
             </div>
             {t.passengers.length > 1 && (
@@ -695,7 +695,7 @@ function StepPasajeros({ t, set, errs, isMobile }: StepProps) {
                   border: "none",
                   color: "var(--danger-fg)",
                   cursor: "pointer",
-                  font: "500 13px/18px Inter",
+                  font: "500 13px/18px Heming",
                   display: "inline-flex",
                   alignItems: "center",
                   gap: 4,
@@ -754,7 +754,7 @@ function StepCostos({ t }: { t: Trip }) {
         justifyContent: "space-between",
         padding: "10px 14px",
         borderBottom: "1px solid var(--border-subtle)",
-        font: "400 14px/20px Inter",
+        font: "400 14px/20px Heming",
         color: "var(--fg-secondary)",
       }}
     >
@@ -770,7 +770,7 @@ function StepCostos({ t }: { t: Trip }) {
         <h3 style={{ ...h2, margin: 0 }}>Costos</h3>
         <span
           style={{
-            font: "500 11px/14px Inter",
+            font: "500 11px/14px Heming",
             letterSpacing: ".06em",
             textTransform: "uppercase",
             color: "var(--fg-muted)",
@@ -806,7 +806,7 @@ function StepCostos({ t }: { t: Trip }) {
             justifyContent: "space-between",
             padding: "14px",
             background: "var(--bg-app)",
-            font: "600 14px/20px Inter",
+            font: "600 14px/20px Heming",
             color: "var(--fg-primary)",
           }}
         >
@@ -859,7 +859,7 @@ function StepResumen({ t }: { t: Trip }) {
     >
       <span
         style={{
-          font: "500 12px/16px Inter",
+          font: "500 12px/16px Heming",
           letterSpacing: ".06em",
           textTransform: "uppercase",
           color: "var(--fg-muted)",
@@ -869,7 +869,7 @@ function StepResumen({ t }: { t: Trip }) {
       >
         {l}
       </span>
-      <span style={{ font: "400 14px/20px Inter", color: "var(--fg-secondary)" }}>{v}</span>
+      <span style={{ font: "400 14px/20px Heming", color: "var(--fg-secondary)" }}>{v}</span>
     </div>
   );
   return (
@@ -924,19 +924,19 @@ function StepResumen({ t }: { t: Trip }) {
 }
 
 const h2: CSSProperties = {
-  font: "600 17px/24px Inter",
+  font: "600 17px/24px Heming",
   margin: "0 0 4px",
   color: "var(--fg-primary)",
 };
 const p: CSSProperties = {
-  font: "400 13px/18px Inter",
+  font: "400 13px/18px Heming",
   color: "var(--fg-muted)",
   margin: "0 0 14px",
 };
 const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" };
 const grid1: CSSProperties = { display: "grid", gridTemplateColumns: "1fr", gap: "14px" };
 const th: CSSProperties = {
-  font: "600 11px/14px Inter",
+  font: "600 11px/14px Heming",
   letterSpacing: ".06em",
   textTransform: "uppercase",
   color: "var(--fg-muted)",
@@ -947,6 +947,6 @@ const th: CSSProperties = {
 const tdHist: CSSProperties = {
   padding: "10px 14px",
   borderBottom: "1px solid var(--border-subtle)",
-  font: "400 13px/18px Inter",
+  font: "400 13px/18px Heming",
   color: "var(--fg-secondary)",
 };

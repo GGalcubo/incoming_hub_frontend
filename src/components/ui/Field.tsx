@@ -21,30 +21,37 @@ export function Field({ label, required, error, hint, children, span = 1, style 
         ...style,
       }}
     >
-      <span style={{ font: "500 13px/18px Inter", color: "var(--fg-secondary)" }}>
+      <span style={{ font: "500 13px/18px Heming", color: "var(--fg-secondary)" }}>
         {label}
         {required && <span style={{ color: "var(--danger-fg)" }}> ·</span>}
       </span>
       {children}
       {hint && !error && (
-        <span style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>{hint}</span>
+        <span style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>{hint}</span>
       )}
       {error && (
-        <span style={{ font: "400 12px/16px Inter", color: "var(--danger-fg)" }}>{error}</span>
+        <span style={{ font: "400 12px/16px Heming", color: "var(--danger-fg)" }}>{error}</span>
       )}
     </label>
   );
 }
 
 const inputStyle: CSSProperties = {
-  font: "400 14px/20px Inter",
+  fontWeight: 400,
+  fontSize: 14,
+  lineHeight: "20px",
+  fontFamily:
+    '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, Arial, sans-serif',
   padding: "9px 12px",
-  border: "1px solid var(--border-strong)",
+  borderWidth: 1,
+  borderStyle: "solid",
+  borderColor: "var(--input-border)",
   borderRadius: 8,
-  background: "var(--bg-surface)",
-  color: "var(--fg-primary)",
+  backgroundColor: "var(--input-bg)",
+  color: "var(--input-fg)",
+  caretColor: "var(--input-fg)",
   outline: "none",
-  transition: "all 180ms cubic-bezier(.2,.8,.2,1)",
+  transition: "border-color 180ms cubic-bezier(.2,.8,.2,1), box-shadow 180ms cubic-bezier(.2,.8,.2,1)",
   width: "100%",
 };
 
@@ -54,12 +61,12 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
       {...props}
       style={{ ...inputStyle, ...props.style }}
       onFocus={(e) => {
-        e.currentTarget.style.borderColor = "var(--brand-500)";
-        e.currentTarget.style.boxShadow = "0 0 0 3px var(--brand-glow)";
+        e.currentTarget.style.borderColor = "var(--fg-primary)";
+        e.currentTarget.style.boxShadow = "0 0 0 3px rgba(255,255,255,.20)";
         props.onFocus?.(e);
       }}
       onBlur={(e) => {
-        e.currentTarget.style.borderColor = "var(--border-strong)";
+        e.currentTarget.style.borderColor = "var(--input-border)";
         e.currentTarget.style.boxShadow = "none";
         props.onBlur?.(e);
       }}
@@ -75,7 +82,7 @@ export function Select({ children, ...p }: SelectHTMLAttributes<HTMLSelectElemen
         ...inputStyle,
         appearance: "none",
         backgroundImage:
-          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238B95A7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
+          "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")",
         backgroundRepeat: "no-repeat",
         backgroundPosition: "right 10px center",
         paddingRight: 32,
@@ -91,7 +98,7 @@ export function Textarea(p: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...p}
-      style={{ ...inputStyle, minHeight: 72, resize: "vertical", fontFamily: "Inter", ...p.style }}
+      style={{ ...inputStyle, minHeight: 72, resize: "vertical", fontFamily: "Heming", ...p.style }}
     />
   );
 }

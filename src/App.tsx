@@ -193,15 +193,19 @@ function TripsListRoute({
             : `${todayCount} para hoy · ${tomorrowCount} para mañana`
         }
         actions={
-          <Button kind="primary" icon="plus" onClick={() => navigate("/viajes/nuevo")}>
-            Nuevo viaje
-          </Button>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Button kind="primary" icon="upload" onClick={onCargarExcel}>
+              Cargar Excel
+            </Button>
+            <Button kind="primary" icon="plus" onClick={() => navigate("/viajes/nuevo")}>
+              Nuevo viaje
+            </Button>
+          </div>
         }
       />
       <TripsList
         trips={trips}
         onOpen={(t) => navigate(`/viajes/${t.id}`)}
-        onCargarExcel={onCargarExcel}
         onCopy={onCopy}
         onExport={onExport}
       />

@@ -17,7 +17,7 @@ export function Toast({ msg }: ToastProps) {
         padding: "10px 16px",
         borderRadius: 9999,
         border: "1px solid var(--border-strong)",
-        font: "500 13px/18px Inter",
+        font: "500 13px/18px Heming",
         boxShadow: "var(--shadow-lg)",
       }}
     >

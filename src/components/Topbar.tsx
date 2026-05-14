@@ -23,7 +23,7 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
       <div>
         <div
           style={{
-            font: "600 17px/24px Inter",
+            font: "600 17px/24px Heming",
             letterSpacing: "-.005em",
             color: "var(--fg-primary)",
           }}
@@ -31,7 +31,7 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
           {title}
         </div>
         {subtitle && (
-          <div style={{ font: "400 12px/16px Inter", color: "var(--fg-muted)" }}>{subtitle}</div>
+          <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>{subtitle}</div>
         )}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>{actions}</div>

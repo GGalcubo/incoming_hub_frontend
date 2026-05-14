@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useTheme } from "../hooks/useTheme";
 import type { User } from "../types/domain";
-import { ThemeToggle } from "./ThemeToggle";
 import { Icon } from "./ui/Icon";
 
 interface SidebarProps {
@@ -31,7 +29,7 @@ function Item({ active, icon, label, collapsed, onClick }: ItemProps) {
         width: "100%",
         background: active ? "var(--brand-tint-soft)" : "transparent",
         color: active ? "var(--fg-primary)" : "var(--fg-muted)",
-        font: active ? "600 14px/20px Inter" : "500 14px/20px Inter",
+        font: active ? "600 14px/20px Heming" : "500 14px/20px Heming",
         border: "none",
         textAlign: "left",
         padding: collapsed ? "9px 0" : "9px 12px",
@@ -77,7 +75,6 @@ const STORAGE_KEY = "proxy:sidebarCollapsed";
 export function Sidebar({ view, user, onLogout }: SidebarProps) {
   const navigate = useNavigate();
   const initial = (user?.user || "?")[0].toUpperCase();
-  const { mode, setMode } = useTheme();
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try {
@@ -120,18 +117,15 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
           justifyContent: collapsed ? "center" : "flex-start",
         }}
       >
-        <img src="/logo-mark.svg" alt="" style={{ height: 24 }} />
-        {!collapsed && (
-          <span
-            style={{
-              font: "600 16px/22px Inter",
-              letterSpacing: "-.005em",
-              color: "var(--fg-primary)",
-            }}
-          >
-            Incoming Hub<span style={{ color: "var(--brand-500)" }}>·</span>
-          </span>
-        )}
+        <img
+          src={collapsed ? "/brand/isotipo-blanco.png" : "/brand/isologo-blanco.png"}
+          alt="Incoming Hub"
+          style={{
+            height: collapsed ? 32 : 28,
+            width: "auto",
+            display: "block",
+          }}
+        />
       </div>
 
       <button
@@ -190,31 +184,6 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
 
       <div
         style={{
-          padding: collapsed ? "12px 0" : "12px 6px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: collapsed ? "center" : "stretch",
-          gap: 8,
-        }}
-      >
-        {!collapsed && (
-          <span
-            style={{
-              font: "600 10px/14px Inter",
-              letterSpacing: ".08em",
-              textTransform: "uppercase",
-              color: "var(--fg-muted)",
-              paddingLeft: 2,
-            }}
-          >
-            Tema
-          </span>
-        )}
-        <ThemeToggle mode={mode} onChange={setMode} collapsed={collapsed} />
-      </div>
-
-      <div
-        style={{
           borderTop: "1px solid var(--border-subtle)",
           padding: collapsed ? "12px 0 4px" : "12px 6px 4px",
           display: "flex",
@@ -234,7 +203,7 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            font: "600 12px Inter",
+            font: "600 12px Heming",
             flex: "none",
           }}
         >
@@ -244,7 +213,7 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div
               style={{
-                font: "500 13px/18px Inter",
+                font: "500 13px/18px Heming",
                 color: "var(--fg-secondary)",
                 whiteSpace: "nowrap",
                 overflow: "hidden",
@@ -253,7 +222,7 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
             >
               {user?.user}
             </div>
-            <div style={{ font: "400 11px/14px Inter", color: "var(--fg-muted)" }}>Operador</div>
+            <div style={{ font: "400 11px/14px Heming", color: "var(--fg-muted)" }}>Operador</div>
           </div>
         )}
         <button

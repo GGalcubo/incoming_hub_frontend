@@ -2,11 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
-import { bootstrapTheme } from "./hooks/useTheme";
 import "./styles/tokens.css";
 import "./styles/globals.css";
-
-bootstrapTheme();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
