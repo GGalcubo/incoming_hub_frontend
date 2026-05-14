@@ -104,7 +104,7 @@ export function Login({ onLogin }: LoginProps) {
               type="password"
               value={pass}
               onChange={(e) => setPass(e.target.value)}
-              placeholder="••••••••"
+              placeholder=""
             />
           </Field>
           {err.form && (
