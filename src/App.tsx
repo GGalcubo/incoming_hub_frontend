@@ -8,6 +8,7 @@ import { Button } from "./components/ui/Button";
 import { Toast } from "./components/ui/Toast";
 import { TODAY, TOMORROW } from "./data/seed";
 import { Login } from "./pages/Login";
+import { PassengersList } from "./pages/Passengers";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
 import type { Trip, User } from "./types/domain";
@@ -124,6 +125,15 @@ export function App() {
           </Shell>
         }
       />
+      <Route
+        path="/pasajeros"
+        element={
+          <Shell view="passengers" user={user} onLogout={handleLogout}>
+            <Topbar title="Pasajeros" subtitle="Consulta de pasajeros registrados" />
+            <PassengersList trips={trips} loading={loading} />
+          </Shell>
+        }
+      />
       <Route path="/login" element={<Navigate to="/viajes" replace />} />
       <Route path="*" element={<Navigate to="/viajes" replace />} />
     </Routes>
@@ -135,7 +145,7 @@ export function App() {
     onLogout,
     children,
   }: {
-    view: "trips" | "new";
+    view: "trips" | "new" | "passengers";
     user: User;
     onLogout: () => void;
     children: React.ReactNode;

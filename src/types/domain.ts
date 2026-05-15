@@ -15,6 +15,7 @@ export interface Passenger {
   phone: string;
   dni: string;
   luggage: number;
+  email?: string;
 }
 
 export interface Leg {

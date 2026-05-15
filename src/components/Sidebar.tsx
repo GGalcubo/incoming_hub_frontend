@@ -4,7 +4,7 @@ import type { User } from "../types/domain";
 import { Icon } from "./ui/Icon";
 
 interface SidebarProps {
-  view: "trips" | "new";
+  view: "trips" | "new" | "passengers";
   user: User | null;
   onLogout: () => void;
 }
@@ -177,6 +177,13 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
           label="Nuevo viaje"
           collapsed={collapsed}
           onClick={() => navigate("/viajes/nuevo")}
+        />
+        <Item
+          active={view === "passengers"}
+          icon="users"
+          label="Pasajeros"
+          collapsed={collapsed}
+          onClick={() => navigate("/pasajeros")}
         />
       </div>
 
