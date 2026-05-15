@@ -101,11 +101,6 @@ export function App() {
               onCopy={() => flash("Tabla copiada al portapapeles")}
               onExport={() => flash("Exportando a Excel…")}
             />
-            <ExcelUploadModal
-              open={excelOpen}
-              onClose={() => setExcelOpen(false)}
-              onConfirm={(n) => flash(`${n} viajes sincronizados con Central`)}
-            />
           </Shell>
         }
       />
@@ -159,7 +154,12 @@ export function App() {
           background: "var(--bg-app)",
         }}
       >
-        <Sidebar view={view} user={user} onLogout={onLogout} />
+        <Sidebar
+          view={view}
+          user={user}
+          onLogout={onLogout}
+          onCargarExcel={() => setExcelOpen(true)}
+        />
         <div
           style={{
             flex: 1,
@@ -170,6 +170,11 @@ export function App() {
         >
           {children}
         </div>
+        <ExcelUploadModal
+          open={excelOpen}
+          onClose={() => setExcelOpen(false)}
+          onConfirm={(n) => flash(`${n} viajes sincronizados con Central`)}
+        />
         <Toast msg={toast} />
       </div>
     );

@@ -7,6 +7,7 @@ interface SidebarProps {
   view: "trips" | "new" | "passengers";
   user: User | null;
   onLogout: () => void;
+  onCargarExcel: () => void;
 }
 
 interface ItemProps {
@@ -72,7 +73,7 @@ function Item({ active, icon, label, collapsed, onClick }: ItemProps) {
 
 const STORAGE_KEY = "proxy:sidebarCollapsed";
 
-export function Sidebar({ view, user, onLogout }: SidebarProps) {
+export function Sidebar({ view, user, onLogout, onCargarExcel }: SidebarProps) {
   const navigate = useNavigate();
   const initial = (user?.user || "?")[0].toUpperCase();
 
@@ -177,6 +178,13 @@ export function Sidebar({ view, user, onLogout }: SidebarProps) {
           label="Nuevo viaje"
           collapsed={collapsed}
           onClick={() => navigate("/viajes/nuevo")}
+        />
+        <Item
+          active={false}
+          icon="upload"
+          label="Cargar Excel"
+          collapsed={collapsed}
+          onClick={onCargarExcel}
         />
         <Item
           active={view === "passengers"}
