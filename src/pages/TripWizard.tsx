@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { AGENCIES, CATEGORIES, PLACES, TODAY } from "../data/seed";
 import type { Leg, Passenger, Trip } from "../types/domain";
@@ -8,6 +8,21 @@ import { Icon } from "../components/ui/Icon";
 import { Field, Input, Select, Textarea } from "../components/ui/Field";
 import { Modal } from "../components/ui/Modal";
 import { useIsMobile } from "../hooks/useIsMobile";
+import {
+  hasGoogleMapsKey,
+  loadGoogleMaps,
+  loadGoogleMapsPlaces,
+  type GMapsAutocompleteService,
+  type GMapsGeocoder,
+  type GMapsLatLngLiteral,
+  type GMapsMap,
+  type GMapsMarker,
+  type GMapsMouseEvent,
+  type GMapsPlacePrediction,
+  type GMapsPolyline,
+} from "../lib/gmaps";
+
+const BA_CENTER: GMapsLatLngLiteral = { lat: -34.6037, lng: -58.3816 };
 
 type Mode = "new" | "edit";
 
@@ -540,15 +555,39 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
             <Field label="Origen" required error={errs[`leg-${i}-origin`]}>
               <PlaceCombo
                 value={leg.origin}
-                onChange={(v) => updateLeg(i, { origin: v })}
+                onChange={(v) => updateLeg(i, { origin: v, originCoords: undefined })}
+                onPick={(desc, placeId) =>
+                  geocodePlaceId(placeId, (coords) => {
+                    if (coords) updateLeg(i, { origin: desc, originCoords: coords });
+                  })
+                }
               />
             </Field>
             <Field label="Destino" required error={errs[`leg-${i}-destination`]}>
               <PlaceCombo
                 value={leg.destination}
-                onChange={(v) => updateLeg(i, { destination: v })}
+                onChange={(v) => updateLeg(i, { destination: v, destinationCoords: undefined })}
+                onPick={(desc, placeId) =>
+                  geocodePlaceId(placeId, (coords) => {
+                    if (coords)
+                      updateLeg(i, { destination: desc, destinationCoords: coords });
+                  })
+                }
               />
             </Field>
+            {hasGoogleMapsKey() && (
+              <div style={{ gridColumn: isMobile ? "span 1" : "span 2" }}>
+                <LegMap
+                  leg={leg}
+                  onPickOrigin={(text, coords) =>
+                    updateLeg(i, { origin: text, originCoords: coords })
+                  }
+                  onPickDestination={(text, coords) =>
+                    updateLeg(i, { destination: text, destinationCoords: coords })
+                  }
+                />
+              </div>
+            )}
             <Field label="Observaciones del tramo" span={isMobile ? 1 : 2}>
               <Textarea
                 value={leg.obs}
@@ -567,22 +606,113 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
   );
 }
 
-function PlaceCombo({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+interface PlaceSuggestion {
+  id: string;
+  main: string;
+  secondary?: string;
+  full: string;
+  placeId?: string;
+}
+
+interface PlaceComboProps {
+  value: string;
+  onChange: (v: string) => void;
+  onPick?: (description: string, placeId: string) => void;
+}
+
+function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
   const [open, setOpen] = useState(false);
-  const matches = PLACES.filter((p) => p.toLowerCase().includes((value || "").toLowerCase()));
+  const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const serviceRef = useRef<GMapsAutocompleteService | null>(null);
+  const sessionTokenRef = useRef<unknown>(null);
+  const debounceRef = useRef<number | null>(null);
+  const usingGmaps = hasGoogleMapsKey();
+
+  useEffect(() => {
+    if (!usingGmaps) return;
+    let cancelled = false;
+    loadGoogleMapsPlaces().then((places) => {
+      if (cancelled || !places) return;
+      serviceRef.current = new places.AutocompleteService();
+      sessionTokenRef.current = new places.AutocompleteSessionToken();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [usingGmaps]);
+
+  const queryLocal = (q: string): PlaceSuggestion[] => {
+    const needle = q.toLowerCase();
+    return PLACES.filter((p) => p.toLowerCase().includes(needle))
+      .slice(0, 6)
+      .map((p) => ({ id: p, main: p, full: p }));
+  };
+
+  const queryGmaps = (q: string) => {
+    const svc = serviceRef.current;
+    if (!svc) return;
+    setLoading(true);
+    svc.getPlacePredictions(
+      {
+        input: q,
+        componentRestrictions: { country: "ar" },
+        language: "es",
+        sessionToken: sessionTokenRef.current,
+      },
+      (preds) => {
+        setLoading(false);
+        if (!preds) {
+          setSuggestions([]);
+          return;
+        }
+        setSuggestions(
+          preds.slice(0, 6).map((p: GMapsPlacePrediction) => ({
+            id: p.place_id,
+            placeId: p.place_id,
+            main: p.structured_formatting?.main_text ?? p.description,
+            secondary: p.structured_formatting?.secondary_text,
+            full: p.description,
+          })),
+        );
+      },
+    );
+  };
+
+  const handleInput = (next: string) => {
+    onChange(next);
+    setOpen(true);
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    const trimmed = next.trim();
+    if (!trimmed) {
+      setSuggestions([]);
+      setLoading(false);
+      return;
+    }
+    if (usingGmaps && serviceRef.current) {
+      debounceRef.current = window.setTimeout(() => queryGmaps(trimmed), 180);
+    } else {
+      setSuggestions(queryLocal(trimmed));
+    }
+  };
+
   return (
     <div style={{ position: "relative" }}>
       <Input
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
+        onChange={(e) => handleInput(e.target.value)}
+        onFocus={() => {
           setOpen(true);
+          const trimmed = (value || "").trim();
+          if (trimmed && suggestions.length === 0) {
+            if (usingGmaps && serviceRef.current) queryGmaps(trimmed);
+            else setSuggestions(queryLocal(trimmed));
+          }
         }}
-        onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 120)}
-        placeholder="Buscar lugar (Google Maps)…"
+        placeholder={usingGmaps ? "Buscar lugar (Google Maps)…" : "Buscar lugar…"}
       />
-      {open && matches.length > 0 && (
+      {open && (loading || suggestions.length > 0) && (
         <div
           style={{
             position: "absolute",
@@ -594,15 +724,28 @@ function PlaceCombo({ value, onChange }: { value: string; onChange: (v: string) 
             border: "1px solid var(--border-subtle)",
             borderRadius: 8,
             boxShadow: "var(--shadow-md)",
-            maxHeight: 200,
+            maxHeight: 240,
             overflow: "auto",
           }}
         >
-          {matches.slice(0, 6).map((m) => (
+          {loading && suggestions.length === 0 && (
             <div
-              key={m}
+              style={{
+                padding: "8px 12px",
+                font: "400 13px/18px Heming",
+                color: "var(--fg-muted)",
+              }}
+            >
+              Buscando…
+            </div>
+          )}
+          {suggestions.map((s) => (
+            <div
+              key={s.id}
               onMouseDown={() => {
-                onChange(m);
+                onChange(s.full);
+                if (s.placeId && onPick) onPick(s.full, s.placeId);
+                setSuggestions([]);
                 setOpen(false);
               }}
               style={{
@@ -618,11 +761,306 @@ function PlaceCombo({ value, onChange }: { value: string; onChange: (v: string) 
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <Icon name="mappin" size={13} style={{ color: "var(--fg-muted)" }} />
-              {m}
+              <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                <span
+                  style={{
+                    color: "var(--fg-secondary)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {s.main}
+                </span>
+                {s.secondary && (
+                  <span
+                    style={{
+                      font: "400 11px/14px Heming",
+                      color: "var(--fg-muted)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {s.secondary}
+                  </span>
+                )}
+              </span>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+let geocoderInstance: GMapsGeocoder | null = null;
+function getGeocoder(cb: (g: GMapsGeocoder | null) => void) {
+  if (geocoderInstance) {
+    cb(geocoderInstance);
+    return;
+  }
+  loadGoogleMaps().then((maps) => {
+    if (!maps) {
+      cb(null);
+      return;
+    }
+    geocoderInstance = new maps.Geocoder();
+    cb(geocoderInstance);
+  });
+}
+
+function geocodePlaceId(placeId: string, cb: (coords: GMapsLatLngLiteral | null) => void) {
+  getGeocoder((g) => {
+    if (!g) {
+      cb(null);
+      return;
+    }
+    g.geocode({ placeId }, (results) => {
+      const loc = results?.[0]?.geometry?.location;
+      cb(loc ? { lat: loc.lat(), lng: loc.lng() } : null);
+    });
+  });
+}
+
+function reverseGeocode(
+  point: GMapsLatLngLiteral,
+  cb: (address: string | null) => void,
+) {
+  getGeocoder((g) => {
+    if (!g) {
+      cb(null);
+      return;
+    }
+    g.geocode({ location: point }, (results) => {
+      cb(results?.[0]?.formatted_address ?? null);
+    });
+  });
+}
+
+function geocodeAddress(address: string, cb: (coords: GMapsLatLngLiteral | null) => void) {
+  getGeocoder((g) => {
+    if (!g) {
+      cb(null);
+      return;
+    }
+    g.geocode(
+      { address, componentRestrictions: { country: "ar" }, region: "AR" },
+      (results) => {
+        const loc = results?.[0]?.geometry?.location;
+        cb(loc ? { lat: loc.lat(), lng: loc.lng() } : null);
+      },
+    );
+  });
+}
+
+interface LegMapProps {
+  leg: Leg;
+  onPickOrigin: (text: string, coords: GMapsLatLngLiteral) => void;
+  onPickDestination: (text: string, coords: GMapsLatLngLiteral) => void;
+}
+
+function LegMap({ leg, onPickOrigin, onPickDestination }: LegMapProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<GMapsMap | null>(null);
+  const originMarkerRef = useRef<GMapsMarker | null>(null);
+  const destinationMarkerRef = useRef<GMapsMarker | null>(null);
+  const polylineRef = useRef<GMapsPolyline | null>(null);
+  const activePinRef = useRef<"origin" | "destination">("origin");
+  const onPickOriginRef = useRef(onPickOrigin);
+  const onPickDestinationRef = useRef(onPickDestination);
+  const [activePin, setActivePin] = useState<"origin" | "destination">("origin");
+  const [ready, setReady] = useState(false);
+
+  onPickOriginRef.current = onPickOrigin;
+  onPickDestinationRef.current = onPickDestination;
+
+  useEffect(() => {
+    activePinRef.current = activePin;
+  }, [activePin]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadGoogleMaps().then((maps) => {
+      if (cancelled || !maps || !containerRef.current) return;
+      const map = new maps.Map(containerRef.current, {
+        center: leg.originCoords ?? leg.destinationCoords ?? BA_CENTER,
+        zoom: leg.originCoords || leg.destinationCoords ? 13 : 11,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        clickableIcons: false,
+        zoomControl: true,
+      });
+      mapRef.current = map;
+      map.addListener("click", (...args: unknown[]) => {
+        const ev = args[0] as GMapsMouseEvent | undefined;
+        const ll = ev?.latLng;
+        if (!ll) return;
+        const point = { lat: ll.lat(), lng: ll.lng() };
+        reverseGeocode(point, (addr) => {
+          const text = addr ?? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+          if (activePinRef.current === "origin") onPickOriginRef.current(text, point);
+          else onPickDestinationRef.current(text, point);
+          activePinRef.current = activePinRef.current === "origin" ? "destination" : "origin";
+          setActivePin(activePinRef.current);
+        });
+      });
+      setReady(true);
+      if (leg.origin && !leg.originCoords) {
+        geocodeAddress(leg.origin, (coords) => {
+          if (coords) onPickOriginRef.current(leg.origin, coords);
+        });
+      }
+      if (leg.destination && !leg.destinationCoords) {
+        geocodeAddress(leg.destination, (coords) => {
+          if (coords) onPickDestinationRef.current(leg.destination, coords);
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    const maps = window.google?.maps;
+    const map = mapRef.current;
+    if (!maps || !map) return;
+
+    const placeOrSet = (
+      ref: React.MutableRefObject<GMapsMarker | null>,
+      coords: GMapsLatLngLiteral | undefined,
+      label: string,
+      kind: "origin" | "destination",
+    ) => {
+      if (!coords) {
+        ref.current?.setMap(null);
+        ref.current = null;
+        return;
+      }
+      if (ref.current) {
+        ref.current.setPosition(coords);
+        return;
+      }
+      const marker = new maps.Marker({
+        position: coords,
+        map,
+        draggable: true,
+        label: { text: label, color: "#fff", fontWeight: "700" },
+        title: kind === "origin" ? "Origen" : "Destino",
+      });
+      marker.addListener("dragend", (...args: unknown[]) => {
+        const ev = args[0] as GMapsMouseEvent | undefined;
+        const ll = ev?.latLng;
+        if (!ll) return;
+        const point = { lat: ll.lat(), lng: ll.lng() };
+        reverseGeocode(point, (addr) => {
+          const text = addr ?? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+          if (kind === "origin") onPickOriginRef.current(text, point);
+          else onPickDestinationRef.current(text, point);
+        });
+      });
+      ref.current = marker;
+    };
+
+    placeOrSet(originMarkerRef, leg.originCoords, "A", "origin");
+    placeOrSet(destinationMarkerRef, leg.destinationCoords, "B", "destination");
+
+    if (leg.originCoords && leg.destinationCoords) {
+      const bounds = new maps.LatLngBounds();
+      bounds.extend(leg.originCoords);
+      bounds.extend(leg.destinationCoords);
+      map.fitBounds(bounds, 48);
+      if (polylineRef.current) {
+        polylineRef.current.setPath([leg.originCoords, leg.destinationCoords]);
+      } else {
+        polylineRef.current = new maps.Polyline({
+          path: [leg.originCoords, leg.destinationCoords],
+          map,
+          strokeColor: "#3b82f6",
+          strokeOpacity: 0.85,
+          strokeWeight: 3,
+          geodesic: true,
+        });
+      }
+    } else {
+      polylineRef.current?.setMap(null);
+      polylineRef.current = null;
+      const single = leg.originCoords ?? leg.destinationCoords;
+      if (single) {
+        map.panTo(single);
+        map.setZoom(14);
+      }
+    }
+  }, [ready, leg.originCoords, leg.destinationCoords]);
+
+  useEffect(() => {
+    return () => {
+      originMarkerRef.current?.setMap(null);
+      destinationMarkerRef.current?.setMap(null);
+      polylineRef.current?.setMap(null);
+    };
+  }, []);
+
+  const pinBtn = (kind: "origin" | "destination", label: string) => {
+    const active = activePin === kind;
+    return (
+      <button
+        type="button"
+        onClick={() => setActivePin(kind)}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 10px",
+          borderRadius: 8,
+          border: `1px solid ${active ? "var(--fg-primary)" : "var(--border-subtle)"}`,
+          background: active ? "var(--brand-tint-soft)" : "var(--bg-surface)",
+          color: active ? "var(--fg-primary)" : "var(--fg-secondary)",
+          font: active ? "600 12px/16px Heming" : "500 12px/16px Heming",
+          cursor: "pointer",
+        }}
+      >
+        <Icon name="mappin" size={12} />
+        {label}
+      </button>
+    );
+  };
+
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          marginBottom: 8,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", gap: 6 }}>
+          {pinBtn("origin", "Marcar origen (A)")}
+          {pinBtn("destination", "Marcar destino (B)")}
+        </div>
+        <span style={{ font: "400 11px/14px Heming", color: "var(--fg-muted)" }}>
+          Hacé click o arrastrá los pines
+        </span>
+      </div>
+      <div
+        ref={containerRef}
+        style={{
+          width: "100%",
+          height: 280,
+          borderRadius: 10,
+          border: "1px solid var(--border-subtle)",
+          background: "var(--bg-elevated)",
+          overflow: "hidden",
+        }}
+      />
     </div>
   );
 }

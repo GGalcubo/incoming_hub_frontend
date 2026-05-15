@@ -18,12 +18,19 @@ export interface Passenger {
   email?: string;
 }
 
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 export interface Leg {
   type: LegType;
   origin: string;
   destination: string;
   flight: string;
   obs: string;
+  originCoords?: LatLng;
+  destinationCoords?: LatLng;
 }
 
 export interface TripCosts {
