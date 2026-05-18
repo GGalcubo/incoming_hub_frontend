@@ -75,6 +75,8 @@ export interface StatusMeta {
 
 export interface User {
   user: string;
+  token: string;
+  exp?: number;
 }
 
 export interface ExcelRow {

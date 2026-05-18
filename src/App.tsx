@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
-import { api } from "./api/client";
+import { api, setOnUnauthorized } from "./api/client";
 import { ExcelUploadModal } from "./components/ExcelUploadModal";
 import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import { Button } from "./components/ui/Button";
 import { Toast } from "./components/ui/Toast";
 import { TODAY, TOMORROW } from "./data/seed";
+import { isExpired } from "./lib/jwt";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
 import { TripWizard } from "./pages/TripWizard";
@@ -18,7 +19,13 @@ const STORAGE_KEY = "proxy:user";
 function loadUser(): User | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as User) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as User;
+    if (!parsed.token || isExpired(parsed.token)) {
+      localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -45,6 +52,10 @@ export function App() {
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
   };
+
+  useEffect(() => {
+    setOnUnauthorized(handleLogout);
+  }, []);
 
   useEffect(() => {
     if (!user) return;

@@ -1,22 +1,54 @@
 import { EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
+import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, User } from "../types/domain";
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const USE_MOCK = !API_URL;
+const USER_STORAGE_KEY = "proxy:user";
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 let mockTrips: Trip[] = [...SEED_TRIPS];
 
+let onUnauthorized: () => void = () => {};
+export function setOnUnauthorized(handler: () => void) {
+  onUnauthorized = handler;
+}
+
+function getToken(): string | null {
+  try {
+    const raw = localStorage.getItem(USER_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<User>;
+    return parsed.token ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function http<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken();
   const res = await fetch(`${API_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
     ...init,
   });
+  if (res.status === 401) {
+    onUnauthorized();
+    throw new Error("Sesión expirada");
+  }
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText}`);
   }
   return (await res.json()) as T;
+}
+
+function buildUser(user: string, token: string): User {
+  const payload = decodeJwt(token);
+  return { user, token, exp: payload?.exp };
 }
 
 export const api = {
@@ -24,12 +56,13 @@ export const api = {
     if (USE_MOCK) {
       await wait(400);
       if (!user || !pass) throw new Error("Usuario y contraseña requeridos");
-      return { user };
+      return buildUser(user, mockJwt(user));
     }
-    return http<User>("/auth/login", {
+    const res = await http<{ user: string; token: string }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ user, pass }),
     });
+    return buildUser(res.user, res.token);
   },
 
   async listTrips(): Promise<Trip[]> {
@@ -87,9 +120,18 @@ export const api = {
       await wait(600);
       return EXCEL_SAMPLE;
     }
+    const token = getToken();
     const fd = new FormData();
     fd.append("file", _file);
-    const res = await fetch(`${API_URL}/trips/excel/parse`, { method: "POST", body: fd });
+    const res = await fetch(`${API_URL}/trips/excel/parse`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: fd,
+    });
+    if (res.status === 401) {
+      onUnauthorized();
+      throw new Error("Sesión expirada");
+    }
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return (await res.json()) as ExcelRow[];
   },
