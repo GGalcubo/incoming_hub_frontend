@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api, setOnUnauthorized } from "./api/client";
 import { ExcelUploadModal } from "./components/ExcelUploadModal";
-import { Sidebar } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
-import { Button } from "./components/ui/Button";
+import { UserSettingsModal } from "./components/UserSettingsModal";
 import { Toast } from "./components/ui/Toast";
 import { TODAY, TOMORROW } from "./data/seed";
 import { isExpired } from "./lib/jwt";
@@ -38,6 +37,7 @@ export function App() {
   const [toast, setToast] = useState("");
   const [toastKind, setToastKind] = useState<"default" | "success">("default");
   const [excelOpen, setExcelOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const flash = (m: string, kind: "default" | "success" = "default") => {
     setToast(m);
@@ -109,11 +109,14 @@ export function App() {
       <Route
         path="/viajes"
         element={
-          <Shell view="trips" user={user} onLogout={handleLogout}>
+          <Shell>
             <TripsListRoute
               trips={trips}
               loading={loading}
+              user={user}
+              onLogout={handleLogout}
               onCargarExcel={() => setExcelOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
               onCopy={() => flash("Tabla copiada al portapapeles")}
               onExport={() => flash("Exportando a Excel…")}
             />
@@ -123,24 +126,45 @@ export function App() {
       <Route
         path="/viajes/nuevo"
         element={
-          <Shell view="new" user={user} onLogout={handleLogout}>
-            <NewTripRoute onSave={saveTrip} />
+          <Shell>
+            <NewTripRoute
+              user={user}
+              onLogout={handleLogout}
+              onCargarExcel={() => setExcelOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onSave={saveTrip}
+            />
           </Shell>
         }
       />
       <Route
         path="/viajes/:id"
         element={
-          <Shell view="trips" user={user} onLogout={handleLogout}>
-            <EditTripRoute trips={trips} onSave={saveTrip} onCancelTrip={cancelTrip} />
+          <Shell>
+            <EditTripRoute
+              trips={trips}
+              user={user}
+              onLogout={handleLogout}
+              onCargarExcel={() => setExcelOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onSave={saveTrip}
+              onCancelTrip={cancelTrip}
+            />
           </Shell>
         }
       />
       <Route
         path="/pasajeros"
         element={
-          <Shell view="passengers" user={user} onLogout={handleLogout}>
-            <Topbar title="Pasajeros" subtitle="Consulta de pasajeros registrados" />
+          <Shell>
+            <Topbar
+              title="Pasajeros"
+              subtitle="Consulta de pasajeros registrados"
+              user={user}
+              onLogout={handleLogout}
+              onCargarExcel={() => setExcelOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
             <PassengersList trips={trips} loading={loading} />
           </Shell>
         }
@@ -150,46 +174,28 @@ export function App() {
     </Routes>
   );
 
-  function Shell({
-    view,
-    user,
-    onLogout,
-    children,
-  }: {
-    view: "trips" | "new" | "passengers";
-    user: User;
-    onLogout: () => void;
-    children: React.ReactNode;
-  }) {
+  function Shell({ children }: { children: React.ReactNode }) {
     return (
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           height: "100vh",
           overflow: "hidden",
           background: "var(--bg-app)",
         }}
       >
-        <Sidebar
-          view={view}
-          user={user}
-          onLogout={onLogout}
-          onCargarExcel={() => setExcelOpen(true)}
-        />
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {children}
-        </div>
+        {children}
         <ExcelUploadModal
           open={excelOpen}
           onClose={() => setExcelOpen(false)}
           onConfirm={(n) => flash(`${n} viajes sincronizados con Central`)}
+        />
+        <UserSettingsModal
+          open={settingsOpen}
+          user={user}
+          onClose={() => setSettingsOpen(false)}
+          onSave={() => flash("Preferencias guardadas", "success")}
         />
         <Toast msg={toast} kind={toastKind} />
       </div>
@@ -197,16 +203,25 @@ export function App() {
   }
 }
 
+interface RouteCommonProps {
+  user: User;
+  onLogout: () => void;
+  onCargarExcel: () => void;
+  onOpenSettings: () => void;
+}
+
 function TripsListRoute({
   trips,
   loading,
+  user,
+  onLogout,
   onCargarExcel,
+  onOpenSettings,
   onCopy,
   onExport,
-}: {
+}: RouteCommonProps & {
   trips: Trip[];
   loading: boolean;
-  onCargarExcel: () => void;
   onCopy: () => void;
   onExport: () => void;
 }) {
@@ -223,16 +238,10 @@ function TripsListRoute({
             ? "Cargando…"
             : `${todayCount} para hoy · ${tomorrowCount} para mañana`
         }
-        actions={
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-            <Button kind="primary" icon="upload" onClick={onCargarExcel}>
-              Cargar Excel
-            </Button>
-            <Button kind="primary" icon="plus" onClick={() => navigate("/viajes/nuevo")}>
-              Nuevo viaje
-            </Button>
-          </div>
-        }
+        user={user}
+        onLogout={onLogout}
+        onCargarExcel={onCargarExcel}
+        onOpenSettings={onOpenSettings}
       />
       <TripsList
         trips={trips}
@@ -245,14 +254,25 @@ function TripsListRoute({
 }
 
 function NewTripRoute({
+  user,
+  onLogout,
+  onCargarExcel,
+  onOpenSettings,
   onSave,
-}: {
+}: RouteCommonProps & {
   onSave: (t: Trip, mode: "new" | "edit") => Promise<Trip>;
 }) {
   const navigate = useNavigate();
   return (
     <>
-      <Topbar title="Nuevo viaje" subtitle="Completá los datos en 4 pasos." />
+      <Topbar
+        title="Nuevo viaje"
+        subtitle="Completá los datos en 4 pasos."
+        user={user}
+        onLogout={onLogout}
+        onCargarExcel={onCargarExcel}
+        onOpenSettings={onOpenSettings}
+      />
       <TripWizard
         mode="new"
         onSave={async (t) => {
@@ -267,9 +287,13 @@ function NewTripRoute({
 
 function EditTripRoute({
   trips,
+  user,
+  onLogout,
+  onCargarExcel,
+  onOpenSettings,
   onSave,
   onCancelTrip,
-}: {
+}: RouteCommonProps & {
   trips: Trip[];
   onSave: (t: Trip, mode: "new" | "edit") => Promise<Trip>;
   onCancelTrip: (t: Trip) => Promise<Trip>;
@@ -302,6 +326,10 @@ function EditTripRoute({
       <Topbar
         title={`Editar viaje ${trip.id}`}
         subtitle={`${trip.agc} · ${trip.passengers[0]?.name ?? "—"}`}
+        user={user}
+        onLogout={onLogout}
+        onCargarExcel={onCargarExcel}
+        onOpenSettings={onOpenSettings}
       />
       <TripWizard
         mode="edit"
