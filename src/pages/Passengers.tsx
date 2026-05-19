@@ -28,7 +28,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
     const map = new Map<string, PassengerRow>();
     for (const t of trips) {
       for (const p of t.passengers) {
-        const key = p.name.trim();
+        const key = `${p.firstName} ${p.lastName}`.trim();
         if (!key) continue;
         const prev = map.get(key);
         if (!prev) {
@@ -39,7 +39,9 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
         }
       }
     }
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return Array.from(map.values()).sort((a, b) =>
+      `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`),
+    );
   }, [trips]);
 
   const filtered = useMemo(() => {
@@ -49,7 +51,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
       const s = q.toLowerCase();
       r = r.filter(
         (p) =>
-          p.name.toLowerCase().includes(s) ||
+          `${p.firstName} ${p.lastName}`.toLowerCase().includes(s) ||
           p.phone.toLowerCase().includes(s) ||
           (p.email ?? "").toLowerCase().includes(s) ||
           p.agc.toLowerCase().includes(s),
@@ -138,6 +140,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
             <tr style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-app)" }}>
               {[
                 ["Nombre", null],
+                ["Apellido", null],
                 ["Teléfono", 160],
                 ["Email", null],
                 ["Agencia", 160],
@@ -164,8 +167,9 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
           </thead>
           <tbody>
             {pageRows.map((p) => (
-              <tr key={p.name}>
-                <td style={td}>{p.name}</td>
+              <tr key={`${p.firstName} ${p.lastName}`}>
+                <td style={td}>{p.firstName}</td>
+                <td style={td}>{p.lastName}</td>
                 <td style={{ ...td, fontFamily: "JetBrains Mono", fontSize: 12 }}>
                   {p.phone || "—"}
                 </td>
@@ -177,7 +181,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
             {pageRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={5}
+                  colSpan={6}
                   style={{ padding: "60px 24px", textAlign: "center", color: "var(--fg-muted)" }}
                 >
                   <div

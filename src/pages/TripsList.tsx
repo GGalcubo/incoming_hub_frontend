@@ -38,7 +38,9 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
       r = r.filter(
         (t) =>
           t.id.toLowerCase().includes(s) ||
-          t.passengers.some((p) => p.name.toLowerCase().includes(s)) ||
+          t.passengers.some((p) =>
+            `${p.firstName} ${p.lastName}`.toLowerCase().includes(s),
+          ) ||
           t.agc.toLowerCase().includes(s),
       );
     }
