@@ -88,14 +88,12 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
     ["id", "ID", 80],
     ["date", "Fecha", 90],
     ["time", "Hora", 70],
-    ["pax", "Pax", 60],
     ["cat", "Categoría", 110],
     ["ori", "Origen", null],
     ["dst", "Destino", null],
+    ["pax", "Pax", 60],
     ["est", "Estado", 130],
     ["unit", "Unidad", 90],
-    ["agc", "Agencia", 130],
-    ["ref", "Ref ext", 110],
     ["obs", "Observaciones", null],
   ];
 
@@ -353,16 +351,14 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
                 <td style={tdMono}>{t.id}</td>
                 <td style={td}>{fmtDate(t.date)}</td>
                 <td style={{ ...td, fontFeatureSettings: '"tnum" 1' }}>{t.time}</td>
-                <td style={td}>{t.pax}</td>
                 <td style={td}>{t.cat}</td>
                 <td style={td}>{t.ori}</td>
                 <td style={td}>{t.dst}</td>
+                <td style={td}>{t.pax}</td>
                 <td style={td}>
                   <Badge status={t.est} />
                 </td>
                 <td style={tdMono}>{t.unit || "—"}</td>
-                <td style={td}>{t.agc}</td>
-                <td style={tdMono}>{t.ref}</td>
                 <td
                   style={td}
                   onClick={(e) => {
@@ -396,7 +392,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
             {filtered.length === 0 && (
               <tr>
                 <td
-                  colSpan={12}
+                  colSpan={10}
                   style={{ padding: "60px 24px", textAlign: "center", color: "var(--fg-muted)" }}
                 >
                   <div
