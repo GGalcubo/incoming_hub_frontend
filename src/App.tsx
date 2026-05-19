@@ -325,7 +325,11 @@ function EditTripRoute({
     <>
       <Topbar
         title={`Editar viaje ${trip.id}`}
-        subtitle={`${trip.agc} · ${trip.passengers[0]?.name ?? "—"}`}
+        subtitle={`${trip.agc} · ${
+          trip.passengers[0]
+            ? `${trip.passengers[0].firstName} ${trip.passengers[0].lastName}`.trim() || "—"
+            : "—"
+        }`}
         user={user}
         onLogout={onLogout}
         onCargarExcel={onCargarExcel}

@@ -11,10 +11,9 @@ export type TripStatus =
 export type LegType = "in" | "out" | "otro" | "disposicion";
 
 export interface Passenger {
-  name: string;
+  firstName: string;
+  lastName: string;
   phone: string;
-  dni: string;
-  luggage: number;
   email?: string;
 }
 

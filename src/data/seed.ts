@@ -47,18 +47,18 @@ export const TODAY = fmt(today);
 export const TOMORROW = fmt(new Date(today.getTime() + 86400000));
 
 const PAX_POOL: Passenger[] = [
-  { name: "M. Álvarez", phone: "+54 11 5523-7711", dni: "31.402.118", luggage: 2, email: "m.alvarez@example.com" },
-  { name: "L. Soto", phone: "+54 11 4471-3320", dni: "34.221.099", luggage: 1, email: "l.soto@example.com" },
-  { name: "J. Pereyra", phone: "+54 11 6612-4421", dni: "29.118.770", luggage: 1, email: "j.pereyra@example.com" },
-  { name: "R. Méndez", phone: "+54 11 4490-0125", dni: "36.554.221", luggage: 2, email: "r.mendez@example.com" },
-  { name: "K. Núñez", phone: "+54 11 5887-2210", dni: "38.110.402", luggage: 0, email: "k.nunez@example.com" },
-  { name: "S. Vega", phone: "+54 11 3344-2280", dni: "30.998.105", luggage: 3, email: "s.vega@example.com" },
-  { name: "L. Bravo", phone: "+54 11 5021-4477", dni: "35.776.901", luggage: 2, email: "l.bravo@example.com" },
-  { name: "C. Ibarra", phone: "+54 11 6798-1140", dni: "33.220.886", luggage: 1, email: "c.ibarra@example.com" },
-  { name: "F. Roldán", phone: "+54 11 5410-9921", dni: "37.005.118", luggage: 1, email: "f.roldan@example.com" },
-  { name: "P. Quiroga", phone: "+54 11 4612-7755", dni: "32.401.504", luggage: 2, email: "p.quiroga@example.com" },
-  { name: "D. Sánchez", phone: "+54 11 5588-3902", dni: "28.776.310", luggage: 1, email: "d.sanchez@example.com" },
-  { name: "A. Funes", phone: "+54 11 6701-2240", dni: "31.882.045", luggage: 0, email: "a.funes@example.com" },
+  { firstName: "Martín", lastName: "Álvarez", phone: "+54 11 5523-7711", email: "m.alvarez@example.com" },
+  { firstName: "Lucía", lastName: "Soto", phone: "+54 11 4471-3320", email: "l.soto@example.com" },
+  { firstName: "Javier", lastName: "Pereyra", phone: "+54 11 6612-4421", email: "j.pereyra@example.com" },
+  { firstName: "Rocío", lastName: "Méndez", phone: "+54 11 4490-0125", email: "r.mendez@example.com" },
+  { firstName: "Karina", lastName: "Núñez", phone: "+54 11 5887-2210", email: "k.nunez@example.com" },
+  { firstName: "Sebastián", lastName: "Vega", phone: "+54 11 3344-2280", email: "s.vega@example.com" },
+  { firstName: "Laura", lastName: "Bravo", phone: "+54 11 5021-4477", email: "l.bravo@example.com" },
+  { firstName: "Camila", lastName: "Ibarra", phone: "+54 11 6798-1140", email: "c.ibarra@example.com" },
+  { firstName: "Federico", lastName: "Roldán", phone: "+54 11 5410-9921", email: "f.roldan@example.com" },
+  { firstName: "Paula", lastName: "Quiroga", phone: "+54 11 4612-7755", email: "p.quiroga@example.com" },
+  { firstName: "Diego", lastName: "Sánchez", phone: "+54 11 5588-3902", email: "d.sanchez@example.com" },
+  { firstName: "Andrés", lastName: "Funes", phone: "+54 11 6701-2240", email: "a.funes@example.com" },
 ];
 
 const mk = (

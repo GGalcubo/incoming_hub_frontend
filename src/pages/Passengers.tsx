@@ -28,7 +28,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
     const map = new Map<string, PassengerRow>();
     for (const t of trips) {
       for (const p of t.passengers) {
-        const key = (p.dni || p.name).trim();
+        const key = p.name.trim();
         if (!key) continue;
         const prev = map.get(key);
         if (!prev) {
@@ -50,7 +50,6 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
       r = r.filter(
         (p) =>
           p.name.toLowerCase().includes(s) ||
-          p.dni.toLowerCase().includes(s) ||
           p.phone.toLowerCase().includes(s) ||
           (p.email ?? "").toLowerCase().includes(s) ||
           p.agc.toLowerCase().includes(s),
@@ -123,7 +122,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
               setQ(e.target.value);
               resetPage();
             }}
-            placeholder="Buscar por nombre, DNI, email o teléfono"
+            placeholder="Buscar por nombre, email o teléfono"
             style={{ paddingLeft: 34 }}
           />
         </div>
@@ -141,7 +140,6 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
                 ["Nombre", null],
                 ["Teléfono", 160],
                 ["Email", null],
-                ["DNI", 130],
                 ["Agencia", 160],
                 ["Fecha creado", 130],
               ].map(([l, w]) => (
@@ -166,13 +164,12 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
           </thead>
           <tbody>
             {pageRows.map((p) => (
-              <tr key={p.dni || p.name}>
+              <tr key={p.name}>
                 <td style={td}>{p.name}</td>
                 <td style={{ ...td, fontFamily: "JetBrains Mono", fontSize: 12 }}>
                   {p.phone || "—"}
                 </td>
                 <td style={td}>{p.email || <span style={{ color: "var(--fg-disabled)" }}>—</span>}</td>
-                <td style={tdMono}>{p.dni || "—"}</td>
                 <td style={td}>{p.agc}</td>
                 <td style={{ ...td, fontFeatureSettings: '"tnum" 1' }}>{fmtDate(p.createdAt)}</td>
               </tr>
@@ -180,7 +177,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
             {pageRows.length === 0 && (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={5}
                   style={{ padding: "60px 24px", textAlign: "center", color: "var(--fg-muted)" }}
                 >
                   <div
@@ -264,13 +261,6 @@ const td: CSSProperties = {
   verticalAlign: "middle",
   whiteSpace: "nowrap",
 };
-const tdMono: CSSProperties = {
-  ...td,
-  fontFamily: "JetBrains Mono",
-  fontSize: 12,
-  color: "var(--fg-muted)",
-};
-
 const paginationBtn: CSSProperties = {
   width: 32,
   height: 32,

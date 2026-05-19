@@ -42,7 +42,7 @@ const EMPTY_TRIP: Trip = {
   time: "",
   cat: "",
   legs: [{ type: "in", origin: "", destination: "", flight: "", obs: "" }],
-  passengers: [{ name: "", phone: "", dni: "", luggage: 0 }],
+  passengers: [{ firstName: "", lastName: "", phone: "" }],
   obs: "",
   est: "PENDIENTE",
   costs: { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 },
@@ -55,23 +55,18 @@ const EMPTY_TRIP: Trip = {
 };
 
 interface StepDef {
-  id: "datos" | "tramos" | "pasajeros" | "costos" | "historial" | "resumen";
+  id: "viaje" | "tramos" | "costos" | "historial" | "resumen";
   label: string;
 }
 
 export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripWizardProps) {
   const isMobile = useIsMobile();
   const stepsBase: StepDef[] = [
-    { id: "datos", label: "Datos" },
-    { id: "tramos", label: "Tramos" },
-    { id: "pasajeros", label: "Pasajeros" },
-    ...(mode === "edit"
-      ? ([
-          { id: "costos", label: "Costos" },
-          { id: "historial", label: "Historial" },
-        ] as StepDef[])
-      : []),
+    { id: "viaje", label: "Viaje" },
+    { id: "tramos", label: "Destinos" },
+    { id: "costos", label: "Costos" },
     { id: "resumen", label: "Resumen" },
+    { id: "historial", label: "Historial" },
   ];
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -88,22 +83,21 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
 
   const validateStep = () => {
     const e: Record<string, string> = {};
-    if (step.id === "datos") {
+    if (step.id === "viaje") {
       if (!t.solicitante) e.solicitante = "Ingresá el solicitante";
       if (!t.date) e.date = "La fecha es obligatoria";
       if (!t.time) e.time = "La hora es obligatoria";
       if (!t.cat) e.cat = "La categoría es obligatoria";
+      t.passengers.forEach((p, i) => {
+        if (!p.firstName) e[`pax-${i}-firstName`] = "Ingresá el nombre";
+        if (!p.lastName) e[`pax-${i}-lastName`] = "Ingresá el apellido";
+        if (p.phone && !/^[+\d\s-]{8,20}$/.test(p.phone)) e[`pax-${i}-phone`] = "Teléfono inválido";
+      });
     }
     if (step.id === "tramos") {
       t.legs.forEach((leg, i) => {
         if (!leg.origin) e[`leg-${i}-origin`] = "Origen requerido";
         if (!leg.destination) e[`leg-${i}-destination`] = "Destino requerido";
-      });
-    }
-    if (step.id === "pasajeros") {
-      t.passengers.forEach((p, i) => {
-        if (!p.name) e[`pax-${i}-name`] = "Ingresá el nombre";
-        if (p.phone && !/^[+\d\s-]{8,20}$/.test(p.phone)) e[`pax-${i}-phone`] = "Teléfono inválido";
       });
     }
     setErrs(e);
@@ -329,11 +323,8 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             padding: cardPad,
           }}
         >
-          {step.id === "datos" && <StepDatos t={t} set={set} errs={errs} isMobile={isMobile} />}
+          {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} isMobile={isMobile} />}
           {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} isMobile={isMobile} />}
-          {step.id === "pasajeros" && (
-            <StepPasajeros t={t} set={set} errs={errs} isMobile={isMobile} />
-          )}
           {step.id === "costos" && <StepCostos t={t} />}
           {step.id === "historial" && <StepHistorial t={t} />}
           {step.id === "resumen" && <StepResumen t={t} />}
@@ -363,12 +354,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               {isMobile ? "" : "Anterior"}
             </Button>
           )}
-          {stepIdx < stepsBase.length - 1 && (
-            <Button kind="primary" size={isMobile ? "sm" : "md"} onClick={next}>
-              Siguiente <Icon name="chevright" size={isMobile ? 12 : 14} />
-            </Button>
-          )}
-          {step.id === "resumen" && (
+          {step.id === "resumen" ? (
             <Button
               kind="primary"
               icon="check"
@@ -377,7 +363,11 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             >
               {mode === "edit" ? "Guardar" : "Guardar viaje"}
             </Button>
-          )}
+          ) : stepIdx < stepsBase.length - 1 ? (
+            <Button kind="primary" size={isMobile ? "sm" : "md"} onClick={next}>
+              Siguiente <Icon name="chevright" size={isMobile ? 12 : 14} />
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -436,8 +426,16 @@ interface StepProps {
   isMobile: boolean;
 }
 
-function StepDatos({ t, set, errs, isMobile }: StepProps) {
+function StepViaje({ t, set, errs, isMobile }: StepProps) {
   const grid: CSSProperties = isMobile ? grid1 : grid2;
+  const updatePax = (i: number, patch: Partial<Passenger>) =>
+    set({ passengers: t.passengers.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
+  const addPax = () => {
+    if (t.passengers.length < 4)
+      set({ passengers: [...t.passengers, { firstName: "", lastName: "", phone: "" }] });
+  };
+  const rmPax = (i: number) => set({ passengers: t.passengers.filter((_, j) => j !== i) });
+
   return (
     <>
       <h3 style={h2}>Datos principales</h3>
@@ -469,6 +467,107 @@ function StepDatos({ t, set, errs, isMobile }: StepProps) {
           </Select>
         </Field>
       </div>
+
+      <h3 style={{ ...h2, marginTop: 24 }}>Pasajeros</h3>
+      <p style={p}>Hasta 4 pasajeros nominales. Para grupos más grandes, adjuntá un Excel.</p>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: isMobile ? "stretch" : "center",
+          flexDirection: isMobile ? "column" : "row",
+          gap: isMobile ? 10 : 14,
+          marginBottom: 14,
+        }}
+      >
+        <Field label="Cantidad total" style={{ width: isMobile ? "100%" : 160 }}>
+          <Input type="number" min={1} value={t.passengers.length} onChange={() => {}} disabled />
+        </Field>
+        <Button
+          icon="excel"
+          style={{
+            alignSelf: isMobile ? "stretch" : "flex-end",
+            justifyContent: isMobile ? "center" : undefined,
+          }}
+        >
+          Adjuntar Excel de grupo
+        </Button>
+      </div>
+
+      {t.passengers.map((px, i) => (
+        <div
+          key={i}
+          style={{
+            border: "1px solid var(--border-subtle)",
+            borderRadius: 12,
+            padding: isMobile ? 14 : 18,
+            marginTop: 12,
+            background: "var(--bg-app)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ font: "600 13px/18px Heming", color: "var(--fg-primary)" }}>
+              Pasajero {i + 1}
+            </div>
+            {t.passengers.length > 1 && (
+              <button
+                onClick={() => rmPax(i)}
+                style={{
+                  background: "transparent",
+                  border: "none",
+                  color: "var(--danger-fg)",
+                  cursor: "pointer",
+                  font: "500 13px/18px Heming",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                <Icon name="trash" size={14} />
+                Quitar
+              </button>
+            )}
+          </div>
+          <div style={grid}>
+            <Field label="Nombre" required error={errs[`pax-${i}-firstName`]}>
+              <Input
+                value={px.firstName}
+                onChange={(e) => updatePax(i, { firstName: e.target.value })}
+              />
+            </Field>
+            <Field label="Apellido" required error={errs[`pax-${i}-lastName`]}>
+              <Input
+                value={px.lastName}
+                onChange={(e) => updatePax(i, { lastName: e.target.value })}
+              />
+            </Field>
+            <Field label="Teléfono" error={errs[`pax-${i}-phone`]} span={isMobile ? 1 : 2}>
+              <Input
+                value={px.phone}
+                onChange={(e) => updatePax(i, { phone: e.target.value })}
+                placeholder="+54 11 …"
+              />
+            </Field>
+          </div>
+        </div>
+      ))}
+
+      <Button
+        kind="ghost"
+        icon="plus"
+        disabled={t.passengers.length >= 4}
+        onClick={addPax}
+        style={{ marginTop: 14 }}
+      >
+        Agregar pasajero {t.passengers.length >= 4 && "(máx 4)"}
+      </Button>
     </>
   );
 }
@@ -519,8 +618,8 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
 
   return (
     <>
-      <h3 style={h2}>Tramos del viaje</h3>
-      <p style={p}>Agregá uno o más tramos. Para tramos in/out se pide número de vuelo.</p>
+      <h3 style={h2}>Destinos del viaje</h3>
+      <p style={p}>Agregá uno o más destinos. Para llegadas/salidas se pide número de vuelo.</p>
 
       {t.legs.map((leg, i) => (
         <div
@@ -542,7 +641,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
             }}
           >
             <div style={{ font: "600 13px/18px Heming", color: "var(--fg-primary)" }}>
-              Tramo {i + 1}
+              Destino {i + 1}
             </div>
             {t.legs.length > 1 && (
               <button
@@ -616,7 +715,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
               label="Origen"
               required
               error={errs[`leg-${i}-origin`]}
-              hint={i > 0 ? "Heredado del destino del tramo anterior" : undefined}
+              hint={i > 0 ? "Heredado del destino anterior" : undefined}
             >
               {i === 0 ? (
                 <PlaceCombo
@@ -667,7 +766,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
       ))}
 
       <Button kind="ghost" icon="plus" onClick={addLeg} style={{ marginTop: 14 }}>
-        Agregar tramo
+        Agregar destino
       </Button>
 
       <div style={{ marginTop: 18 }}>
@@ -1165,124 +1264,6 @@ function LegMap({ leg, onPickOrigin, onPickDestination, lockOrigin = false }: Le
   );
 }
 
-function StepPasajeros({ t, set, errs, isMobile }: StepProps) {
-  const grid: CSSProperties = isMobile ? grid1 : grid2;
-  const updatePax = (i: number, patch: Partial<Passenger>) =>
-    set({ passengers: t.passengers.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
-  const addPax = () => {
-    if (t.passengers.length < 4)
-      set({ passengers: [...t.passengers, { name: "", phone: "", dni: "", luggage: 0 }] });
-  };
-  const rmPax = (i: number) => set({ passengers: t.passengers.filter((_, j) => j !== i) });
-
-  return (
-    <>
-      <h3 style={h2}>Pasajeros</h3>
-      <p style={p}>Hasta 4 pasajeros nominales. Para grupos más grandes, adjuntá un Excel.</p>
-
-      <div
-        style={{
-          display: "flex",
-          alignItems: isMobile ? "stretch" : "center",
-          flexDirection: isMobile ? "column" : "row",
-          gap: isMobile ? 10 : 14,
-          marginBottom: 14,
-        }}
-      >
-        <Field label="Cantidad total" style={{ width: isMobile ? "100%" : 160 }}>
-          <Input type="number" min={1} value={t.passengers.length} onChange={() => {}} disabled />
-        </Field>
-        <Button
-          icon="excel"
-          style={{
-            alignSelf: isMobile ? "stretch" : "flex-end",
-            justifyContent: isMobile ? "center" : undefined,
-          }}
-        >
-          Adjuntar Excel de grupo
-        </Button>
-      </div>
-
-      {t.passengers.map((px, i) => (
-        <div
-          key={i}
-          style={{
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 12,
-            padding: isMobile ? 14 : 18,
-            marginTop: 12,
-            background: "var(--bg-app)",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 14,
-            }}
-          >
-            <div style={{ font: "600 13px/18px Heming", color: "var(--fg-primary)" }}>
-              Pasajero {i + 1}
-            </div>
-            {t.passengers.length > 1 && (
-              <button
-                onClick={() => rmPax(i)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "var(--danger-fg)",
-                  cursor: "pointer",
-                  font: "500 13px/18px Heming",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <Icon name="trash" size={14} />
-                Quitar
-              </button>
-            )}
-          </div>
-          <div style={grid}>
-            <Field label="Nombre y apellido" required error={errs[`pax-${i}-name`]}>
-              <Input value={px.name} onChange={(e) => updatePax(i, { name: e.target.value })} />
-            </Field>
-            <Field label="Teléfono" error={errs[`pax-${i}-phone`]}>
-              <Input
-                value={px.phone}
-                onChange={(e) => updatePax(i, { phone: e.target.value })}
-                placeholder="+54 11 …"
-              />
-            </Field>
-            <Field label="DNI">
-              <Input value={px.dni} onChange={(e) => updatePax(i, { dni: e.target.value })} />
-            </Field>
-            <Field label="Valijas">
-              <Input
-                type="number"
-                min={0}
-                value={px.luggage}
-                onChange={(e) => updatePax(i, { luggage: +e.target.value })}
-              />
-            </Field>
-          </div>
-        </div>
-      ))}
-
-      <Button
-        kind="ghost"
-        icon="plus"
-        disabled={t.passengers.length >= 4}
-        onClick={addPax}
-        style={{ marginTop: 14 }}
-      >
-        Agregar pasajero {t.passengers.length >= 4 && "(máx 4)"}
-      </Button>
-    </>
-  );
-}
-
 function StepCostos({ t }: { t: Trip }) {
   const c = t.costs;
   const row = (k: keyof typeof c, l: string) => (
@@ -1359,10 +1340,36 @@ function StepCostos({ t }: { t: Trip }) {
 }
 
 function StepHistorial({ t }: { t: Trip }) {
+  const mockEntries =
+    t.history.length > 0
+      ? t.history
+      : [
+          { ts: "—", user: "—", action: "Creación del viaje" },
+          { ts: "—", user: "—", action: "Confirmación de pasajero" },
+          { ts: "—", user: "—", action: "Asignación de unidad" },
+        ];
   return (
     <>
-      <h3 style={h2}>Historial</h3>
-      <p style={p}>Auditoría de eventos del viaje. Solo lectura.</p>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <h3 style={{ ...h2, margin: 0 }}>Historial</h3>
+        <span
+          style={{
+            font: "500 11px/14px Heming",
+            letterSpacing: ".06em",
+            textTransform: "uppercase",
+            color: "var(--fg-muted)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border-subtle)",
+            padding: "2px 8px",
+            borderRadius: 9999,
+          }}
+        >
+          Mockup · A definir
+        </span>
+      </div>
+      <p style={p}>
+        Vista previa del historial de eventos. La auditoría real se va a definir más adelante.
+      </p>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
         <thead>
           <tr>
@@ -1372,7 +1379,7 @@ function StepHistorial({ t }: { t: Trip }) {
           </tr>
         </thead>
         <tbody>
-          {t.history.map((h, i) => (
+          {mockEntries.map((h, i) => (
             <tr key={i}>
               <td style={{ ...tdHist, fontFamily: "JetBrains Mono" }}>{h.ts}</td>
               <td style={tdHist}>{h.user}</td>
@@ -1419,7 +1426,7 @@ function StepResumen({ t }: { t: Trip }) {
         <Item l="Fecha y hora" v={`${t.date} · ${t.time || "—"}`} />
         <Item l="Categoría" v={t.cat} />
         <Item
-          l="Tramos"
+          l="Destinos"
           v={
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {t.legs.map((l, i) => (
@@ -1457,13 +1464,15 @@ function StepResumen({ t }: { t: Trip }) {
           l="Pasajeros"
           v={
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {t.passengers.map((p, i) => (
-                <span key={i}>
-                  {p.name || "—"}
-                  {p.phone && ` · ${p.phone}`}
-                  {p.luggage > 0 && ` · ${p.luggage} valija(s)`}
-                </span>
-              ))}
+              {t.passengers.map((p, i) => {
+                const full = `${p.firstName} ${p.lastName}`.trim();
+                return (
+                  <span key={i}>
+                    {full || "—"}
+                    {p.phone && ` · ${p.phone}`}
+                  </span>
+                );
+              })}
             </div>
           }
         />
