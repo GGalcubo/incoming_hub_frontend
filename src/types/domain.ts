@@ -79,16 +79,21 @@ export interface User {
   exp?: number;
 }
 
-export interface ExcelRow {
-  row: number;
-  date: string;
-  time: string;
-  pax: number;
-  cat: string;
-  agency: string;
-  passenger: string;
+export interface ExcelLeg {
   origin: string;
   destination: string;
+  flight?: string;
+  type?: LegType;
+}
+
+export interface ExcelRow {
+  row: number;
+  tripRef: string;
+  date: string;
+  time: string;
+  cat: string;
+  passengers: string[];
+  legs: ExcelLeg[];
   warnings: string[];
   errors: string[];
 }

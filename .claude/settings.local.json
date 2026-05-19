@@ -30,7 +30,11 @@
       "mcp__Claude_in_Chrome__list_connected_browsers",
       "mcp__Claude_in_Chrome__select_browser",
       "mcp__Claude_in_Chrome__computer",
-      "mcp__Claude_in_Chrome__javascript_tool"
+      "mcp__Claude_in_Chrome__javascript_tool",
+      "Skill(anthropic-skills:xlsx)",
+      "Skill(anthropic-skills:xlsx:*)",
+      "Bash(python -c \"import openpyxl; print\\(openpyxl.__version__\\)\")",
+      "Bash(python C:/caltamirano/logos2/scripts/make_plantilla.py)"
     ]
   }
 }

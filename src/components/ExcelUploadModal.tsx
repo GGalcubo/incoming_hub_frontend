@@ -20,6 +20,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   const [rows, setRows] = useState<ExcelRow[]>([]);
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const reset = () => {
     setStage("pick");
@@ -27,11 +28,10 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setRows([]);
     setSelected({});
     setSubmitting(false);
+    setDragOver(false);
   };
 
-  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  const handleFile = async (f: File) => {
     setFilename(f.name);
     const parsed = await api.parseExcel(f);
     setRows(parsed);
@@ -41,6 +41,21 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     });
     setSelected(sel);
     setStage("validate");
+  };
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    await handleFile(f);
+  };
+
+  const onDrop = async (e: React.DragEvent<HTMLLabelElement>) => {
+    e.preventDefault();
+    setDragOver(false);
+    const f = e.dataTransfer.files?.[0];
+    if (!f) return;
+    if (!/\.(xlsx|xls)$/i.test(f.name)) return;
+    await handleFile(f);
   };
 
   const summary = (() => {
@@ -101,7 +116,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         reset();
       }}
       title="Cargar viajes por Excel"
-      width={780}
+      width={1040}
       footer={footer}
     >
       {stage === "pick" && (
@@ -112,19 +127,37 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
           </div>
           <label
             style={{
-              border: "1.5px dashed var(--border-strong)",
+              border: `1.5px dashed ${dragOver ? "var(--brand-500)" : "var(--border-strong)"}`,
               borderRadius: 12,
               padding: 36,
               textAlign: "center",
-              background: "var(--bg-app)",
+              background: dragOver ? "var(--brand-50, var(--bg-app))" : "var(--bg-app)",
               cursor: "pointer",
               display: "flex",
               flexDirection: "column",
               gap: 8,
               alignItems: "center",
+              transition: "border-color 120ms, background 120ms",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand-500)")}
-            onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--border-strong)")}
+            onMouseEnter={(e) => {
+              if (!dragOver) e.currentTarget.style.borderColor = "var(--brand-500)";
+            }}
+            onMouseLeave={(e) => {
+              if (!dragOver) e.currentTarget.style.borderColor = "var(--border-strong)";
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!dragOver) setDragOver(true);
+            }}
+            onDragEnter={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={(e) => {
+              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+              setDragOver(false);
+            }}
+            onDrop={onDrop}
           >
             <Icon name="upload" size={28} style={{ color: "var(--fg-muted)" }} />
             <div style={{ font: "600 14px/20px Heming", color: "var(--fg-primary)" }}>
@@ -136,7 +169,8 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
           </label>
           <a
-            href="#"
+            href="/plantilla-viajes.xlsx"
+            download
             style={{
               font: "500 13px/18px Heming",
               color: "var(--fg-link)",
@@ -174,11 +208,16 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             style={{
               border: "1px solid var(--border-subtle)",
               borderRadius: 12,
-              overflow: "hidden",
+              overflow: "auto",
             }}
           >
             <table
-              style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Heming" }}
+              style={{
+                width: "100%",
+                minWidth: 940,
+                borderCollapse: "collapse",
+                font: "400 13px/18px Heming",
+              }}
             >
               <thead style={{ background: "var(--bg-app)" }}>
                 <tr>
@@ -199,10 +238,11 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     />
                   </th>
                   <th style={th}>Fila</th>
+                  <th style={th}>Viaje</th>
                   <th style={th}>Fecha · Hora</th>
-                  <th style={th}>Pasajero</th>
-                  <th style={th}>Origen → Destino</th>
-                  <th style={th}>Agencia</th>
+                  <th style={th}>Categoría</th>
+                  <th style={th}>Pasajeros</th>
+                  <th style={th}>Tramos</th>
                   <th style={th}>Estado de validación</th>
                 </tr>
               </thead>
@@ -236,18 +276,54 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     >
                       {r.row}
                     </td>
+                    <td
+                      style={{
+                        ...td,
+                        fontFamily: "JetBrains Mono",
+                        fontSize: 12,
+                        color: "var(--fg-secondary)",
+                      }}
+                    >
+                      {r.tripRef || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
+                    </td>
                     <td style={{ ...td, color: "var(--fg-secondary)" }}>
                       {r.date} ·{" "}
                       {r.time || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
                     </td>
                     <td style={{ ...td, color: "var(--fg-secondary)" }}>
-                      {r.passenger || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
+                      {r.cat || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
                     </td>
-                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
-                      {r.origin} → {r.destination}
+                    <td style={{ ...tdWrap, color: "var(--fg-secondary)" }}>
+                      {r.passengers.length === 0 ? (
+                        <span style={{ color: "var(--fg-disabled)" }}>—</span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {r.passengers.map((p, i) => (
+                            <span key={i}>{p}</span>
+                          ))}
+                        </div>
+                      )}
                     </td>
-                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
-                      {r.agency || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
+                    <td style={{ ...tdWrap, color: "var(--fg-secondary)" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        {r.legs.map((l, i) => (
+                          <span key={i}>
+                            {l.origin} → {l.destination}
+                            {l.flight && (
+                              <span
+                                style={{
+                                  color: "var(--fg-muted)",
+                                  fontFamily: "JetBrains Mono",
+                                  fontSize: 12,
+                                  marginLeft: 6,
+                                }}
+                              >
+                                · {l.flight}
+                              </span>
+                            )}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td style={td}>
                       {r.errors.length > 0 ? (
@@ -359,4 +435,9 @@ const td: CSSProperties = {
   borderBottom: "1px solid var(--border-subtle)",
   verticalAlign: "middle",
   whiteSpace: "nowrap",
+};
+const tdWrap: CSSProperties = {
+  padding: "10px 12px",
+  borderBottom: "1px solid var(--border-subtle)",
+  verticalAlign: "top",
 };
