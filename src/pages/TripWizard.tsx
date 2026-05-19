@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { AGENCIES, CATEGORIES, PLACES, TODAY } from "../data/seed";
+import { CATEGORIES, PLACES, TODAY } from "../data/seed";
 import type { Leg, Passenger, Trip } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -40,7 +40,7 @@ const EMPTY_TRIP: Trip = {
   solicitante: "",
   date: TODAY,
   time: "",
-  cat: "Ejecutivo",
+  cat: "",
   legs: [{ type: "in", origin: "", destination: "", flight: "", obs: "" }],
   passengers: [{ name: "", phone: "", dni: "", luggage: 0 }],
   obs: "",
@@ -89,10 +89,10 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const validateStep = () => {
     const e: Record<string, string> = {};
     if (step.id === "datos") {
-      if (!t.agc) e.agc = "La agencia es obligatoria";
       if (!t.solicitante) e.solicitante = "Ingresá el solicitante";
       if (!t.date) e.date = "La fecha es obligatoria";
       if (!t.time) e.time = "La hora es obligatoria";
+      if (!t.cat) e.cat = "La categoría es obligatoria";
     }
     if (step.id === "tramos") {
       t.legs.forEach((leg, i) => {
@@ -369,18 +369,14 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             </Button>
           )}
           {step.id === "resumen" && (
-            <>
-              {!isMobile && <Button icon="pdf">Exportar PDF</Button>}
-              {!isMobile && <Button icon="excel">Exportar Excel</Button>}
-              <Button
-                kind="primary"
-                icon="check"
-                size={isMobile ? "sm" : "md"}
-                onClick={() => onSave(t)}
-              >
-                {mode === "edit" ? "Guardar" : "Guardar viaje"}
-              </Button>
-            </>
+            <Button
+              kind="primary"
+              icon="check"
+              size={isMobile ? "sm" : "md"}
+              onClick={() => onSave(t)}
+            >
+              {mode === "edit" ? "Guardar" : "Guardar viaje"}
+            </Button>
           )}
         </div>
       </div>
@@ -446,15 +442,7 @@ function StepDatos({ t, set, errs, isMobile }: StepProps) {
     <>
       <h3 style={h2}>Datos principales</h3>
       <div style={grid}>
-        <Field label="Agencia" required error={errs.agc}>
-          <Select value={t.agc} onChange={(e) => set({ agc: e.target.value })}>
-            <option value="">Seleccioná una agencia</option>
-            {AGENCIES.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Solicitante" required error={errs.solicitante}>
+        <Field label="Solicitante" required error={errs.solicitante} span={isMobile ? 1 : 2}>
           <Input
             value={t.solicitante ?? ""}
             onChange={(e) => set({ solicitante: e.target.value })}
@@ -467,8 +455,14 @@ function StepDatos({ t, set, errs, isMobile }: StepProps) {
         <Field label="Hora" required error={errs.time}>
           <Input type="time" value={t.time} onChange={(e) => set({ time: e.target.value })} />
         </Field>
-        <Field label="Categoría de servicio" span={isMobile ? 1 : 2}>
+        <Field
+          label="Categoría de servicio"
+          required
+          error={errs.cat}
+          span={isMobile ? 1 : 2}
+        >
           <Select value={t.cat} onChange={(e) => set({ cat: e.target.value })}>
+            <option value="">—</option>
             {CATEGORIES.map((c) => (
               <option key={c}>{c}</option>
             ))}
@@ -481,11 +475,47 @@ function StepDatos({ t, set, errs, isMobile }: StepProps) {
 
 function StepTramos({ t, set, errs, isMobile }: StepProps) {
   const grid: CSSProperties = isMobile ? grid1 : grid2;
-  const updateLeg = (i: number, patch: Partial<Leg>) =>
-    set({ legs: t.legs.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
-  const addLeg = () =>
-    set({ legs: [...t.legs, { type: "in", origin: "", destination: "", flight: "", obs: "" }] });
-  const rmLeg = (i: number) => set({ legs: t.legs.filter((_, j) => j !== i) });
+  const updateLeg = (i: number, patch: Partial<Leg>) => {
+    const next = t.legs.map((l, j) => (j === i ? { ...l, ...patch } : l));
+    if ("destination" in patch && i + 1 < next.length) {
+      next[i + 1] = {
+        ...next[i + 1],
+        origin: patch.destination ?? "",
+        originCoords: patch.destinationCoords ?? next[i].destinationCoords,
+      };
+    }
+    set({ legs: next });
+  };
+  const addLeg = () => {
+    const last = t.legs[t.legs.length - 1];
+    set({
+      legs: [
+        ...t.legs,
+        {
+          type: "in",
+          origin: last?.destination ?? "",
+          originCoords: last?.destinationCoords,
+          destination: "",
+          flight: "",
+          obs: "",
+        },
+      ],
+    });
+  };
+  const rmLeg = (i: number) => {
+    const next = t.legs.filter((_, j) => j !== i);
+    if (i > 0 && i < t.legs.length) {
+      const prev = next[i - 1];
+      if (next[i]) {
+        next[i] = {
+          ...next[i],
+          origin: prev.destination,
+          originCoords: prev.destinationCoords,
+        };
+      }
+    }
+    set({ legs: next });
+  };
 
   return (
     <>
@@ -537,33 +567,76 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
             <Field label="Tipo de servicio">
               <Select
                 value={leg.type}
-                onChange={(e) => updateLeg(i, { type: e.target.value as Leg["type"] })}
+                onChange={(e) => {
+                  const next = e.target.value as Leg["type"];
+                  updateLeg(i, {
+                    type: next,
+                    flight: next === "disposicion" ? "" : leg.flight,
+                    hours: next === "disposicion" ? (leg.hours ?? 1) : undefined,
+                  });
+                }}
               >
                 <option value="in">Llegada (in)</option>
                 <option value="out">Salida (out)</option>
                 <option value="otro">Otro</option>
+                <option value="disposicion">Hs disposición</option>
               </Select>
             </Field>
-            <Field label="Vuelo" hint={leg.type === "otro" ? "No aplica" : "AA995, LA4302…"}>
-              <Input
-                disabled={leg.type === "otro"}
-                value={leg.flight}
-                onChange={(e) => updateLeg(i, { flight: e.target.value })}
-                placeholder="—"
-              />
+            {leg.type === "disposicion" ? (
+              <Field label="Horas de disposición" hint="Entre 1 y 12 hs">
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  step={1}
+                  value={leg.hours ?? 1}
+                  onChange={(e) => {
+                    const raw = parseInt(e.target.value, 10);
+                    if (Number.isNaN(raw)) {
+                      updateLeg(i, { hours: undefined });
+                      return;
+                    }
+                    const clamped = Math.max(1, Math.min(12, raw));
+                    updateLeg(i, { hours: clamped });
+                  }}
+                  placeholder="1-12"
+                />
+              </Field>
+            ) : (
+              <Field label="Vuelo" hint={leg.type === "otro" ? "No aplica" : "AA995, LA4302…"}>
+                <Input
+                  disabled={leg.type === "otro"}
+                  value={leg.flight}
+                  onChange={(e) => updateLeg(i, { flight: e.target.value })}
+                  placeholder="—"
+                />
+              </Field>
+            )}
+            <Field
+              label="Origen"
+              required
+              error={errs[`leg-${i}-origin`]}
+              hint={i > 0 ? "Heredado del destino del tramo anterior" : undefined}
+            >
+              {i === 0 ? (
+                <PlaceCombo
+                  value={leg.origin}
+                  onChange={(v) => updateLeg(i, { origin: v, originCoords: undefined })}
+                  onPick={(desc, placeId) =>
+                    geocodePlaceId(placeId, (coords) => {
+                      if (coords) updateLeg(i, { origin: desc, originCoords: coords });
+                    })
+                  }
+                />
+              ) : (
+                <Input value={leg.origin} disabled placeholder="—" />
+              )}
             </Field>
-            <Field label="Origen" required error={errs[`leg-${i}-origin`]}>
-              <PlaceCombo
-                value={leg.origin}
-                onChange={(v) => updateLeg(i, { origin: v, originCoords: undefined })}
-                onPick={(desc, placeId) =>
-                  geocodePlaceId(placeId, (coords) => {
-                    if (coords) updateLeg(i, { origin: desc, originCoords: coords });
-                  })
-                }
-              />
-            </Field>
-            <Field label="Destino" required error={errs[`leg-${i}-destination`]}>
+            <Field
+              label={i === 0 ? "Destino" : `Destino ${i + 1}`}
+              required
+              error={errs[`leg-${i}-destination`]}
+            >
               <PlaceCombo
                 value={leg.destination}
                 onChange={(v) => updateLeg(i, { destination: v, destinationCoords: undefined })}
@@ -579,6 +652,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
               <div style={{ gridColumn: isMobile ? "span 1" : "span 2" }}>
                 <LegMap
                   leg={leg}
+                  lockOrigin={i > 0}
                   onPickOrigin={(text, coords) =>
                     updateLeg(i, { origin: text, originCoords: coords })
                   }
@@ -588,13 +662,6 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
                 />
               </div>
             )}
-            <Field label="Observaciones del tramo" span={isMobile ? 1 : 2}>
-              <Textarea
-                value={leg.obs}
-                onChange={(e) => updateLeg(i, { obs: e.target.value })}
-                placeholder="Ej. Cartel: Sr. Álvarez"
-              />
-            </Field>
           </div>
         </div>
       ))}
@@ -602,6 +669,16 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
       <Button kind="ghost" icon="plus" onClick={addLeg} style={{ marginTop: 14 }}>
         Agregar tramo
       </Button>
+
+      <div style={{ marginTop: 18 }}>
+        <Field label="Observaciones">
+          <Textarea
+            value={t.obs}
+            onChange={(e) => set({ obs: e.target.value })}
+            placeholder="Ej. Cartel: Sr. Álvarez"
+          />
+        </Field>
+      </div>
     </>
   );
 }
@@ -858,19 +935,24 @@ interface LegMapProps {
   leg: Leg;
   onPickOrigin: (text: string, coords: GMapsLatLngLiteral) => void;
   onPickDestination: (text: string, coords: GMapsLatLngLiteral) => void;
+  lockOrigin?: boolean;
 }
 
-function LegMap({ leg, onPickOrigin, onPickDestination }: LegMapProps) {
+function LegMap({ leg, onPickOrigin, onPickDestination, lockOrigin = false }: LegMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GMapsMap | null>(null);
   const originMarkerRef = useRef<GMapsMarker | null>(null);
   const destinationMarkerRef = useRef<GMapsMarker | null>(null);
   const polylineRef = useRef<GMapsPolyline | null>(null);
-  const activePinRef = useRef<"origin" | "destination">("origin");
+  const initialPin: "origin" | "destination" = lockOrigin ? "destination" : "origin";
+  const activePinRef = useRef<"origin" | "destination">(initialPin);
+  const lockOriginRef = useRef(lockOrigin);
   const onPickOriginRef = useRef(onPickOrigin);
   const onPickDestinationRef = useRef(onPickDestination);
-  const [activePin, setActivePin] = useState<"origin" | "destination">("origin");
+  const [activePin, setActivePin] = useState<"origin" | "destination">(initialPin);
   const [ready, setReady] = useState(false);
+
+  lockOriginRef.current = lockOrigin;
 
   onPickOriginRef.current = onPickOrigin;
   onPickDestinationRef.current = onPickDestination;
@@ -878,6 +960,13 @@ function LegMap({ leg, onPickOrigin, onPickDestination }: LegMapProps) {
   useEffect(() => {
     activePinRef.current = activePin;
   }, [activePin]);
+
+  useEffect(() => {
+    if (lockOrigin && activePin === "origin") {
+      setActivePin("destination");
+      activePinRef.current = "destination";
+    }
+  }, [lockOrigin, activePin]);
 
   useEffect(() => {
     let cancelled = false;
@@ -900,6 +989,12 @@ function LegMap({ leg, onPickOrigin, onPickDestination }: LegMapProps) {
         const point = { lat: ll.lat(), lng: ll.lng() };
         reverseGeocode(point, (addr) => {
           const text = addr ?? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+          if (lockOriginRef.current) {
+            onPickDestinationRef.current(text, point);
+            activePinRef.current = "destination";
+            setActivePin("destination");
+            return;
+          }
           if (activePinRef.current === "origin") onPickOriginRef.current(text, point);
           else onPickDestinationRef.current(text, point);
           activePinRef.current = activePinRef.current === "origin" ? "destination" : "origin";
@@ -945,24 +1040,27 @@ function LegMap({ leg, onPickOrigin, onPickDestination }: LegMapProps) {
         ref.current.setPosition(coords);
         return;
       }
+      const draggable = !(kind === "origin" && lockOriginRef.current);
       const marker = new maps.Marker({
         position: coords,
         map,
-        draggable: true,
+        draggable,
         label: { text: label, color: "#fff", fontWeight: "700" },
         title: kind === "origin" ? "Origen" : "Destino",
       });
-      marker.addListener("dragend", (...args: unknown[]) => {
-        const ev = args[0] as GMapsMouseEvent | undefined;
-        const ll = ev?.latLng;
-        if (!ll) return;
-        const point = { lat: ll.lat(), lng: ll.lng() };
-        reverseGeocode(point, (addr) => {
-          const text = addr ?? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
-          if (kind === "origin") onPickOriginRef.current(text, point);
-          else onPickDestinationRef.current(text, point);
+      if (draggable) {
+        marker.addListener("dragend", (...args: unknown[]) => {
+          const ev = args[0] as GMapsMouseEvent | undefined;
+          const ll = ev?.latLng;
+          if (!ll) return;
+          const point = { lat: ll.lat(), lng: ll.lng() };
+          reverseGeocode(point, (addr) => {
+            const text = addr ?? `${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`;
+            if (kind === "origin") onPickOriginRef.current(text, point);
+            else onPickDestinationRef.current(text, point);
+          });
         });
-      });
+      }
       ref.current = marker;
     };
 
@@ -1043,11 +1141,13 @@ function LegMap({ leg, onPickOrigin, onPickDestination }: LegMapProps) {
         }}
       >
         <div style={{ display: "flex", gap: 6 }}>
-          {pinBtn("origin", "Marcar origen (A)")}
+          {!lockOrigin && pinBtn("origin", "Marcar origen (A)")}
           {pinBtn("destination", "Marcar destino (B)")}
         </div>
         <span style={{ font: "400 11px/14px Heming", color: "var(--fg-muted)" }}>
-          Hacé click o arrastrá los pines
+          {lockOrigin
+            ? "Hacé click o arrastrá el pin de destino"
+            : "Hacé click o arrastrá los pines"}
         </span>
       </div>
       <div
@@ -1315,7 +1415,6 @@ function StepResumen({ t }: { t: Trip }) {
       <h3 style={h2}>Resumen del viaje</h3>
       <div style={{ marginTop: 8 }}>
         <Item l="Reserva" v={<span style={{ fontFamily: "JetBrains Mono" }}>{t.id}</span>} />
-        <Item l="Agencia" v={t.agc || "—"} />
         <Item l="Solicitante" v={t.solicitante || "—"} />
         <Item l="Fecha y hora" v={`${t.date} · ${t.time || "—"}`} />
         <Item l="Categoría" v={t.cat} />
@@ -1326,7 +1425,7 @@ function StepResumen({ t }: { t: Trip }) {
               {t.legs.map((l, i) => (
                 <span key={i}>
                   {l.origin || "—"} → {l.destination || "—"}{" "}
-                  {l.flight && (
+                  {l.type === "disposicion" && l.hours ? (
                     <span
                       style={{
                         color: "var(--fg-muted)",
@@ -1334,8 +1433,20 @@ function StepResumen({ t }: { t: Trip }) {
                         fontSize: 12,
                       }}
                     >
-                      · {l.flight}
+                      · {l.hours} hs disposición
                     </span>
+                  ) : (
+                    l.flight && (
+                      <span
+                        style={{
+                          color: "var(--fg-muted)",
+                          fontFamily: "JetBrains Mono",
+                          fontSize: 12,
+                        }}
+                      >
+                        · {l.flight}
+                      </span>
+                    )
                   )}
                 </span>
               ))}

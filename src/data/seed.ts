@@ -11,7 +11,7 @@ export const AGENCIES = [
   "Conexión Sur",
 ];
 
-export const CATEGORIES = ["Ejecutivo", "Premium", "Van 7", "Van 11", "Minibús"];
+export const CATEGORIES = ["Auto STD", "Ejecutivo", "MiniVan"];
 
 export const STATUSES: StatusMeta[] = [
   { id: "PENDIENTE", label: "Pendiente" },

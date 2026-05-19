@@ -36,10 +36,12 @@ export function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
+  const [toastKind, setToastKind] = useState<"default" | "success">("default");
   const [excelOpen, setExcelOpen] = useState(false);
 
-  const flash = (m: string) => {
+  const flash = (m: string, kind: "default" | "success" = "default") => {
     setToast(m);
+    setToastKind(kind);
     setTimeout(() => setToast(""), 2400);
   };
 
@@ -77,7 +79,10 @@ export function App() {
     setTrips((prev) =>
       mode === "new" ? [saved, ...prev] : prev.map((x) => (x.id === saved.id ? saved : x)),
     );
-    flash(mode === "new" ? `Viaje ${saved.id} creado` : `Viaje ${saved.id} actualizado`);
+    flash(
+      mode === "new" ? `Servicio Guardado #${saved.id}` : `Servicio Actualizado #${saved.id}`,
+      "success",
+    );
     return saved;
   };
 
@@ -186,7 +191,7 @@ export function App() {
           onClose={() => setExcelOpen(false)}
           onConfirm={(n) => flash(`${n} viajes sincronizados con Central`)}
         />
-        <Toast msg={toast} />
+        <Toast msg={toast} kind={toastKind} />
       </div>
     );
   }

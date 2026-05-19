@@ -8,7 +8,7 @@ export type TripStatus =
   | "REPROGRAMADO"
   | "EN_ESPERA";
 
-export type LegType = "in" | "out" | "otro";
+export type LegType = "in" | "out" | "otro" | "disposicion";
 
 export interface Passenger {
   name: string;
@@ -31,6 +31,7 @@ export interface Leg {
   obs: string;
   originCoords?: LatLng;
   destinationCoords?: LatLng;
+  hours?: number;
 }
 
 export interface TripCosts {
