@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import { Analytics } from "@vercel/analytics/react";
 import { App } from "./App";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ModalsProvider } from "./context/ModalsContext";
@@ -17,6 +18,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <ToastProvider>
             <ModalsProvider>
               <App />
+              <Analytics />
             </ModalsProvider>
           </ToastProvider>
         </UserProvider>
