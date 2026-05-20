@@ -1,9 +1,9 @@
 import { Fragment, useState } from "react";
-import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Field, Textarea } from "../../components/ui/Field";
 import { Icon } from "../../components/ui/Icon";
 import { Modal } from "../../components/ui/Modal";
+import { StatusPicker } from "../../components/ui/StatusPicker";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { cx } from "../../lib/cx";
 import type { Trip } from "../../types/domain";
@@ -104,7 +104,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               })}
               {mode === "edit" && (
                 <span className={styles.mBadge}>
-                  <Badge status={t.est} />
+                  <StatusPicker value={t.est} onChange={(est) => set({ est })} align="right" />
                 </span>
               )}
             </div>
@@ -153,7 +153,11 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             {mode === "edit" && (
               <div className={styles.estadoWrap}>
                 <span className={styles.estadoLabel}>Estado</span>
-                <Badge status={t.est} />
+                <StatusPicker
+                  value={t.est}
+                  onChange={(est) => set({ est })}
+                  align="right"
+                />
               </div>
             )}
           </>

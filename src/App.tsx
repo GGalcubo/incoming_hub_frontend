@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api/client";
 import { Topbar } from "./components/Topbar";
-import { TODAY, TOMORROW } from "./data/seed";
+import { STATUSES, TODAY, TOMORROW } from "./data/seed";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
-import type { Trip } from "./types/domain";
+import type { Trip, TripStatus } from "./types/domain";
 import styles from "./App.module.css";
 
 export function App() {
@@ -45,6 +45,14 @@ export function App() {
     return saved;
   };
 
+  const changeStatus = async (t: Trip, est: TripStatus): Promise<Trip> => {
+    const updated = await api.updateTrip({ ...t, est });
+    setTrips((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+    const label = STATUSES.find((s) => s.id === est)?.label ?? est;
+    flash(`Viaje ${updated.id} → ${label}`);
+    return updated;
+  };
+
   const cancelTrip = async (t: Trip): Promise<Trip> => {
     const reasonMatch = t.obs.match(/Cancelado: (.+)$/);
     const reason = reasonMatch ? reasonMatch[1] : "Sin motivo";
@@ -66,7 +74,12 @@ export function App() {
   return (
     <Shell>
       <Routes>
-        <Route path="/viajes" element={<TripsListRoute trips={trips} loading={loading} />} />
+        <Route
+          path="/viajes"
+          element={
+            <TripsListRoute trips={trips} loading={loading} onChangeStatus={changeStatus} />
+          }
+        />
         <Route path="/viajes/nuevo" element={<NewTripRoute onSave={saveTrip} />} />
         <Route
           path="/viajes/:id"
@@ -92,7 +105,15 @@ function Shell({ children }: { children: React.ReactNode }) {
   return <div className={styles.shell}>{children}</div>;
 }
 
-function TripsListRoute({ trips, loading }: { trips: Trip[]; loading: boolean }) {
+function TripsListRoute({
+  trips,
+  loading,
+  onChangeStatus,
+}: {
+  trips: Trip[];
+  loading: boolean;
+  onChangeStatus: (t: Trip, est: TripStatus) => Promise<Trip>;
+}) {
   const navigate = useNavigate();
   const { flash } = useToast();
   const todayCount = trips.filter((t) => t.date === TODAY).length;
@@ -111,6 +132,7 @@ function TripsListRoute({ trips, loading }: { trips: Trip[]; loading: boolean })
         onOpen={(t) => navigate(`/viajes/${t.id}`)}
         onCopy={() => flash("Tabla copiada al portapapeles")}
         onExport={() => flash("Exportando a Excel…")}
+        onChangeStatus={onChangeStatus}
       />
     </>
   );

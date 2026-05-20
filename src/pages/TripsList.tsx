@@ -5,6 +5,7 @@ import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
 import { Input } from "../components/ui/Field";
+import { StatusPicker } from "../components/ui/StatusPicker";
 import { cx } from "../lib/cx";
 import styles from "./TripsList.module.css";
 
@@ -13,6 +14,7 @@ interface TripsListProps {
   onOpen: (t: Trip) => void;
   onCopy: () => void;
   onExport: () => void;
+  onChangeStatus: (t: Trip, est: TripStatus) => void;
 }
 
 type SortKey = keyof Trip | "id";
@@ -34,7 +36,7 @@ function widthClass(w: number | null): string | false {
   return w ? (styles[`w${w}`] ?? false) : false;
 }
 
-export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
+export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: TripsListProps) {
   const [dateFilter, setDateFilter] = useState<string>(TODAY);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<TripStatus[]>([]);
@@ -210,7 +212,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
                 <td className={styles.td}>{t.dst}</td>
                 <td className={styles.td}>{t.pax}</td>
                 <td className={styles.td}>
-                  <Badge status={t.est} />
+                  <StatusPicker value={t.est} onChange={(est) => onChangeStatus(t, est)} />
                 </td>
                 <td className={cx(styles.td, styles.tdMono)}>{t.unit || "—"}</td>
                 <td
