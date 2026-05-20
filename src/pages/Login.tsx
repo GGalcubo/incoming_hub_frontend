@@ -3,14 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Field, Input } from "../components/ui/Field";
-import type { User } from "../types/domain";
+import { useUser } from "../context/UserContext";
 
-interface LoginProps {
-  onLogin: (user: User) => void;
-}
-
-export function Login({ onLogin }: LoginProps) {
+export function Login() {
   const navigate = useNavigate();
+  const { login } = useUser();
   const [user, setUser] = useState("operador@incoming-hub.com");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState<{ user?: string; pass?: string; form?: string }>({});
@@ -26,7 +23,7 @@ export function Login({ onLogin }: LoginProps) {
     setLoading(true);
     try {
       const u = await api.login(user, pass);
-      onLogin(u);
+      login(u);
       navigate("/viajes");
     } catch (ex) {
       setErr({ form: ex instanceof Error ? ex.message : "Error de autenticación" });

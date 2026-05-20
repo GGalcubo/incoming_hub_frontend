@@ -34,7 +34,9 @@
       "Skill(anthropic-skills:xlsx)",
       "Skill(anthropic-skills:xlsx:*)",
       "Bash(python -c \"import openpyxl; print\\(openpyxl.__version__\\)\")",
-      "Bash(python C:/caltamirano/logos2/scripts/make_plantilla.py)"
+      "Bash(python C:/caltamirano/logos2/scripts/make_plantilla.py)",
+      "Bash(Get-ChildItem -Path \"C:\\\\caltamirano\\\\logos2\" -Force)",
+      "Bash(Select-Object Name, PSIsContainer)"
     ]
   }
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useModals } from "../context/ModalsContext";
+import { useUser } from "../context/UserContext";
 import type { User } from "../types/domain";
 import { Icon } from "./ui/Icon";
 
@@ -8,10 +10,6 @@ interface TopbarProps {
   title?: string;
   subtitle?: string;
   actions?: ReactNode;
-  user?: User | null;
-  onLogout?: () => void;
-  onCargarExcel?: () => void;
-  onOpenSettings?: () => void;
 }
 
 interface NavItem {
@@ -36,17 +34,11 @@ const NAV: NavItem[] = [
   },
 ];
 
-export function Topbar({
-  title,
-  subtitle,
-  actions,
-  user,
-  onLogout,
-  onCargarExcel,
-  onOpenSettings,
-}: TopbarProps) {
+export function Topbar({ title, subtitle, actions }: TopbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useUser();
+  const { openExcel, openSettings } = useModals();
   const showGlobal = Boolean(user);
   const showPageRow = Boolean(title || subtitle || actions);
 
@@ -104,14 +96,7 @@ export function Topbar({
                 />
               );
             })}
-            {onCargarExcel && (
-              <NavButton
-                active={false}
-                icon="upload"
-                label="Cargar Excel"
-                onClick={onCargarExcel}
-              />
-            )}
+            <NavButton active={false} icon="upload" label="Cargar Excel" onClick={openExcel} />
             <NavButton
               active={location.pathname === "/viajes/nuevo"}
               icon="plus"
@@ -122,7 +107,7 @@ export function Topbar({
 
           <div style={{ flex: 1 }} />
 
-          <UserMenu user={user!} onLogout={onLogout} onOpenSettings={onOpenSettings} />
+          <UserMenu user={user!} onLogout={logout} onOpenSettings={openSettings} />
         </div>
       )}
 
