@@ -1,7 +1,7 @@
 import type { CSSProperties, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 interface FieldProps {
-  label: string;
+  label?: string;
   required?: boolean;
   error?: string;
   hint?: string;
@@ -21,10 +21,12 @@ export function Field({ label, required, error, hint, children, span = 1, style 
         ...style,
       }}
     >
-      <span style={{ font: "500 13px/18px Heming", color: "var(--fg-secondary)" }}>
-        {label}
-        {required && <span style={{ color: "var(--danger-fg)" }}> ·</span>}
-      </span>
+      {label && (
+        <span style={{ font: "500 13px/18px Heming", color: "var(--fg-secondary)" }}>
+          {label}
+          {required && <span style={{ color: "var(--danger-fg)" }}> ·</span>}
+        </span>
+      )}
       {children}
       {hint && !error && (
         <span style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>{hint}</span>

@@ -55,7 +55,7 @@ const EMPTY_TRIP: Trip = {
 };
 
 interface StepDef {
-  id: "viaje" | "tramos" | "costos" | "historial" | "resumen";
+  id: "viaje" | "tramos" | "costos" | "resumen";
   label: string;
 }
 
@@ -66,7 +66,6 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
     { id: "tramos", label: "Destinos" },
     { id: "costos", label: "Costos" },
     { id: "resumen", label: "Resumen" },
-    { id: "historial", label: "Historial" },
   ];
 
   const [stepIdx, setStepIdx] = useState(0);
@@ -326,7 +325,6 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
           {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} isMobile={isMobile} />}
           {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} isMobile={isMobile} />}
           {step.id === "costos" && <StepCostos t={t} />}
-          {step.id === "historial" && <StepHistorial t={t} />}
           {step.id === "resumen" && <StepResumen t={t} />}
         </div>
       </div>
@@ -591,7 +589,7 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
       legs: [
         ...t.legs,
         {
-          type: "in",
+          type: "otro",
           origin: last?.destination ?? "",
           originCoords: last?.destinationCoords,
           destination: "",
@@ -663,78 +661,74 @@ function StepTramos({ t, set, errs, isMobile }: StepProps) {
             )}
           </div>
           <div style={grid}>
-            <Field label="Tipo de servicio">
-              <Select
-                value={leg.type}
-                onChange={(e) => {
-                  const next = e.target.value as Leg["type"];
-                  updateLeg(i, {
-                    type: next,
-                    flight: next === "disposicion" ? "" : leg.flight,
-                    hours: next === "disposicion" ? (leg.hours ?? 1) : undefined,
-                  });
-                }}
-              >
-                <option value="in">Llegada (in)</option>
-                <option value="out">Salida (out)</option>
-                <option value="otro">Otro</option>
-                <option value="disposicion">Hs disposición</option>
-              </Select>
-            </Field>
-            {leg.type === "disposicion" ? (
-              <Field label="Horas de disposición" hint="Entre 1 y 12 hs">
-                <Input
-                  type="number"
-                  min={1}
-                  max={12}
-                  step={1}
-                  value={leg.hours ?? 1}
-                  onChange={(e) => {
-                    const raw = parseInt(e.target.value, 10);
-                    if (Number.isNaN(raw)) {
-                      updateLeg(i, { hours: undefined });
-                      return;
+            {i === 0 && (
+              <>
+                <Field label="Tipo de servicio">
+                  <Select
+                    value={leg.type}
+                    onChange={(e) => {
+                      const next = e.target.value as Leg["type"];
+                      updateLeg(i, {
+                        type: next,
+                        flight: next === "disposicion" ? "" : leg.flight,
+                        hours: next === "disposicion" ? (leg.hours ?? 1) : undefined,
+                      });
+                    }}
+                  >
+                    <option value="in">Llegada (in)</option>
+                    <option value="out">Salida (out)</option>
+                    <option value="otro">Otro</option>
+                    <option value="disposicion">Hs disposición</option>
+                  </Select>
+                </Field>
+                {leg.type === "disposicion" ? (
+                  <Field label="Horas de disposición" hint="Entre 1 y 12 hs">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={12}
+                      step={1}
+                      value={leg.hours ?? 1}
+                      onChange={(e) => {
+                        const raw = parseInt(e.target.value, 10);
+                        if (Number.isNaN(raw)) {
+                          updateLeg(i, { hours: undefined });
+                          return;
+                        }
+                        const clamped = Math.max(1, Math.min(12, raw));
+                        updateLeg(i, { hours: clamped });
+                      }}
+                      placeholder="1-12"
+                    />
+                  </Field>
+                ) : (
+                  <Field label="Vuelo" hint={leg.type === "otro" ? "No aplica" : "AA995, LA4302…"}>
+                    <Input
+                      disabled={leg.type === "otro"}
+                      value={leg.flight}
+                      onChange={(e) => updateLeg(i, { flight: e.target.value })}
+                      placeholder="—"
+                    />
+                  </Field>
+                )}
+                <Field label="Origen" required error={errs[`leg-${i}-origin`]}>
+                  <PlaceCombo
+                    value={leg.origin}
+                    onChange={(v) => updateLeg(i, { origin: v, originCoords: undefined })}
+                    onPick={(desc, placeId) =>
+                      geocodePlaceId(placeId, (coords) => {
+                        if (coords) updateLeg(i, { origin: desc, originCoords: coords });
+                      })
                     }
-                    const clamped = Math.max(1, Math.min(12, raw));
-                    updateLeg(i, { hours: clamped });
-                  }}
-                  placeholder="1-12"
-                />
-              </Field>
-            ) : (
-              <Field label="Vuelo" hint={leg.type === "otro" ? "No aplica" : "AA995, LA4302…"}>
-                <Input
-                  disabled={leg.type === "otro"}
-                  value={leg.flight}
-                  onChange={(e) => updateLeg(i, { flight: e.target.value })}
-                  placeholder="—"
-                />
-              </Field>
+                  />
+                </Field>
+              </>
             )}
             <Field
-              label="Origen"
-              required
-              error={errs[`leg-${i}-origin`]}
-              hint={i > 0 ? "Heredado del destino anterior" : undefined}
-            >
-              {i === 0 ? (
-                <PlaceCombo
-                  value={leg.origin}
-                  onChange={(v) => updateLeg(i, { origin: v, originCoords: undefined })}
-                  onPick={(desc, placeId) =>
-                    geocodePlaceId(placeId, (coords) => {
-                      if (coords) updateLeg(i, { origin: desc, originCoords: coords });
-                    })
-                  }
-                />
-              ) : (
-                <Input value={leg.origin} disabled placeholder="—" />
-              )}
-            </Field>
-            <Field
-              label={i === 0 ? "Destino" : `Destino ${i + 1}`}
-              required
+              label={i === 0 ? "Destino" : undefined}
+              required={i === 0}
               error={errs[`leg-${i}-destination`]}
+              span={i === 0 ? undefined : isMobile ? 1 : 2}
             >
               <PlaceCombo
                 value={leg.destination}
@@ -1339,59 +1333,6 @@ function StepCostos({ t }: { t: Trip }) {
   );
 }
 
-function StepHistorial({ t }: { t: Trip }) {
-  const mockEntries =
-    t.history.length > 0
-      ? t.history
-      : [
-          { ts: "—", user: "—", action: "Creación del viaje" },
-          { ts: "—", user: "—", action: "Confirmación de pasajero" },
-          { ts: "—", user: "—", action: "Asignación de unidad" },
-        ];
-  return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <h3 style={{ ...h2, margin: 0 }}>Historial</h3>
-        <span
-          style={{
-            font: "500 11px/14px Heming",
-            letterSpacing: ".06em",
-            textTransform: "uppercase",
-            color: "var(--fg-muted)",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-            padding: "2px 8px",
-            borderRadius: 9999,
-          }}
-        >
-          Mockup · A definir
-        </span>
-      </div>
-      <p style={p}>
-        Vista previa del historial de eventos. La auditoría real se va a definir más adelante.
-      </p>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
-        <thead>
-          <tr>
-            <th style={th}>Fecha y hora</th>
-            <th style={th}>Usuario</th>
-            <th style={th}>Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {mockEntries.map((h, i) => (
-            <tr key={i}>
-              <td style={{ ...tdHist, fontFamily: "JetBrains Mono" }}>{h.ts}</td>
-              <td style={tdHist}>{h.user}</td>
-              <td style={tdHist}>{h.action}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </>
-  );
-}
-
 function StepResumen({ t }: { t: Trip }) {
   const Item = ({ l, v }: { l: string; v: React.ReactNode }) => (
     <div
@@ -1493,18 +1434,3 @@ const p: CSSProperties = {
 };
 const grid2: CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px 20px" };
 const grid1: CSSProperties = { display: "grid", gridTemplateColumns: "1fr", gap: "14px" };
-const th: CSSProperties = {
-  font: "600 11px/14px Heming",
-  letterSpacing: ".06em",
-  textTransform: "uppercase",
-  color: "var(--fg-muted)",
-  textAlign: "left",
-  padding: "10px 14px",
-  borderBottom: "1px solid var(--border-subtle)",
-};
-const tdHist: CSSProperties = {
-  padding: "10px 14px",
-  borderBottom: "1px solid var(--border-subtle)",
-  font: "400 13px/18px Heming",
-  color: "var(--fg-secondary)",
-};
