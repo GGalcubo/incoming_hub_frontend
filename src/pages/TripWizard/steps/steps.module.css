@@ -208,6 +208,31 @@
   gap: 4px;
 }
 
+.legBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legBlock + .legBlock {
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-subtle);
+}
+
+.legRow {
+  display: flex;
+  gap: 10px;
+}
+
+.legDir {
+  font: 500 11px/20px Heming;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  width: 48px;
+  flex: none;
+}
+
 .mono {
   font-family: "JetBrains Mono";
 }

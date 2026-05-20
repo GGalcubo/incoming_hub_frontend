@@ -21,14 +21,21 @@ export function StepResumen({ t }: { t: Trip }) {
           v={
             <div className={styles.stack}>
               {t.legs.map((l, i) => (
-                <span key={i}>
-                  {l.origin || "—"} → {l.destination || "—"}{" "}
+                <div key={i} className={styles.legBlock}>
+                  <div className={styles.legRow}>
+                    <span className={styles.legDir}>Desde</span>
+                    <span>{l.origin || "—"}</span>
+                  </div>
+                  <div className={styles.legRow}>
+                    <span className={styles.legDir}>Hasta</span>
+                    <span>{l.destination || "—"}</span>
+                  </div>
                   {l.type === "disposicion" && l.hours ? (
                     <span className={styles.legMeta}>· {l.hours} hs disposición</span>
                   ) : (
                     l.flight && <span className={styles.legMeta}>· {l.flight}</span>
                   )}
-                </span>
+                </div>
               ))}
             </div>
           }
