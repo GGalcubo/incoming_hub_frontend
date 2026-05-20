@@ -10,6 +10,7 @@ import { PassengersList } from "./pages/Passengers";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
 import type { Trip } from "./types/domain";
+import styles from "./App.module.css";
 
 export function App() {
   const { user } = useUser();
@@ -88,19 +89,7 @@ export function App() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        overflow: "hidden",
-        background: "var(--bg-app)",
-      }}
-    >
-      {children}
-    </div>
-  );
+  return <div className={styles.shell}>{children}</div>;
 }
 
 function TripsListRoute({ trips, loading }: { trips: Trip[]; loading: boolean }) {
@@ -159,7 +148,7 @@ function EditTripRoute({
   const trip = trips.find((t) => t.id === id);
 
   if (trips.length === 0) {
-    return <div style={{ padding: 28, color: "var(--fg-muted)" }}>Cargando viaje…</div>;
+    return <div className={styles.loading}>Cargando viaje…</div>;
   }
 
   if (!trip) {

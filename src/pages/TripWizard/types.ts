@@ -14,7 +14,6 @@ export interface StepProps {
   t: Trip;
   set: (patch: Partial<Trip>) => void;
   errs: Record<string, string>;
-  isMobile: boolean;
 }
 
 export const EMPTY_TRIP: Trip = {

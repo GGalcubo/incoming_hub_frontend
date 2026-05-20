@@ -1,0 +1,301 @@
+/* ---- shared primitives ---- */
+.h2 {
+  font: 600 17px/24px Heming;
+  margin: 0 0 4px;
+  color: var(--fg-primary);
+}
+
+.h2Spaced {
+  margin-top: 24px;
+}
+
+.h2Flush {
+  margin: 0;
+}
+
+.p {
+  font: 400 13px/18px Heming;
+  color: var(--fg-muted);
+  margin: 0 0 14px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+
+@media (max-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+.itemCard {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 18px;
+  margin-top: 12px;
+  background: var(--bg-app);
+}
+
+.legCard {
+  margin-top: 14px;
+}
+
+@media (max-width: 768px) {
+  .itemCard {
+    padding: 14px;
+  }
+}
+
+.cardHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.itemCardTitle {
+  font: 600 13px/18px Heming;
+  color: var(--fg-primary);
+}
+
+.removeBtn {
+  background: transparent;
+  border: none;
+  color: var(--danger-fg);
+  cursor: pointer;
+  font: 500 13px/18px Heming;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.addBtn {
+  margin-top: 14px;
+}
+
+/* ---- StepViaje ---- */
+.paxControls {
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.qtyField {
+  width: 160px;
+}
+
+.attachBtn {
+  align-self: flex-end;
+}
+
+@media (max-width: 768px) {
+  .paxControls {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .qtyField {
+    width: 100%;
+  }
+  .attachBtn {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
+
+/* ---- StepTramos ---- */
+.mapCell {
+  grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+  .mapCell {
+    grid-column: auto;
+  }
+}
+
+.obsRow {
+  margin-top: 18px;
+}
+
+/* ---- StepCostos ---- */
+.costHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.roTag {
+  font: 500 11px/14px Heming;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: 9999px;
+}
+
+.costTable {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.costRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font: 400 14px/20px Heming;
+  color: var(--fg-secondary);
+}
+
+.costLabel {
+  color: var(--fg-muted);
+}
+
+.tnum {
+  font-feature-settings: "tnum" 1;
+}
+
+.costTotalRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 14px;
+  background: var(--bg-app);
+  font: 600 14px/20px Heming;
+  color: var(--fg-primary);
+}
+
+/* ---- StepResumen ---- */
+.summaryList {
+  margin-top: 8px;
+}
+
+.summaryItem {
+  display: flex;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border-subtle);
+  gap: 18px;
+}
+
+.summaryLabel {
+  font: 500 12px/16px Heming;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  width: 160px;
+  flex: none;
+}
+
+.summaryValue {
+  font: 400 14px/20px Heming;
+  color: var(--fg-secondary);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mono {
+  font-family: "JetBrains Mono";
+}
+
+.legMeta {
+  color: var(--fg-muted);
+  font-family: "JetBrains Mono";
+  font-size: 12px;
+}
+
+/* ---- StepHistorial ---- */
+.emptyBox {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 12px;
+  padding: 28px 16px;
+  text-align: center;
+  font: 400 13px/18px Heming;
+  color: var(--fg-muted);
+  margin-top: 8px;
+}
+
+.timeline {
+  margin-top: 8px;
+}
+
+.entry {
+  display: flex;
+  gap: 14px;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: none;
+}
+
+.dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  background: var(--brand-tint);
+  color: var(--brand-500);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.line {
+  flex: 1;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.entryBody {
+  padding-bottom: 18px;
+  min-width: 0;
+}
+
+.entryBodyLast {
+  padding-bottom: 0;
+}
+
+.action {
+  font: 600 14px/20px Heming;
+  color: var(--fg-primary);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.ts {
+  font: 400 12px/16px Heming;
+  color: var(--fg-muted);
+  font-feature-settings: "tnum" 1;
+}
+
+.sep {
+  color: var(--fg-tertiary);
+}
+
+.user {
+  font: 400 12px/16px Heming;
+  color: var(--fg-tertiary);
+}

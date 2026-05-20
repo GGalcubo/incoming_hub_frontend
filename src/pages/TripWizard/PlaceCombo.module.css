@@ -1,0 +1,62 @@
+.wrap {
+  position: relative;
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  max-height: 240px;
+  overflow: auto;
+}
+
+.loading {
+  padding: 8px 12px;
+  font: 400 13px/18px Heming;
+  color: var(--fg-muted);
+}
+
+.option {
+  padding: 8px 12px;
+  font: 400 13px/18px Heming;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fg-secondary);
+}
+
+.option:hover {
+  background: var(--bg-elevated);
+}
+
+.pinIcon {
+  color: var(--fg-muted);
+}
+
+.optText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.optMain {
+  color: var(--fg-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.optSub {
+  font: 400 11px/14px Heming;
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

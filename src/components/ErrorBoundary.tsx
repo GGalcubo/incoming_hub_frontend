@@ -1,5 +1,6 @@
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import styles from "./ErrorBoundary.module.css";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -29,41 +30,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.props.fallback) return this.props.fallback;
 
     return (
-      <div
-        role="alert"
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 12,
-          padding: 24,
-          background: "var(--bg-app)",
-          textAlign: "center",
-        }}
-      >
-        <div style={{ font: "600 18px/24px Heming", color: "var(--fg-primary)" }}>
-          Algo salió mal
-        </div>
-        <div style={{ font: "400 13px/18px Heming", color: "var(--fg-muted)", maxWidth: 420 }}>
+      <div role="alert" className={styles.wrap}>
+        <div className={styles.title}>Algo salió mal</div>
+        <div className={styles.msg}>
           Ocurrió un error inesperado. Podés reintentar; si el problema persiste, recargá la
           página o contactá al administrador.
         </div>
-        <button
-          onClick={this.reset}
-          style={{
-            marginTop: 8,
-            height: 36,
-            padding: "0 16px",
-            borderRadius: 9999,
-            border: "1px solid var(--border-strong)",
-            background: "var(--bg-elevated)",
-            color: "var(--fg-primary)",
-            font: "600 13px/18px Heming",
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={this.reset} className={styles.retry}>
           Reintentar
         </button>
       </div>

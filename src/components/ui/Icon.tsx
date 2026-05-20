@@ -47,10 +47,11 @@ interface IconProps {
   name: string;
   size?: number;
   stroke?: number;
+  className?: string;
   style?: CSSProperties;
 }
 
-export function Icon({ name, size = 16, stroke = 1.5, style }: IconProps) {
+export function Icon({ name, size = 16, stroke = 1.5, className, style }: IconProps) {
   const d = ICONS[name];
   if (!d) return null;
   return (
@@ -63,6 +64,7 @@ export function Icon({ name, size = 16, stroke = 1.5, style }: IconProps) {
       strokeWidth={stroke}
       strokeLinecap="round"
       strokeLinejoin="round"
+      className={className}
       style={style}
     >
       {d.split(" M").map((seg, i) => (

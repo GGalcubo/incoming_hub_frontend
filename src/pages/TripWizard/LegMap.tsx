@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/ui/Icon";
+import { cx } from "../../lib/cx";
 import {
   loadGoogleMaps,
   type GMapsLatLngLiteral,
@@ -10,6 +11,7 @@ import {
 } from "../../lib/gmaps";
 import type { Leg } from "../../types/domain";
 import { BA_CENTER, geocodeAddress, reverseGeocode } from "./geocode";
+import styles from "./LegMap.module.css";
 
 interface LegMapProps {
   leg: Leg;
@@ -188,18 +190,7 @@ export function LegMap({ leg, onPickOrigin, onPickDestination, lockOrigin = fals
       <button
         type="button"
         onClick={() => setActivePin(kind)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "6px 10px",
-          borderRadius: 8,
-          border: `1px solid ${active ? "var(--fg-primary)" : "var(--border-subtle)"}`,
-          background: active ? "var(--brand-tint-soft)" : "var(--bg-surface)",
-          color: active ? "var(--fg-primary)" : "var(--fg-secondary)",
-          font: active ? "600 12px/16px Heming" : "500 12px/16px Heming",
-          cursor: "pointer",
-        }}
+        className={cx(styles.pinBtn, active && styles.pinBtnActive)}
       >
         <Icon name="mappin" size={12} />
         {label}
@@ -209,37 +200,18 @@ export function LegMap({ leg, onPickOrigin, onPickDestination, lockOrigin = fals
 
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          marginBottom: 8,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", gap: 6 }}>
+      <div className={styles.toolbar}>
+        <div className={styles.pinGroup}>
           {!lockOrigin && pinBtn("origin", "Marcar origen (A)")}
           {pinBtn("destination", "Marcar destino (B)")}
         </div>
-        <span style={{ font: "400 11px/14px Heming", color: "var(--fg-muted)" }}>
+        <span className={styles.hint}>
           {lockOrigin
             ? "Hacé click o arrastrá el pin de destino"
             : "Hacé click o arrastrá los pines"}
         </span>
       </div>
-      <div
-        ref={containerRef}
-        style={{
-          width: "100%",
-          height: 280,
-          borderRadius: 10,
-          border: "1px solid var(--border-subtle)",
-          background: "var(--bg-elevated)",
-          overflow: "hidden",
-        }}
-      />
+      <div ref={containerRef} className={styles.map} />
     </div>
   );
 }

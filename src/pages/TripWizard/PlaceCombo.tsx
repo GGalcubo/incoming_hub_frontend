@@ -8,6 +8,7 @@ import {
   type GMapsAutocompleteService,
   type GMapsPlacePrediction,
 } from "../../lib/gmaps";
+import styles from "./PlaceCombo.module.css";
 
 interface PlaceSuggestion {
   id: string;
@@ -100,7 +101,7 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
   };
 
   return (
-    <div style={{ position: "relative" }}>
+    <div className={styles.wrap}>
       <Input
         value={value}
         onChange={(e) => handleInput(e.target.value)}
@@ -116,32 +117,8 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
         placeholder={usingGmaps ? "Buscar lugar (Google Maps)…" : "Buscar lugar…"}
       />
       {open && (loading || suggestions.length > 0) && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            right: 0,
-            zIndex: 5,
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 8,
-            boxShadow: "var(--shadow-md)",
-            maxHeight: 240,
-            overflow: "auto",
-          }}
-        >
-          {loading && suggestions.length === 0 && (
-            <div
-              style={{
-                padding: "8px 12px",
-                font: "400 13px/18px Heming",
-                color: "var(--fg-muted)",
-              }}
-            >
-              Buscando…
-            </div>
-          )}
+        <div className={styles.dropdown}>
+          {loading && suggestions.length === 0 && <div className={styles.loading}>Buscando…</div>}
           {suggestions.map((s) => (
             <div
               key={s.id}
@@ -151,43 +128,12 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
                 setSuggestions([]);
                 setOpen(false);
               }}
-              style={{
-                padding: "8px 12px",
-                font: "400 13px/18px Heming",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                color: "var(--fg-secondary)",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-              onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              className={styles.option}
             >
-              <Icon name="mappin" size={13} style={{ color: "var(--fg-muted)" }} />
-              <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                <span
-                  style={{
-                    color: "var(--fg-secondary)",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {s.main}
-                </span>
-                {s.secondary && (
-                  <span
-                    style={{
-                      font: "400 11px/14px Heming",
-                      color: "var(--fg-muted)",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {s.secondary}
-                  </span>
-                )}
+              <Icon name="mappin" size={13} className={styles.pinIcon} />
+              <span className={styles.optText}>
+                <span className={styles.optMain}>{s.main}</span>
+                {s.secondary && <span className={styles.optSub}>{s.secondary}</span>}
               </span>
             </div>
           ))}

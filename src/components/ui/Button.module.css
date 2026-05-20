@@ -1,0 +1,88 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Heming";
+  font-weight: 500;
+  line-height: 20px;
+  border-radius: 9999px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  transition: all 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* sizes */
+.sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.md {
+  padding: 9px 18px;
+  font-size: 14px;
+}
+.lg {
+  padding: 11px 20px;
+  font-size: 14px;
+}
+
+/* variants */
+.primary {
+  background: var(--brand-500);
+  color: var(--fg-on-brand);
+  font-weight: 600;
+}
+.primary:not(:disabled):hover {
+  background: var(--brand-400);
+}
+
+.secondary {
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+  border-color: var(--border-strong);
+}
+.secondary:not(:disabled):hover {
+  background: var(--border-subtle);
+  border-color: var(--border-stronger);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--fg-tertiary);
+}
+.ghost:not(:disabled):hover {
+  background: var(--bg-elevated);
+  color: var(--fg-primary);
+}
+
+.danger {
+  background: transparent;
+  color: var(--danger-fg);
+  border-color: var(--danger-border);
+}
+.danger:not(:disabled):hover {
+  background: var(--danger-bg);
+}
+
+.dangerSolid {
+  background: var(--danger-solid);
+  color: var(--fg-on-danger);
+  font-weight: 600;
+}
+.dangerSolid:not(:disabled):hover {
+  background: var(--danger-solid-hover);
+}
+
+.amber {
+  background: var(--warning-solid);
+  color: var(--fg-on-brand);
+  font-weight: 600;
+}
+.amber:not(:disabled):hover {
+  background: var(--warning-solid-hover);
+}

@@ -1,0 +1,12 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-app);
+}
+
+.loading {
+  padding: 28px;
+  color: var(--fg-muted);
+}

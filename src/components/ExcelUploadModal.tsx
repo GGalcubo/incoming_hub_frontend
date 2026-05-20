@@ -1,10 +1,11 @@
 import { useState } from "react";
-import type { CSSProperties } from "react";
 import { api } from "../api/client";
 import type { ExcelRow } from "../types/domain";
+import { cx } from "../lib/cx";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { Modal } from "./ui/Modal";
+import styles from "./ExcelUploadModal.module.css";
 
 interface ExcelUploadModalProps {
   open: boolean;
@@ -120,31 +121,12 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
       footer={footer}
     >
       {stage === "pick" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ font: "400 13px/18px Heming", color: "var(--fg-tertiary)" }}>
-            Subí un archivo .xlsx. Vamos a validar fila por fila antes
-            de sincronizar con Central.
+        <div className={styles.pickWrap}>
+          <div className={styles.intro}>
+            Subí un archivo .xlsx. Vamos a validar fila por fila antes de sincronizar con Central.
           </div>
           <label
-            style={{
-              border: `1.5px dashed ${dragOver ? "var(--brand-500)" : "var(--border-strong)"}`,
-              borderRadius: 12,
-              padding: 36,
-              textAlign: "center",
-              background: dragOver ? "var(--brand-50, var(--bg-app))" : "var(--bg-app)",
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              gap: 8,
-              alignItems: "center",
-              transition: "border-color 120ms, background 120ms",
-            }}
-            onMouseEnter={(e) => {
-              if (!dragOver) e.currentTarget.style.borderColor = "var(--brand-500)";
-            }}
-            onMouseLeave={(e) => {
-              if (!dragOver) e.currentTarget.style.borderColor = "var(--border-strong)";
-            }}
+            className={cx(styles.dropzone, dragOver && styles.dropzoneActive)}
             onDragOver={(e) => {
               e.preventDefault();
               if (!dragOver) setDragOver(true);
@@ -159,69 +141,38 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             }}
             onDrop={onDrop}
           >
-            <Icon name="upload" size={28} style={{ color: "var(--fg-muted)" }} />
-            <div style={{ font: "600 14px/20px Heming", color: "var(--fg-primary)" }}>
+            <Icon name="upload" size={28} className={styles.dropIcon} />
+            <div className={styles.dropTitle}>
               Arrastrá el archivo o hacé clic para seleccionar
             </div>
-            <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>
-              Formato .xlsx · máximo 200 filas
-            </div>
+            <div className={styles.dropSub}>Formato .xlsx · máximo 200 filas</div>
             <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
           </label>
-          <a
-            href="/plantilla-viajes.xlsx"
-            download
-            style={{
-              font: "500 13px/18px Heming",
-              color: "var(--fg-link)",
-              textDecoration: "none",
-            }}
-          >
+          <a href="/plantilla-viajes.xlsx" download className={styles.templateLink}>
             Descargar plantilla
           </a>
         </div>
       )}
 
       {stage === "validate" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              font: "400 13px/18px Heming",
-              color: "var(--fg-secondary)",
-            }}
-          >
-            <Icon name="excel" size={16} style={{ color: "var(--success-fg)" }} />
-            <span style={{ fontWeight: 500 }}>{filename}</span>
-            <span style={{ color: "var(--fg-muted)" }}>· {rows.length} filas detectadas</span>
+        <div className={styles.validateWrap}>
+          <div className={styles.fileLine}>
+            <Icon name="excel" size={16} className={styles.fileIcon} />
+            <span className={styles.fileName}>{filename}</span>
+            <span className={styles.fileCount}>· {rows.length} filas detectadas</span>
           </div>
 
-          <div style={{ display: "flex", gap: 10 }}>
+          <div className={styles.pillRow}>
             <Pill label={`${summary.ok} listos`} tone="success" />
             {summary.warn > 0 && <Pill label={`${summary.warn} con avisos`} tone="warning" />}
             {summary.err > 0 && <Pill label={`${summary.err} con errores`} tone="danger" />}
           </div>
 
-          <div
-            style={{
-              border: "1px solid var(--border-subtle)",
-              borderRadius: 12,
-              overflow: "auto",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                minWidth: 940,
-                borderCollapse: "collapse",
-                font: "400 13px/18px Heming",
-              }}
-            >
-              <thead style={{ background: "var(--bg-app)" }}>
+          <div className={styles.tableBox}>
+            <table className={styles.table}>
+              <thead className={styles.thead}>
                 <tr>
-                  <th style={{ ...th, width: 32 }}>
+                  <th className={cx(styles.th, styles.thCheck)}>
                     <input
                       type="checkbox"
                       checked={
@@ -237,26 +188,19 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                       }}
                     />
                   </th>
-                  <th style={th}>Fila</th>
-                  <th style={th}>Viaje</th>
-                  <th style={th}>Fecha · Hora</th>
-                  <th style={th}>Categoría</th>
-                  <th style={th}>Pasajeros</th>
-                  <th style={th}>Tramos</th>
-                  <th style={th}>Estado de validación</th>
+                  <th className={styles.th}>Fila</th>
+                  <th className={styles.th}>Viaje</th>
+                  <th className={styles.th}>Fecha · Hora</th>
+                  <th className={styles.th}>Categoría</th>
+                  <th className={styles.th}>Pasajeros</th>
+                  <th className={styles.th}>Tramos</th>
+                  <th className={styles.th}>Estado de validación</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr
-                    key={r.row}
-                    style={{
-                      background: r.errors.length
-                        ? "var(--danger-bg-soft)"
-                        : "var(--bg-surface)",
-                    }}
-                  >
-                    <td style={td}>
+                  <tr key={r.row} className={r.errors.length ? styles.rowErr : styles.rowOk}>
+                    <td className={styles.td}>
                       <input
                         type="checkbox"
                         disabled={r.errors.length > 0}
@@ -266,112 +210,58 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                         }
                       />
                     </td>
-                    <td
-                      style={{
-                        ...td,
-                        fontFamily: "JetBrains Mono",
-                        fontSize: 12,
-                        color: "var(--fg-muted)",
-                      }}
-                    >
-                      {r.row}
+                    <td className={cx(styles.td, styles.mono, styles.cMuted)}>{r.row}</td>
+                    <td className={cx(styles.td, styles.mono, styles.cSecondary)}>
+                      {r.tripRef || <span className={styles.cDim}>—</span>}
                     </td>
-                    <td
-                      style={{
-                        ...td,
-                        fontFamily: "JetBrains Mono",
-                        fontSize: 12,
-                        color: "var(--fg-secondary)",
-                      }}
-                    >
-                      {r.tripRef || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
+                    <td className={cx(styles.td, styles.cSecondary)}>
+                      {r.date} · {r.time || <span className={styles.cDim}>—</span>}
                     </td>
-                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
-                      {r.date} ·{" "}
-                      {r.time || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
+                    <td className={cx(styles.td, styles.cSecondary)}>
+                      {r.cat || <span className={styles.cDim}>—</span>}
                     </td>
-                    <td style={{ ...td, color: "var(--fg-secondary)" }}>
-                      {r.cat || <span style={{ color: "var(--fg-disabled)" }}>—</span>}
-                    </td>
-                    <td style={{ ...tdWrap, color: "var(--fg-secondary)" }}>
+                    <td className={cx(styles.tdWrap, styles.cSecondary)}>
                       {r.passengers.length === 0 ? (
-                        <span style={{ color: "var(--fg-disabled)" }}>—</span>
+                        <span className={styles.cDim}>—</span>
                       ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <div className={styles.stack}>
                           {r.passengers.map((p, i) => (
                             <span key={i}>{p}</span>
                           ))}
                         </div>
                       )}
                     </td>
-                    <td style={{ ...tdWrap, color: "var(--fg-secondary)" }}>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <td className={cx(styles.tdWrap, styles.cSecondary)}>
+                      <div className={styles.stack}>
                         {r.legs.map((l, i) => (
                           <span key={i}>
                             {l.origin} → {l.destination}
-                            {l.flight && (
-                              <span
-                                style={{
-                                  color: "var(--fg-muted)",
-                                  fontFamily: "JetBrains Mono",
-                                  fontSize: 12,
-                                  marginLeft: 6,
-                                }}
-                              >
-                                · {l.flight}
-                              </span>
-                            )}
+                            {l.flight && <span className={styles.legFlight}>· {l.flight}</span>}
                           </span>
                         ))}
                       </div>
                     </td>
-                    <td style={td}>
+                    <td className={styles.td}>
                       {r.errors.length > 0 ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <div className={styles.stack}>
                           {r.errors.map((e, i) => (
-                            <span
-                              key={i}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                color: "var(--danger-fg)",
-                                font: "500 12px/16px Heming",
-                              }}
-                            >
+                            <span key={i} className={cx(styles.msg, styles.msgErr)}>
                               <Icon name="alert" size={12} />
                               {e}
                             </span>
                           ))}
                         </div>
                       ) : r.warnings.length > 0 ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <div className={styles.stack}>
                           {r.warnings.map((w, i) => (
-                            <span
-                              key={i}
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: 4,
-                                color: "var(--warning-fg)",
-                                font: "500 12px/16px Heming",
-                              }}
-                            >
+                            <span key={i} className={cx(styles.msg, styles.msgWarn)}>
                               <Icon name="info" size={12} />
                               {w}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <span
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: 4,
-                            color: "var(--success-fg)",
-                            font: "500 12px/16px Heming",
-                          }}
-                        >
+                        <span className={cx(styles.msg, styles.msgOk)}>
                           <Icon name="check" size={12} />
                           Sin observaciones
                         </span>
@@ -383,7 +273,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             </table>
           </div>
 
-          <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>
+          <div className={styles.note}>
             Solo se sincronizan los viajes seleccionados. Los que tienen errores no se pueden
             seleccionar — corregí el archivo y volvé a subir.
           </div>
@@ -395,49 +285,12 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
 
 type PillTone = "success" | "warning" | "danger";
 
-const PILL_TOKENS: Record<PillTone, { bg: string; fg: string }> = {
-  success: { bg: "var(--success-bg)", fg: "var(--success-fg)" },
-  warning: { bg: "var(--warning-bg)", fg: "var(--warning-fg)" },
-  danger: { bg: "var(--danger-bg)", fg: "var(--danger-fg)" },
+const PILL_CLASS: Record<PillTone, string> = {
+  success: styles.pillSuccess,
+  warning: styles.pillWarning,
+  danger: styles.pillDanger,
 };
 
 function Pill({ label, tone }: { label: string; tone: PillTone }) {
-  const { bg, fg } = PILL_TOKENS[tone];
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        height: 24,
-        padding: "0 10px",
-        borderRadius: 9999,
-        font: "600 12px/14px Heming",
-        background: bg,
-        color: fg,
-      }}
-    >
-      {label}
-    </span>
-  );
+  return <span className={cx(styles.pill, PILL_CLASS[tone])}>{label}</span>;
 }
-
-const th: CSSProperties = {
-  font: "600 11px/14px Heming",
-  letterSpacing: ".06em",
-  textTransform: "uppercase",
-  color: "var(--fg-muted)",
-  textAlign: "left",
-  padding: "10px 12px",
-  borderBottom: "1px solid var(--border-subtle)",
-};
-const td: CSSProperties = {
-  padding: "10px 12px",
-  borderBottom: "1px solid var(--border-subtle)",
-  verticalAlign: "middle",
-  whiteSpace: "nowrap",
-};
-const tdWrap: CSSProperties = {
-  padding: "10px 12px",
-  borderBottom: "1px solid var(--border-subtle)",
-  verticalAlign: "top",
-};

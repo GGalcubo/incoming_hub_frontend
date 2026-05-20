@@ -3,6 +3,7 @@ import type { User } from "../types/domain";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Field";
 import { Modal } from "./ui/Modal";
+import styles from "./UserSettingsModal.module.css";
 
 interface UserSettingsModalProps {
   open: boolean;
@@ -66,7 +67,7 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
         </>
       }
     >
-      <div style={{ display: "grid", gap: 14 }}>
+      <div className={styles.grid}>
         <Field label="Usuario">
           <Input value={user?.user ?? ""} disabled readOnly />
         </Field>

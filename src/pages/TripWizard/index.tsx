@@ -5,6 +5,7 @@ import { Field, Textarea } from "../../components/ui/Field";
 import { Icon } from "../../components/ui/Icon";
 import { Modal } from "../../components/ui/Modal";
 import { useIsMobile } from "../../hooks/useIsMobile";
+import { cx } from "../../lib/cx";
 import type { Trip } from "../../types/domain";
 import { StepCostos } from "./steps/StepCostos";
 import { StepHistorial } from "./steps/StepHistorial";
@@ -13,6 +14,7 @@ import { StepTramos } from "./steps/StepTramos";
 import { StepViaje } from "./steps/StepViaje";
 import { EMPTY_TRIP, type Mode, type StepDef } from "./types";
 import { validateTripStep } from "./validation";
+import styles from "./TripWizard.module.css";
 
 interface TripWizardProps {
   mode: Mode;
@@ -40,9 +42,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
 
   const step = stepsBase[stepIdx];
   const set = (patch: Partial<Trip>) => setT((prev) => ({ ...prev, ...patch }));
-  const pad = isMobile ? "12px 16px" : "14px 28px";
-  const contentPad = isMobile ? "16px" : "24px 28px";
-  const cardPad = isMobile ? 16 : 24;
+  const wide = step.id === "resumen" || step.id === "historial";
 
   const validateStep = () => {
     const e = validateTripStep(step.id, t);
@@ -56,118 +56,54 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const back = () => setStepIdx((i) => Math.max(i - 1, 0));
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100%",
-        overflow: "hidden",
-        background: "var(--bg-app)",
-      }}
-    >
-      <div
-        style={{
-          background: "var(--bg-app)",
-          borderBottom: "1px solid var(--border-subtle)",
-          padding: pad,
-          display: "flex",
-          flexDirection: isMobile ? "column" : "row",
-          alignItems: isMobile ? "stretch" : "center",
-          gap: isMobile ? 10 : 8,
-          flex: "none",
-        }}
-      >
+    <div className={styles.wizard}>
+      <div className={styles.head}>
         {isMobile ? (
           <>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span
-                  style={{
-                    font: "600 11px/14px Heming",
-                    letterSpacing: ".06em",
-                    textTransform: "uppercase",
-                    color: "var(--fg-muted)",
-                  }}
-                >
+            <div className={styles.mTopRow}>
+              <div className={styles.mLabelGroup}>
+                <span className={styles.mCounter}>
                   Paso {stepIdx + 1} de {stepsBase.length}
                 </span>
-                <span style={{ font: "600 14px/20px Heming", color: "var(--fg-primary)" }}>
-                  · {step.label}
-                </span>
+                <span className={styles.mStepName}>· {step.label}</span>
               </div>
               {mode === "edit" && t.est !== "CANCELADO" && onCancelTrip && (
                 <button
                   onClick={() => setShowCancel(true)}
                   title="Cancelar viaje"
-                  style={{
-                    background: "transparent",
-                    border: "1px solid var(--danger-border)",
-                    color: "var(--danger-fg)",
-                    width: 32,
-                    height: 32,
-                    borderRadius: 9999,
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flex: "none",
-                  }}
+                  className={styles.mCancelBtn}
                 >
                   <Icon name="x" size={14} />
                 </button>
               )}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div className={styles.mDots}>
               {stepsBase.map((s, i) => {
                 const done = i < stepIdx;
                 const active = i === stepIdx;
+                const reachable = i <= stepIdx;
                 return (
                   <Fragment key={s.id}>
                     <button
                       onClick={() => {
-                        if (i <= stepIdx) setStepIdx(i);
+                        if (reachable) setStepIdx(i);
                       }}
                       title={s.label}
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 9999,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: active
-                          ? "var(--brand-500)"
-                          : done
-                            ? "var(--brand-tint)"
-                            : "var(--bg-elevated)",
-                        color: active
-                          ? "var(--fg-on-brand)"
-                          : done
-                            ? "var(--success-fg)"
-                            : "var(--fg-tertiary)",
-                        font: "600 12px/14px Heming",
-                        border: "none",
-                        cursor: i <= stepIdx ? "pointer" : "default",
-                        flex: "none",
-                      }}
+                      className={cx(
+                        styles.circle,
+                        done && styles.circleDone,
+                        active && styles.circleActive,
+                        reachable && styles.clickable,
+                      )}
                     >
                       {done ? "✓" : i + 1}
                     </button>
-                    {i < stepsBase.length - 1 && (
-                      <span style={{ flex: 1, height: 1, background: "var(--border-strong)" }} />
-                    )}
+                    {i < stepsBase.length - 1 && <span className={styles.mConnector} />}
                   </Fragment>
                 );
               })}
               {mode === "edit" && (
-                <span style={{ marginLeft: 6 }}>
+                <span className={styles.mBadge}>
                   <Badge status={t.est} />
                 </span>
               )}
@@ -178,72 +114,45 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             {stepsBase.map((s, i) => {
               const done = i < stepIdx;
               const active = i === stepIdx;
+              const reachable = i <= stepIdx;
               return (
                 <Fragment key={s.id}>
                   <button
                     onClick={() => {
-                      if (i <= stepIdx) setStepIdx(i);
+                      if (reachable) setStepIdx(i);
                     }}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "6px 12px",
-                      borderRadius: 8,
-                      border: "none",
-                      background: active ? "var(--brand-tint-soft)" : "transparent",
-                      color: active
-                        ? "var(--fg-primary)"
-                        : done
-                          ? "var(--success-fg)"
-                          : "var(--fg-muted)",
-                      font: active ? "600 13px/18px Heming" : "500 13px/18px Heming",
-                      cursor: i <= stepIdx ? "pointer" : "default",
-                    }}
+                    className={cx(
+                      styles.dStepBtn,
+                      done && styles.dStepDone,
+                      active && styles.dStepActive,
+                      reachable && styles.clickable,
+                    )}
                   >
                     <span
-                      style={{
-                        width: 22,
-                        height: 22,
-                        borderRadius: 9999,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        background: active
-                          ? "var(--brand-500)"
-                          : done
-                            ? "var(--brand-tint)"
-                            : "var(--bg-elevated)",
-                        color: active
-                          ? "var(--fg-on-brand)"
-                          : done
-                            ? "var(--success-fg)"
-                            : "var(--fg-tertiary)",
-                        font: "600 12px/14px Heming",
-                      }}
+                      className={cx(
+                        styles.circle,
+                        done && styles.circleDone,
+                        active && styles.circleActive,
+                      )}
                     >
                       {done ? "✓" : i + 1}
                     </span>
                     {s.label}
                   </button>
-                  {i < stepsBase.length - 1 && (
-                    <span style={{ width: 18, height: 1, background: "var(--border-strong)" }} />
-                  )}
+                  {i < stepsBase.length - 1 && <span className={styles.dConnector} />}
                 </Fragment>
               );
             })}
 
-            <div style={{ flex: 1 }} />
+            <div className={styles.spacer} />
             {mode === "edit" && t.est !== "CANCELADO" && (
               <Button kind="danger" icon="x" onClick={() => setShowCancel(true)}>
                 Cancelar viaje
               </Button>
             )}
             {mode === "edit" && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
-                <span style={{ font: "500 12px/16px Heming", color: "var(--fg-muted)" }}>
-                  Estado
-                </span>
+              <div className={styles.estadoWrap}>
+                <span className={styles.estadoLabel}>Estado</span>
                 <Badge status={t.est} />
               </div>
             )}
@@ -251,43 +160,21 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
         )}
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", padding: contentPad, background: "var(--bg-app)" }}>
-        <div
-          style={{
-            maxWidth: step.id === "resumen" || step.id === "historial" ? 880 : 720,
-            margin: "0 auto",
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 12,
-            padding: cardPad,
-          }}
-        >
-          {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} isMobile={isMobile} />}
-          {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} isMobile={isMobile} />}
+      <div className={styles.content}>
+        <div className={cx(styles.card, wide && styles.cardWide)}>
+          {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} />}
+          {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} />}
           {step.id === "costos" && <StepCostos t={t} />}
           {step.id === "resumen" && <StepResumen t={t} />}
           {step.id === "historial" && <StepHistorial t={t} />}
         </div>
       </div>
 
-      <div
-        style={{
-          minHeight: 64,
-          padding: isMobile ? "10px 16px" : "0 28px",
-          borderTop: "1px solid var(--border-subtle)",
-          background: "var(--bg-app)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flex: "none",
-          gap: 8,
-          flexWrap: "wrap",
-        }}
-      >
+      <div className={styles.footer}>
         <Button kind="ghost" size={isMobile ? "sm" : "md"} onClick={onCancel}>
           {mode === "edit" ? "Volver" : "Descartar"}
         </Button>
-        <div style={{ display: "flex", gap: isMobile ? 6 : 10, flexWrap: "wrap" }}>
+        <div className={styles.footerRight}>
           {stepIdx > 0 && (
             <Button icon="chevleft" size={isMobile ? "sm" : "md"} onClick={back}>
               {isMobile ? "" : "Anterior"}
@@ -336,13 +223,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             </>
           }
         >
-          <div
-            style={{
-              font: "400 13px/18px Heming",
-              color: "var(--fg-tertiary)",
-              marginBottom: 14,
-            }}
-          >
+          <div className={styles.cancelText}>
             Una vez cancelado el viaje no se puede revertir. Indicá el motivo:
           </div>
           <Field label="Motivo de cancelación" required>

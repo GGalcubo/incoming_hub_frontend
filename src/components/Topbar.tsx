@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useModals } from "../context/ModalsContext";
 import { useUser } from "../context/UserContext";
+import { cx } from "../lib/cx";
 import type { User } from "../types/domain";
 import { Icon } from "./ui/Icon";
+import styles from "./Topbar.module.css";
 
 interface TopbarProps {
   title?: string;
@@ -43,59 +45,27 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
   const showPageRow = Boolean(title || subtitle || actions);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        background: "var(--bg-app)",
-        borderBottom: "1px solid var(--border-subtle)",
-        flex: "none",
-      }}
-    >
+    <div className={styles.topbar}>
       {showGlobal && (
-        <div
-          style={{
-            height: 56,
-            padding: "0 24px",
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            borderBottom: showPageRow ? "1px solid var(--border-subtle)" : undefined,
-          }}
-        >
-          <button
-            onClick={() => navigate("/viajes")}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              padding: 0,
-            }}
-            title="Inicio"
-          >
+        <div className={cx(styles.globalBar, showPageRow && styles.globalBarDivider)}>
+          <button onClick={() => navigate("/viajes")} className={styles.logoBtn} title="Inicio">
             <img
               src="/brand/isologo-blanco.png"
               alt="Incoming Hub"
-              style={{ height: 26, width: "auto", display: "block" }}
+              className={styles.logoImg}
             />
           </button>
 
-          <nav style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
-            {NAV.map((item) => {
-              const active = item.match(location.pathname);
-              return (
-                <NavButton
-                  key={item.to}
-                  active={active}
-                  icon={item.icon}
-                  label={item.label}
-                  onClick={() => navigate(item.to)}
-                />
-              );
-            })}
+          <nav className={styles.nav}>
+            {NAV.map((item) => (
+              <NavButton
+                key={item.to}
+                active={item.match(location.pathname)}
+                icon={item.icon}
+                label={item.label}
+                onClick={() => navigate(item.to)}
+              />
+            ))}
             <NavButton active={false} icon="upload" label="Cargar Excel" onClick={openExcel} />
             <NavButton
               active={location.pathname === "/viajes/nuevo"}
@@ -105,44 +75,19 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
             />
           </nav>
 
-          <div style={{ flex: 1 }} />
+          <div className={styles.spacer} />
 
           <UserMenu user={user!} onLogout={logout} onOpenSettings={openSettings} />
         </div>
       )}
 
       {showPageRow && (
-        <div
-          style={{
-            minHeight: 64,
-            padding: "12px 28px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-          }}
-        >
+        <div className={styles.pageRow}>
           <div>
-            {title && (
-              <div
-                style={{
-                  font: "600 17px/24px Heming",
-                  letterSpacing: "-.005em",
-                  color: "var(--fg-primary)",
-                }}
-              >
-                {title}
-              </div>
-            )}
-            {subtitle && (
-              <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>
-                {subtitle}
-              </div>
-            )}
+            {title && <div className={styles.pageTitle}>{title}</div>}
+            {subtitle && <div className={styles.pageSubtitle}>{subtitle}</div>}
           </div>
-          {actions && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>{actions}</div>
-          )}
+          {actions && <div className={styles.actions}>{actions}</div>}
         </div>
       )}
     </div>
@@ -157,38 +102,8 @@ interface NavButtonProps {
 }
 
 function NavButton({ active, icon, label, onClick }: NavButtonProps) {
-  const style: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    height: 36,
-    padding: "0 14px",
-    background: active ? "var(--brand-tint-soft)" : "transparent",
-    color: active ? "var(--fg-primary)" : "var(--fg-tertiary)",
-    border: "1px solid transparent",
-    borderRadius: 9999,
-    cursor: "pointer",
-    font: active ? "600 13px/18px Heming" : "500 13px/18px Heming",
-    transition: "all 180ms cubic-bezier(.2,.8,.2,1)",
-    whiteSpace: "nowrap",
-  };
   return (
-    <button
-      onClick={onClick}
-      style={style}
-      onMouseEnter={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "var(--bg-elevated)";
-          e.currentTarget.style.color = "var(--fg-primary)";
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!active) {
-          e.currentTarget.style.background = "transparent";
-          e.currentTarget.style.color = "var(--fg-tertiary)";
-        }
-      }}
-    >
+    <button onClick={onClick} className={cx(styles.navBtn, active && styles.navBtnActive)}>
       <Icon name={icon} size={16} stroke={active ? 2 : 1.5} />
       {label}
     </button>
@@ -223,77 +138,23 @@ function UserMenu({ user, onLogout, onOpenSettings }: UserMenuProps) {
   }, [open]);
 
   return (
-    <div ref={ref} style={{ position: "relative" }}>
+    <div ref={ref} className={styles.userMenu}>
       <button
         onClick={() => setOpen((o) => !o)}
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 10,
-          height: 36,
-          padding: "0 6px 0 12px",
-          background: open ? "var(--bg-elevated)" : "transparent",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 9999,
-          cursor: "pointer",
-          color: "var(--fg-primary)",
-          font: "500 13px/18px Heming",
-          transition: "all 180ms cubic-bezier(.2,.8,.2,1)",
-        }}
-        onMouseEnter={(e) => {
-          if (!open) e.currentTarget.style.background = "var(--bg-elevated)";
-        }}
-        onMouseLeave={(e) => {
-          if (!open) e.currentTarget.style.background = "transparent";
-        }}
+        className={cx(styles.userBtn, open && styles.userBtnOpen)}
       >
-        <span style={{ color: "var(--fg-secondary)" }}>
-          Hola, <span style={{ color: "var(--fg-primary)", fontWeight: 600 }}>{user.user}</span>
+        <span className={styles.greeting}>
+          Hola, <span className={styles.greetingName}>{user.user}</span>
         </span>
-        <div
-          style={{
-            width: 26,
-            height: 26,
-            borderRadius: 9999,
-            background: "var(--brand-500)",
-            color: "var(--fg-on-brand)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            font: "600 12px Heming",
-          }}
-        >
-          {initial}
-        </div>
+        <div className={styles.avatar}>{initial}</div>
         <Icon name="chevdown" size={14} />
       </button>
 
       {open && (
-        <div
-          style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            right: 0,
-            minWidth: 220,
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 12,
-            boxShadow: "var(--shadow-md)",
-            padding: 6,
-            zIndex: 40,
-          }}
-        >
-          <div
-            style={{
-              padding: "10px 12px 12px",
-              borderBottom: "1px solid var(--border-subtle)",
-              marginBottom: 6,
-            }}
-          >
-            <div style={{ font: "600 14px/18px Heming", color: "var(--fg-primary)" }}>
-              {user.user}
-            </div>
-            <div style={{ font: "400 12px/16px Heming", color: "var(--fg-muted)" }}>Operador</div>
+        <div className={styles.menu}>
+          <div className={styles.menuHeader}>
+            <div className={styles.menuName}>{user.user}</div>
+            <div className={styles.menuRole}>Operador</div>
           </div>
           <MenuItem
             icon="edit"
@@ -326,33 +187,8 @@ interface MenuItemProps {
 }
 
 function MenuItem({ icon, label, onClick, danger }: MenuItemProps) {
-  const color = danger ? "var(--danger-fg)" : "var(--fg-secondary)";
   return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        width: "100%",
-        padding: "9px 12px",
-        background: "transparent",
-        border: "none",
-        borderRadius: 8,
-        cursor: "pointer",
-        color,
-        font: "500 13px/18px Heming",
-        textAlign: "left",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = "var(--bg-elevated)";
-        if (!danger) e.currentTarget.style.color = "var(--fg-primary)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = color;
-      }}
-    >
+    <button onClick={onClick} className={cx(styles.menuItem, danger && styles.danger)}>
       <Icon name={icon} size={16} />
       {label}
     </button>

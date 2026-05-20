@@ -1,17 +1,16 @@
-import type { CSSProperties } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/Field";
 import { Icon } from "../../../components/ui/Icon";
 import { hasGoogleMapsKey } from "../../../lib/gmaps";
+import { cx } from "../../../lib/cx";
 import type { Leg } from "../../../types/domain";
 import { LegMap } from "../LegMap";
 import { PlaceCombo } from "../PlaceCombo";
 import { geocodePlaceId } from "../geocode";
-import { cardHeaderRow, grid1, grid2, h2, itemCard, itemCardTitle, p, removeBtn } from "../styles";
 import type { StepProps } from "../types";
+import styles from "./steps.module.css";
 
-export function StepTramos({ t, set, errs, isMobile }: StepProps) {
-  const grid: CSSProperties = isMobile ? grid1 : grid2;
+export function StepTramos({ t, set, errs }: StepProps) {
   const updateLeg = (i: number, patch: Partial<Leg>) => {
     const next = t.legs.map((l, j) => (j === i ? { ...l, ...patch } : l));
     if ("destination" in patch && i + 1 < next.length) {
@@ -56,21 +55,23 @@ export function StepTramos({ t, set, errs, isMobile }: StepProps) {
 
   return (
     <>
-      <h3 style={h2}>Destinos del viaje</h3>
-      <p style={p}>Agregá uno o más destinos. Para llegadas/salidas se pide número de vuelo.</p>
+      <h3 className={styles.h2}>Destinos del viaje</h3>
+      <p className={styles.p}>
+        Agregá uno o más destinos. Para llegadas/salidas se pide número de vuelo.
+      </p>
 
       {t.legs.map((leg, i) => (
-        <div key={i} style={{ ...itemCard(isMobile), marginTop: 14 }}>
-          <div style={cardHeaderRow}>
-            <div style={itemCardTitle}>Destino {i + 1}</div>
+        <div key={i} className={cx(styles.itemCard, styles.legCard)}>
+          <div className={styles.cardHeaderRow}>
+            <div className={styles.itemCardTitle}>Destino {i + 1}</div>
             {t.legs.length > 1 && (
-              <button onClick={() => rmLeg(i)} style={removeBtn}>
+              <button onClick={() => rmLeg(i)} className={styles.removeBtn}>
                 <Icon name="trash" size={14} />
                 Quitar
               </button>
             )}
           </div>
-          <div style={grid}>
+          <div className={styles.formGrid}>
             {i === 0 && (
               <>
                 <Field label="Tipo de servicio">
@@ -138,7 +139,7 @@ export function StepTramos({ t, set, errs, isMobile }: StepProps) {
               label={i === 0 ? "Destino" : undefined}
               required={i === 0}
               error={errs[`leg-${i}-destination`]}
-              span={i === 0 ? undefined : isMobile ? 1 : 2}
+              span={i === 0 ? undefined : 2}
             >
               <PlaceCombo
                 value={leg.destination}
@@ -151,7 +152,7 @@ export function StepTramos({ t, set, errs, isMobile }: StepProps) {
               />
             </Field>
             {hasGoogleMapsKey() && (
-              <div style={{ gridColumn: isMobile ? "span 1" : "span 2" }}>
+              <div className={styles.mapCell}>
                 <LegMap
                   leg={leg}
                   lockOrigin={i > 0}
@@ -168,11 +169,11 @@ export function StepTramos({ t, set, errs, isMobile }: StepProps) {
         </div>
       ))}
 
-      <Button kind="ghost" icon="plus" onClick={addLeg} style={{ marginTop: 14 }}>
+      <Button kind="ghost" icon="plus" onClick={addLeg} className={styles.addBtn}>
         Agregar destino
       </Button>
 
-      <div style={{ marginTop: 18 }}>
+      <div className={styles.obsRow}>
         <Field label="Observaciones">
           <Textarea
             value={t.obs}

@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from "react";
-import type { CSSProperties } from "react";
 import { STATUSES, TODAY, TOMORROW } from "../data/seed";
 import type { Trip, TripStatus } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
 import { Icon } from "../components/ui/Icon";
 import { Input } from "../components/ui/Field";
-import { useIsMobile } from "../hooks/useIsMobile";
+import { cx } from "../lib/cx";
+import styles from "./TripsList.module.css";
 
 interface TripsListProps {
   trips: Trip[];
@@ -17,8 +17,24 @@ interface TripsListProps {
 
 type SortKey = keyof Trip | "id";
 
+const COLS: [SortKey, string, number | null][] = [
+  ["id", "ID", 80],
+  ["date", "Fecha", 90],
+  ["time", "Hora", 70],
+  ["cat", "Categoría", 110],
+  ["ori", "Origen", null],
+  ["dst", "Destino", null],
+  ["pax", "Pax", 60],
+  ["est", "Estado", 130],
+  ["unit", "Unidad", 90],
+  ["obs", "Observaciones", null],
+];
+
+function widthClass(w: number | null): string | false {
+  return w ? (styles[`w${w}`] ?? false) : false;
+}
+
 export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
-  const isMobile = useIsMobile();
   const [dateFilter, setDateFilter] = useState<string>(TODAY);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<TripStatus[]>([]);
@@ -38,9 +54,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
       r = r.filter(
         (t) =>
           t.id.toLowerCase().includes(s) ||
-          t.passengers.some((p) =>
-            `${p.firstName} ${p.lastName}`.toLowerCase().includes(s),
-          ) ||
+          t.passengers.some((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(s)) ||
           t.agc.toLowerCase().includes(s),
       );
     }
@@ -58,77 +72,34 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
   };
 
   const sortBy = (key: SortKey) => {
-    setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+    setSort((s) =>
+      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" },
+    );
   };
 
   const SortableTH = ({
     k,
     children,
-    style,
+    widthCls,
   }: {
     k: SortKey;
     children: React.ReactNode;
-    style?: CSSProperties;
+    widthCls?: string | false;
   }) => (
-    <th onClick={() => sortBy(k)} style={{ cursor: "pointer", userSelect: "none", ...style }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+    <th onClick={() => sortBy(k)} className={cx(styles.th, widthCls)}>
+      <span className={styles.thInner}>
         {children}
         {sort.key === k && (
-          <Icon
-            name="chevdown"
-            size={11}
-            style={{ transform: sort.dir === "desc" ? "rotate(180deg)" : "none" }}
-          />
+          <Icon name="chevdown" size={11} className={sort.dir === "desc" ? styles.flip : undefined} />
         )}
       </span>
     </th>
   );
 
-  const COLS: [SortKey, string, number | null][] = [
-    ["id", "ID", 80],
-    ["date", "Fecha", 90],
-    ["time", "Hora", 70],
-    ["cat", "Categoría", 110],
-    ["ori", "Origen", null],
-    ["dst", "Destino", null],
-    ["pax", "Pax", 60],
-    ["est", "Estado", 130],
-    ["unit", "Unidad", 90],
-    ["obs", "Observaciones", null],
-  ];
-
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 0,
-        height: "100%",
-        overflow: "hidden",
-        background: "var(--bg-app)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "16px 28px",
-          background: "var(--bg-app)",
-          borderBottom: "1px solid var(--border-subtle)",
-          flex: "none",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: 9999,
-            padding: 3,
-          }}
-        >
+    <div className={styles.page}>
+      <div className={styles.toolbar}>
+        <div className={styles.segment}>
           {[
             { id: TODAY, l: "Hoy" },
             { id: TOMORROW, l: "Mañana" },
@@ -136,31 +107,13 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
             <button
               key={o.id}
               onClick={() => setDateFilter(o.id)}
-              style={{
-                border: "none",
-                background: dateFilter === o.id ? "var(--brand-500)" : "transparent",
-                color: dateFilter === o.id ? "var(--fg-on-brand)" : "var(--fg-tertiary)",
-                font: dateFilter === o.id ? "600 13px/18px Heming" : "500 13px/18px Heming",
-                padding: "5px 14px",
-                borderRadius: 9999,
-                cursor: "pointer",
-              }}
+              className={cx(styles.segBtn, dateFilter === o.id && styles.segBtnActive)}
             >
               {o.l}
             </button>
           ))}
           {dateFilter !== TODAY && dateFilter !== TOMORROW && (
-            <span
-              style={{
-                background: "var(--brand-500)",
-                color: "var(--fg-on-brand)",
-                font: "600 13px/18px Heming",
-                padding: "5px 14px",
-                borderRadius: 9999,
-              }}
-            >
-              {fmtDateLong(dateFilter)}
-            </span>
+            <span className={styles.segPill}>{fmtDateLong(dateFilter)}</span>
           )}
           <button
             onClick={() => {
@@ -171,17 +124,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
             }}
             title="Elegir fecha"
             aria-label="Elegir fecha"
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "var(--fg-tertiary)",
-              padding: "5px 10px",
-              borderRadius: 9999,
-              cursor: "pointer",
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            className={styles.calBtn}
           >
             <Icon name="calendar" size={14} />
           </button>
@@ -192,69 +135,22 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
             onChange={(e) => {
               if (e.target.value) setDateFilter(e.target.value);
             }}
-            style={{
-              position: "absolute",
-              width: 1,
-              height: 1,
-              opacity: 0,
-              pointerEvents: "none",
-            }}
+            className={styles.hiddenDate}
             aria-hidden="true"
             tabIndex={-1}
           />
         </div>
 
-        <div style={{ position: "relative" }}>
-          <button
-            onClick={() => setShowStatusMenu((s) => !s)}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              background: "var(--bg-elevated)",
-              border: "1px solid var(--border-strong)",
-              borderRadius: 9999,
-              padding: "7px 14px",
-              font: "500 13px/18px Heming",
-              color: "var(--fg-primary)",
-              cursor: "pointer",
-            }}
-          >
+        <div className={styles.statusWrap}>
+          <button onClick={() => setShowStatusMenu((s) => !s)} className={styles.statusBtn}>
             <Icon name="filter" size={14} />
             Estado{statusFilter.length ? ` · ${statusFilter.length}` : ""}
             <Icon name="chevdown" size={12} />
           </button>
           {showStatusMenu && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                left: 0,
-                zIndex: 10,
-                background: "var(--bg-surface)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: 12,
-                boxShadow: "var(--shadow-md)",
-                padding: 6,
-                minWidth: 220,
-              }}
-            >
+            <div className={styles.statusMenu}>
               {STATUSES.map((s) => (
-                <label
-                  key={s.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "7px 10px",
-                    borderRadius: 6,
-                    cursor: "pointer",
-                    font: "400 13px/18px Heming",
-                    color: "var(--fg-secondary)",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-elevated)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                >
+                <label key={s.id} className={styles.statusOpt}>
                   <input
                     type="checkbox"
                     checked={statusFilter.includes(s.id)}
@@ -264,17 +160,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
                 </label>
               ))}
               {statusFilter.length > 0 && (
-                <button
-                  onClick={() => setStatusFilter([])}
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    color: "var(--fg-link)",
-                    font: "500 13px/18px Heming",
-                    padding: "7px 10px",
-                    cursor: "pointer",
-                  }}
-                >
+                <button onClick={() => setStatusFilter([])} className={styles.clearBtn}>
                   Limpiar filtros
                 </button>
               )}
@@ -282,27 +168,17 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
           )}
         </div>
 
-        <div style={{ position: "relative", flex: 1, maxWidth: 360 }}>
-          <Icon
-            name="search"
-            size={14}
-            style={{
-              position: "absolute",
-              left: 11,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "var(--fg-muted)",
-            }}
-          />
+        <div className={styles.searchWrap}>
+          <Icon name="search" size={14} className={styles.searchIcon} />
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar por viaje, pasajero o agencia"
-            style={{ paddingLeft: 34 }}
+            className={styles.searchInput}
           />
         </div>
 
-        <div style={{ flex: 1 }} />
+        <div className={styles.spacer} />
 
         <Button icon="copy" onClick={onCopy}>
           Copiar tabla
@@ -312,28 +188,12 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
         </Button>
       </div>
 
-      <div style={{ flex: 1, overflow: "auto", background: "var(--bg-app)" }}>
-        <table
-          style={{ width: "100%", borderCollapse: "collapse", font: "400 13px/18px Heming" }}
-        >
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
           <thead>
-            <tr style={{ position: "sticky", top: 0, zIndex: 1, background: "var(--bg-app)" }}>
+            <tr className={styles.headRow}>
               {COLS.map(([k, l, w]) => (
-                <SortableTH
-                  key={k}
-                  k={k}
-                  style={{
-                    font: "600 11px/14px Heming",
-                    letterSpacing: ".06em",
-                    textTransform: "uppercase",
-                    color: "var(--fg-muted)",
-                    textAlign: "left",
-                    padding: "12px 14px",
-                    borderBottom: "1px solid var(--border-subtle)",
-                    width: w ? w : "auto",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <SortableTH key={k} k={k} widthCls={widthClass(w)}>
                   {l}
                 </SortableTH>
               ))}
@@ -341,49 +201,33 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
           </thead>
           <tbody>
             {filtered.map((t) => (
-              <tr
-                key={t.id}
-                onClick={() => onOpen(t)}
-                style={{ cursor: "pointer" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-surface)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <td style={tdMono}>{t.id}</td>
-                <td style={td}>{fmtDate(t.date)}</td>
-                <td style={{ ...td, fontFeatureSettings: '"tnum" 1' }}>{t.time}</td>
-                <td style={td}>{t.cat}</td>
-                <td style={td}>{t.ori}</td>
-                <td style={td}>{t.dst}</td>
-                <td style={td}>{t.pax}</td>
-                <td style={td}>
+              <tr key={t.id} onClick={() => onOpen(t)} className={styles.row}>
+                <td className={cx(styles.td, styles.tdMono)}>{t.id}</td>
+                <td className={styles.td}>{fmtDate(t.date)}</td>
+                <td className={cx(styles.td, styles.tdTnum)}>{t.time}</td>
+                <td className={styles.td}>{t.cat}</td>
+                <td className={styles.td}>{t.ori}</td>
+                <td className={styles.td}>{t.dst}</td>
+                <td className={styles.td}>{t.pax}</td>
+                <td className={styles.td}>
                   <Badge status={t.est} />
                 </td>
-                <td style={tdMono}>{t.unit || "—"}</td>
+                <td className={cx(styles.td, styles.tdMono)}>{t.unit || "—"}</td>
                 <td
-                  style={td}
+                  className={styles.td}
                   onClick={(e) => {
                     e.stopPropagation();
                     setRevealPhone(t.id);
                   }}
                 >
                   {revealPhone === t.id ? (
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6,
-                        color: "var(--info-fg)",
-                        font: "500 13px JetBrains Mono",
-                      }}
-                    >
+                    <span className={styles.phone}>
                       <Icon name="phone" size={12} />
                       {t.passengers[0].phone}
                     </span>
                   ) : (
-                    <span style={{ color: "var(--fg-tertiary)" }}>
-                      {t.obs || (
-                        <span style={{ color: "var(--fg-disabled)" }}>— ver pasajero</span>
-                      )}
+                    <span className={styles.obs}>
+                      {t.obs || <span className={styles.dim}>— ver pasajero</span>}
                     </span>
                   )}
                 </td>
@@ -391,19 +235,9 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td
-                  colSpan={10}
-                  style={{ padding: "60px 24px", textAlign: "center", color: "var(--fg-muted)" }}
-                >
-                  <div
-                    style={{
-                      font: "500 14px/20px Heming",
-                      color: "var(--fg-secondary)",
-                    }}
-                  >
-                    No hay viajes para mostrar.
-                  </div>
-                  <div style={{ font: "400 13px/18px Heming" }}>
+                <td colSpan={10} className={styles.empty}>
+                  <div className={styles.emptyTitle}>No hay viajes para mostrar.</div>
+                  <div className={styles.emptySub}>
                     Probá cambiar la fecha o limpiar los filtros.
                   </div>
                 </td>
@@ -413,50 +247,21 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
         </table>
       </div>
 
-      <div
-        style={{
-          minHeight: 48,
-          padding: isMobile ? "10px 16px" : "0 28px",
-          borderTop: "1px solid var(--border-subtle)",
-          background: "var(--bg-app)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flex: "none",
-          font: "400 13px/18px Heming",
-          color: "var(--fg-muted)",
-          gap: 12,
-        }}
-      >
-        <div style={{ whiteSpace: "nowrap" }}>
-          <span style={{ color: "var(--fg-primary)", fontWeight: 500 }}>{filtered.length}</span>{" "}
-          viajes · {dateFilter === TODAY ? "Hoy" : dateFilter === TOMORROW ? "Mañana" : fmtDateLong(dateFilter)}
+      <div className={styles.footer}>
+        <div className={styles.count}>
+          <span className={styles.countNum}>{filtered.length}</span> viajes ·{" "}
+          {dateFilter === TODAY
+            ? "Hoy"
+            : dateFilter === TOMORROW
+              ? "Mañana"
+              : fmtDateLong(dateFilter)}
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button
-            disabled
-            title="Anterior"
-            style={paginationBtn}
-            aria-label="Anterior"
-          >
+        <div className={styles.pager}>
+          <button disabled title="Anterior" className={styles.pageBtn} aria-label="Anterior">
             <Icon name="chevleft" size={14} />
           </button>
-          <span
-            style={{
-              font: "500 13px/18px Heming",
-              color: "var(--fg-primary)",
-              padding: "0 6px",
-              fontFeatureSettings: '"tnum" 1',
-            }}
-          >
-            1 / 1
-          </span>
-          <button
-            disabled
-            title="Siguiente"
-            style={paginationBtn}
-            aria-label="Siguiente"
-          >
+          <span className={styles.pageNum}>1 / 1</span>
+          <button disabled title="Siguiente" className={styles.pageBtn} aria-label="Siguiente">
             <Icon name="chevright" size={14} />
           </button>
         </div>
@@ -464,35 +269,6 @@ export function TripsList({ trips, onOpen, onCopy, onExport }: TripsListProps) {
     </div>
   );
 }
-
-const td: CSSProperties = {
-  padding: "12px 14px",
-  borderBottom: "1px solid var(--border-subtle)",
-  color: "var(--fg-secondary)",
-  verticalAlign: "middle",
-  whiteSpace: "nowrap",
-};
-const tdMono: CSSProperties = {
-  ...td,
-  fontFamily: "JetBrains Mono",
-  fontSize: 12,
-  color: "var(--fg-muted)",
-};
-
-const paginationBtn: CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: 9999,
-  background: "var(--bg-elevated)",
-  border: "1px solid var(--border-strong)",
-  color: "var(--fg-muted)",
-  cursor: "not-allowed",
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: 0,
-  opacity: 0.5,
-};
 
 function fmtDate(s: string) {
   const [, m, d] = s.split("-");

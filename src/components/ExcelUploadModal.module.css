@@ -1,0 +1,209 @@
+/* ---- stage: pick ---- */
+.pickWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.intro {
+  font: 400 13px/18px Heming;
+  color: var(--fg-tertiary);
+}
+
+.dropzone {
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 12px;
+  padding: 36px;
+  text-align: center;
+  background: var(--bg-app);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  transition: border-color 120ms, background 120ms;
+}
+
+.dropzone:hover {
+  border-color: var(--brand-500);
+}
+
+.dropzoneActive {
+  border-color: var(--brand-500);
+  background: var(--brand-50, var(--bg-app));
+}
+
+.dropIcon {
+  color: var(--fg-muted);
+}
+
+.dropTitle {
+  font: 600 14px/20px Heming;
+  color: var(--fg-primary);
+}
+
+.dropSub {
+  font: 400 12px/16px Heming;
+  color: var(--fg-muted);
+}
+
+.templateLink {
+  font: 500 13px/18px Heming;
+  color: var(--fg-link);
+  text-decoration: none;
+}
+
+/* ---- stage: validate ---- */
+.validateWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fileLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 13px/18px Heming;
+  color: var(--fg-secondary);
+}
+
+.fileIcon {
+  color: var(--success-fg);
+}
+
+.fileName {
+  font-weight: 500;
+}
+
+.fileCount {
+  color: var(--fg-muted);
+}
+
+.pillRow {
+  display: flex;
+  gap: 10px;
+}
+
+.tableBox {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: 940px;
+  border-collapse: collapse;
+  font: 400 13px/18px Heming;
+}
+
+.thead {
+  background: var(--bg-app);
+}
+
+.th {
+  font: 600 11px/14px Heming;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.thCheck {
+  width: 32px;
+}
+
+.rowOk {
+  background: var(--bg-surface);
+}
+
+.rowErr {
+  background: var(--danger-bg-soft);
+}
+
+.td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tdWrap {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+}
+
+.mono {
+  font-family: "JetBrains Mono";
+  font-size: 12px;
+}
+
+.cMuted {
+  color: var(--fg-muted);
+}
+.cSecondary {
+  color: var(--fg-secondary);
+}
+.cDim {
+  color: var(--fg-disabled);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legFlight {
+  color: var(--fg-muted);
+  font-family: "JetBrains Mono";
+  font-size: 12px;
+  margin-left: 6px;
+}
+
+.msg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 500 12px/16px Heming;
+}
+.msgErr {
+  color: var(--danger-fg);
+}
+.msgWarn {
+  color: var(--warning-fg);
+}
+.msgOk {
+  color: var(--success-fg);
+}
+
+.note {
+  font: 400 12px/16px Heming;
+  color: var(--fg-muted);
+}
+
+/* ---- pill ---- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font: 600 12px/14px Heming;
+}
+.pillSuccess {
+  background: var(--success-bg);
+  color: var(--success-fg);
+}
+.pillWarning {
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+}
+.pillDanger {
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+}

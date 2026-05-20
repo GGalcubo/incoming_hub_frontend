@@ -4,6 +4,8 @@ import { api } from "../api/client";
 import { Button } from "../components/ui/Button";
 import { Field, Input } from "../components/ui/Field";
 import { useUser } from "../context/UserContext";
+import { cx } from "../lib/cx";
+import styles from "./Login.module.css";
 
 export function Login() {
   const navigate = useNavigate();
@@ -33,62 +35,16 @@ export function Login() {
   };
 
   return (
-    <div
-      className="login-bg"
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
-      <form
-        onSubmit={submit}
-        style={{
-          width: 380,
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: 16,
-          padding: 32,
-          boxShadow: "var(--shadow-lg)",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 28,
-          }}
-        >
-          <img
-            src="/brand/isologo-blanco.png"
-            alt="Incoming Hub"
-            style={{ height: 44, width: "auto", display: "block" }}
-          />
+    <div className={cx("login-bg", styles.page)}>
+      <form onSubmit={submit} className={styles.card}>
+        <div className={styles.logoRow}>
+          <img src="/brand/isologo-blanco.png" alt="Incoming Hub" className={styles.logo} />
         </div>
 
-        <div
-          style={{
-            font: "600 22px/28px Heming",
-            letterSpacing: "-.005em",
-            marginBottom: 6,
-            color: "var(--fg-primary)",
-          }}
-        >
-          Ingresá a tu cuenta
-        </div>
-        <div
-          style={{
-            font: "400 13px/18px Heming",
-            color: "var(--fg-muted)",
-            marginBottom: 24,
-          }}
-        >
-          Plataforma interna para operadores de agencia.
-        </div>
+        <div className={styles.title}>Ingresá a tu cuenta</div>
+        <div className={styles.subtitle}>Plataforma interna para operadores de agencia.</div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className={styles.fields}>
           <Field label="Usuario" required error={err.user}>
             <Input
               value={user}
@@ -104,30 +60,19 @@ export function Login() {
               placeholder=""
             />
           </Field>
-          {err.form && (
-            <div style={{ font: "400 12px/16px Heming", color: "var(--danger-fg)" }}>
-              {err.form}
-            </div>
-          )}
+          {err.form && <div className={styles.formError}>{err.form}</div>}
           <Button
             type="submit"
             kind="primary"
             size="lg"
             disabled={loading}
-            style={{ width: "100%", justifyContent: "center", marginTop: 4 }}
+            className={styles.submit}
           >
             {loading ? "Ingresando…" : "Ingresar"}
           </Button>
         </div>
 
-        <div
-          style={{
-            font: "400 12px/16px Heming",
-            color: "var(--fg-disabled)",
-            marginTop: 20,
-            textAlign: "center",
-          }}
-        >
+        <div className={styles.footer}>
           ¿Problemas para ingresar? Contactá a tu administrador.
         </div>
       </form>

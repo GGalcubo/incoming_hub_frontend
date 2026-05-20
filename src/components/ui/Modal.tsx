@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Icon } from "./Icon";
+import styles from "./Modal.module.css";
 
 interface ModalProps {
   open: boolean;
@@ -13,82 +14,16 @@ interface ModalProps {
 export function Modal({ open, onClose, title, children, footer, width = 560 }: ModalProps) {
   if (!open) return null;
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "var(--bg-overlay)",
-        backdropFilter: "blur(4px)",
-        zIndex: 50,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width,
-          maxWidth: "100%",
-          maxHeight: "calc(100vh - 48px)",
-          background: "var(--bg-surface)",
-          borderRadius: 16,
-          border: "1px solid var(--border-subtle)",
-          boxShadow: "var(--shadow-lg)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
-      >
-        <div
-          style={{
-            padding: "18px 24px",
-            borderBottom: "1px solid var(--border-subtle)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <span style={{ font: "600 17px/24px Heming", color: "var(--fg-primary)" }}>{title}</span>
-          <button
-            onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              color: "var(--fg-muted)",
-              padding: 4,
-              borderRadius: 6,
-            }}
-          >
+    <div onClick={onClose} className={styles.overlay}>
+      <div onClick={(e) => e.stopPropagation()} className={styles.dialog} style={{ width }}>
+        <div className={styles.header}>
+          <span className={styles.title}>{title}</span>
+          <button onClick={onClose} className={styles.close} aria-label="Cerrar">
             <Icon name="x" size={18} />
           </button>
         </div>
-        <div
-          style={{
-            padding: "20px 24px",
-            overflow: "auto",
-            flex: 1,
-            color: "var(--fg-secondary)",
-          }}
-        >
-          {children}
-        </div>
-        {footer && (
-          <div
-            style={{
-              padding: "14px 24px",
-              borderTop: "1px solid var(--border-subtle)",
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 10,
-            }}
-          >
-            {footer}
-          </div>
-        )}
+        <div className={styles.body}>{children}</div>
+        {footer && <div className={styles.footer}>{footer}</div>}
       </div>
     </div>
   );

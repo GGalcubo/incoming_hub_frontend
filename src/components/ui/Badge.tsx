@@ -1,5 +1,7 @@
+import type { CSSProperties } from "react";
 import { STATUSES } from "../../data/seed";
 import type { TripStatus } from "../../types/domain";
+import styles from "./Badge.module.css";
 
 interface BadgeProps {
   status: TripStatus | string;
@@ -14,26 +16,15 @@ export function Badge({ status }: BadgeProps) {
   const id = meta?.id ?? String(status);
   const label = meta?.label ?? String(status);
   const key = tokenKey(id);
-  const bg = `var(--status-${key}-bg, var(--status-enespera-bg))`;
-  const fg = `var(--status-${key}-fg, var(--status-enespera-fg))`;
+
+  const vars = {
+    "--badge-bg": `var(--status-${key}-bg, var(--status-enespera-bg))`,
+    "--badge-fg": `var(--status-${key}-fg, var(--status-enespera-fg))`,
+  } as CSSProperties;
 
   return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 6,
-        height: 22,
-        padding: "0 10px",
-        borderRadius: 9999,
-        font: "600 11px/14px Heming",
-        letterSpacing: ".06em",
-        textTransform: "uppercase",
-        background: bg,
-        color: fg,
-      }}
-    >
-      <span style={{ width: 6, height: 6, borderRadius: 9999, background: fg }} />
+    <span className={styles.badge} style={vars}>
+      <span className={styles.dot} />
       {label}
     </span>
   );
