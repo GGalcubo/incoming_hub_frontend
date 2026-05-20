@@ -7,17 +7,22 @@ import { Icon } from "../components/ui/Icon";
 import { Input } from "../components/ui/Field";
 import { StatusPicker } from "../components/ui/StatusPicker";
 import { cx } from "../lib/cx";
+import { copyTableTsv, downloadTableXls } from "../lib/exportTable";
 import styles from "./TripsList.module.css";
 
 interface TripsListProps {
   trips: Trip[];
   onOpen: (t: Trip) => void;
-  onCopy: () => void;
-  onExport: () => void;
+  onCopy: (msg: string) => void;
+  onExport: (msg: string) => void;
   onChangeStatus: (t: Trip, est: TripStatus) => void;
 }
 
 type SortKey = keyof Trip | "id";
+
+const STATUS_LABEL: Record<TripStatus, string> = Object.fromEntries(
+  STATUSES.map((s) => [s.id, s.label]),
+) as Record<TripStatus, string>;
 
 const COLS: [SortKey, string, number | null][] = [
   ["id", "ID", 80],
@@ -77,6 +82,42 @@ export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: T
     setSort((s) =>
       s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" },
     );
+  };
+
+  const exportHeaders = COLS.map(([, label]) => label);
+  const rowCells = (t: Trip): string[] => [
+    t.id,
+    fmtDate(t.date),
+    t.time,
+    t.cat,
+    t.ori,
+    t.dst,
+    String(t.pax),
+    STATUS_LABEL[t.est] ?? t.est,
+    t.unit || "",
+    t.obs || "",
+  ];
+
+  const handleCopy = async () => {
+    if (!filtered.length) {
+      onCopy("No hay viajes para copiar");
+      return;
+    }
+    try {
+      await copyTableTsv(exportHeaders, filtered.map(rowCells));
+      onCopy(`${filtered.length} viajes copiados al portapapeles`);
+    } catch {
+      onCopy("No se pudo copiar la tabla");
+    }
+  };
+
+  const handleExport = () => {
+    if (!filtered.length) {
+      onExport("No hay viajes para exportar");
+      return;
+    }
+    downloadTableXls(exportHeaders, filtered.map(rowCells), `viajes-${dateFilter}.xls`);
+    onExport(`Exportando ${filtered.length} viajes a Excel`);
   };
 
   const SortableTH = ({
@@ -182,10 +223,10 @@ export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: T
 
         <div className={styles.spacer} />
 
-        <Button icon="copy" onClick={onCopy}>
+        <Button icon="copy" onClick={handleCopy}>
           Copiar tabla
         </Button>
-        <Button icon="excel" onClick={onExport}>
+        <Button icon="excel" onClick={handleExport}>
           Exportar Excel
         </Button>
       </div>

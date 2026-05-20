@@ -130,8 +130,8 @@ function TripsListRoute({
       <TripsList
         trips={trips}
         onOpen={(t) => navigate(`/viajes/${t.id}`)}
-        onCopy={() => flash("Tabla copiada al portapapeles")}
-        onExport={() => flash("Exportando a Excel…")}
+        onCopy={(msg) => flash(msg)}
+        onExport={(msg) => flash(msg)}
         onChangeStatus={onChangeStatus}
       />
     </>
