@@ -36,7 +36,12 @@
       "Bash(python -c \"import openpyxl; print\\(openpyxl.__version__\\)\")",
       "Bash(python C:/caltamirano/logos2/scripts/make_plantilla.py)",
       "Bash(Get-ChildItem -Path \"C:\\\\caltamirano\\\\logos2\" -Force)",
-      "Bash(Select-Object Name, PSIsContainer)"
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(curl -s -i -X POST \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Content-Type: application/json\" -d \"{\\\\\"username\\\\\":\\\\\"test\\\\\",\\\\\"password\\\\\":\\\\\"wrongpass123\\\\\"}\" --max-time 30)",
+      "Bash(curl -s -i -X OPTIONS \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Access-Control-Request-Method: POST\" -H \"Access-Control-Request-Headers: content-type\" --max-time 30)",
+      "Bash(npm test *)",
+      "Bash(curl -s -D - -o /dev/null -X OPTIONS \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Access-Control-Request-Method: POST\" -H \"Access-Control-Request-Headers: content-type\" --max-time 30)",
+      "Bash(curl -s -D - -o /dev/null -X POST \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Content-Type: application/json\" -d \"{}\" --max-time 30)"
     ]
   }
 }

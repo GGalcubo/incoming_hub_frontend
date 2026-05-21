@@ -4,6 +4,9 @@ import type { ExcelRow, Trip, User } from "../types/domain";
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const USE_MOCK = !API_URL;
+// El login puede apuntar a la API real aunque el resto siga en mock.
+const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
+const USE_AUTH_MOCK = !AUTH_URL;
 const USER_STORAGE_KEY = "proxy:user";
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -46,23 +49,50 @@ async function http<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
-function buildUser(user: string, token: string): User {
+function buildUser(user: string, token: string, refresh?: string): User {
   const payload = decodeJwt(token);
-  return { user, token, exp: payload?.exp };
+  return { user, token, refresh, exp: payload?.exp };
+}
+
+// Extrae un mensaje legible de las respuestas de error de Django REST Framework.
+function drfErrorMessage(body: unknown, fallback: string): string {
+  if (typeof body === "string" && body) return body;
+  if (body && typeof body === "object") {
+    const obj = body as Record<string, unknown>;
+    if (typeof obj.detail === "string") return obj.detail;
+    const parts: string[] = [];
+    for (const value of Object.values(obj)) {
+      if (Array.isArray(value)) parts.push(...value.map(String));
+      else if (typeof value === "string") parts.push(value);
+    }
+    if (parts.length) return parts.join(" ");
+  }
+  return fallback;
 }
 
 export const api = {
   async login(user: string, pass: string): Promise<User> {
-    if (USE_MOCK) {
+    if (USE_AUTH_MOCK) {
       await wait(400);
       if (!user || !pass) throw new Error("Usuario y contraseña requeridos");
       return buildUser(user, mockJwt(user));
     }
-    const res = await http<{ user: string; token: string }>("/auth/login", {
+    const res = await fetch(`${AUTH_URL}/auth/login/`, {
       method: "POST",
-      body: JSON.stringify({ user, pass }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: user, password: pass }),
     });
-    return buildUser(res.user, res.token);
+    if (!res.ok) {
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* respuesta sin cuerpo JSON */
+      }
+      throw new Error(drfErrorMessage(body, "Credenciales inválidas"));
+    }
+    const data = (await res.json()) as { access: string; refresh?: string };
+    return buildUser(user, data.access, data.refresh);
   },
 
   async listTrips(): Promise<Trip[]> {

@@ -76,6 +76,7 @@ export interface StatusMeta {
 export interface User {
   user: string;
   token: string;
+  refresh?: string;
   exp?: number;
 }
 
