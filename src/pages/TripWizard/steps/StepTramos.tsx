@@ -59,126 +59,177 @@ export function StepTramos({ t, set, errs }: StepProps) {
     else updateLeg(index - 1, { destination: text, destinationCoords: coords });
   };
 
+  const showMap = hasGoogleMapsKey();
+
   return (
     <>
       <h3 className={styles.h2}>Destinos del viaje</h3>
       <p className={styles.p}>
-        Agregá uno o más destinos. Para llegadas/salidas se pide número de vuelo.
+        Agregá uno o más destinos. Para llegadas/salidas se pide número de
+        vuelo.
       </p>
 
-      {t.legs.map((leg, i) => (
-        <div key={i} className={cx(styles.itemCard, styles.legCard)}>
-          <div className={styles.cardHeaderRow}>
-            <div className={styles.itemCardTitle}>Destino {i + 1}</div>
-            {t.legs.length > 1 && (
-              <button onClick={() => rmLeg(i)} className={styles.removeBtn}>
-                <Icon name="trash" size={14} />
-                Quitar
-              </button>
-            )}
-          </div>
-          <div className={styles.formGrid}>
-            {i === 0 && (
-              <>
-                <Field label="Tipo de servicio">
-                  <Select
-                    value={leg.type}
-                    onChange={(e) => {
-                      const next = e.target.value as Leg["type"];
-                      updateLeg(i, {
-                        type: next,
-                        flight: next === "disposicion" ? "" : leg.flight,
-                        hours: next === "disposicion" ? (leg.hours ?? 1) : undefined,
-                      });
-                    }}
-                  >
-                    <option value="in">Llegada (in)</option>
-                    <option value="out">Salida (out)</option>
-                    <option value="otro">Otro</option>
-                    <option value="disposicion">Hs disposición</option>
-                  </Select>
-                </Field>
-                {leg.type === "disposicion" ? (
-                  <Field label="Horas de disposición" hint="Entre 1 y 12 hs">
-                    <Input
-                      type="number"
-                      min={1}
-                      max={12}
-                      step={1}
-                      value={leg.hours ?? 1}
-                      onChange={(e) => {
-                        const raw = parseInt(e.target.value, 10);
-                        if (Number.isNaN(raw)) {
-                          updateLeg(i, { hours: undefined });
-                          return;
-                        }
-                        const clamped = Math.max(1, Math.min(12, raw));
-                        updateLeg(i, { hours: clamped });
-                      }}
-                      placeholder="1-12"
-                    />
-                  </Field>
-                ) : (
-                  <Field label="Vuelo" hint={leg.type === "otro" ? "No aplica" : "AA995, LA4302…"}>
-                    <Input
-                      disabled={leg.type === "otro"}
-                      value={leg.flight}
-                      onChange={(e) => updateLeg(i, { flight: e.target.value })}
-                      placeholder="—"
-                    />
-                  </Field>
+      <div
+        className={cx(
+          styles.tramosLayout,
+          !showMap && styles.tramosLayoutSingle,
+        )}
+      >
+        <div className={styles.tramosLeft}>
+          {t.legs.map((leg, i) => (
+            <div key={i} className={cx(styles.itemCard, styles.legCard)}>
+              <div className={styles.cardHeaderRow}>
+                <div className={styles.itemCardTitle}>Destino {i + 1}</div>
+                {t.legs.length > 1 && (
+                  <button onClick={() => rmLeg(i)} className={styles.removeBtn}>
+                    <Icon name="trash" size={14} />
+                    Quitar
+                  </button>
                 )}
-                <Field label="Origen" required error={errs[`leg-${i}-origin`]}>
+              </div>
+              <div className={styles.formGrid}>
+                {i === 0 && (
+                  <>
+                    <Field label="Tipo de servicio">
+                      <Select
+                        value={leg.type}
+                        onChange={(e) => {
+                          const next = e.target.value as Leg["type"];
+                          updateLeg(i, {
+                            type: next,
+                            flight: next === "disposicion" ? "" : leg.flight,
+                            hours:
+                              next === "disposicion"
+                                ? (leg.hours ?? 1)
+                                : undefined,
+                          });
+                        }}
+                      >
+                        <option value="in">Llegada (in)</option>
+                        <option value="out">Salida (out)</option>
+                        <option value="otro">Otro</option>
+                        <option value="disposicion">Hs disposición</option>
+                      </Select>
+                    </Field>
+                    {leg.type === "disposicion" ? (
+                      <Field
+                        label="Horas de disposición"
+                        hint="Entre 1 y 12 hs"
+                      >
+                        <Input
+                          type="number"
+                          min={1}
+                          max={12}
+                          step={1}
+                          value={leg.hours ?? 1}
+                          onChange={(e) => {
+                            const raw = parseInt(e.target.value, 10);
+                            if (Number.isNaN(raw)) {
+                              updateLeg(i, { hours: undefined });
+                              return;
+                            }
+                            const clamped = Math.max(1, Math.min(12, raw));
+                            updateLeg(i, { hours: clamped });
+                          }}
+                          placeholder="1-12"
+                        />
+                      </Field>
+                    ) : (
+                      <Field
+                        label="Vuelo"
+                        hint={
+                          leg.type === "otro" ? "No aplica" : "AA995, LA4302…"
+                        }
+                      >
+                        <Input
+                          disabled={leg.type === "otro"}
+                          value={leg.flight}
+                          onChange={(e) =>
+                            updateLeg(i, { flight: e.target.value })
+                          }
+                          placeholder="—"
+                        />
+                      </Field>
+                    )}
+                    <Field
+                      label="Origen"
+                      required
+                      error={errs[`leg-${i}-origin`]}
+                    >
+                      <PlaceCombo
+                        value={leg.origin}
+                        onChange={(v) =>
+                          updateLeg(i, { origin: v, originCoords: undefined })
+                        }
+                        onPick={(desc, placeId) =>
+                          geocodePlaceId(placeId, (coords) => {
+                            if (coords)
+                              updateLeg(i, {
+                                origin: desc,
+                                originCoords: coords,
+                              });
+                          })
+                        }
+                      />
+                    </Field>
+                  </>
+                )}
+                <Field
+                  label={i === 0 ? "Destino" : undefined}
+                  required={i === 0}
+                  error={errs[`leg-${i}-destination`]}
+                  span={i === 0 ? undefined : 2}
+                >
                   <PlaceCombo
-                    value={leg.origin}
-                    onChange={(v) => updateLeg(i, { origin: v, originCoords: undefined })}
+                    value={leg.destination}
+                    onChange={(v) =>
+                      updateLeg(i, {
+                        destination: v,
+                        destinationCoords: undefined,
+                      })
+                    }
                     onPick={(desc, placeId) =>
                       geocodePlaceId(placeId, (coords) => {
-                        if (coords) updateLeg(i, { origin: desc, originCoords: coords });
+                        if (coords)
+                          updateLeg(i, {
+                            destination: desc,
+                            destinationCoords: coords,
+                          });
                       })
                     }
                   />
                 </Field>
-              </>
-            )}
-            <Field
-              label={i === 0 ? "Destino" : undefined}
-              required={i === 0}
-              error={errs[`leg-${i}-destination`]}
-              span={i === 0 ? undefined : 2}
-            >
-              <PlaceCombo
-                value={leg.destination}
-                onChange={(v) => updateLeg(i, { destination: v, destinationCoords: undefined })}
-                onPick={(desc, placeId) =>
-                  geocodePlaceId(placeId, (coords) => {
-                    if (coords) updateLeg(i, { destination: desc, destinationCoords: coords });
-                  })
-                }
+              </div>
+            </div>
+          ))}
+
+          <Button
+            kind="ghost"
+            icon="plus"
+            onClick={addLeg}
+            className={styles.addBtn}
+          >
+            Agregar destino
+          </Button>
+
+          <div className={styles.obsRow}>
+            <Field label="Observaciones">
+              <Textarea
+                value={t.obs}
+                onChange={(e) => set({ obs: e.target.value })}
+                placeholder="Ej. Cartel: Sr. Álvarez"
               />
             </Field>
           </div>
         </div>
-      ))}
 
-      <Button kind="ghost" icon="plus" onClick={addLeg} className={styles.addBtn}>
-        Agregar destino
-      </Button>
-
-      {hasGoogleMapsKey() && (
-        <div className={styles.routeMap}>
-          <RouteMap legs={t.legs} onSetPoint={setPoint} />
-        </div>
-      )}
-
-      <div className={styles.obsRow}>
-        <Field label="Observaciones">
-          <Textarea
-            value={t.obs}
-            onChange={(e) => set({ obs: e.target.value })}
-            placeholder="Ej. Cartel: Sr. Álvarez"
-          />
-        </Field>
+        {showMap && (
+          <div className={styles.tramosRight}>
+            <div className={styles.routeMapSticky}>
+              <RouteMap legs={t.legs} onSetPoint={setPoint} />
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

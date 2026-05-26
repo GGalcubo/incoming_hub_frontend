@@ -110,8 +110,37 @@
 }
 
 /* ---- StepTramos ---- */
-.routeMap {
-  margin-top: 16px;
+.tramosLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.tramosLayoutSingle {
+  grid-template-columns: 1fr;
+}
+
+.tramosLeft {
+  min-width: 0;
+}
+
+.tramosRight {
+  min-width: 0;
+}
+
+.routeMapSticky {
+  position: sticky;
+  top: 0;
+}
+
+@media (max-width: 860px) {
+  .tramosLayout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .routeMapSticky {
+    position: static;
+  }
 }
 
 .obsRow {

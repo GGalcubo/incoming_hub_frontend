@@ -42,7 +42,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
 
   const step = stepsBase[stepIdx];
   const set = (patch: Partial<Trip>) => setT((prev) => ({ ...prev, ...patch }));
-  const wide = step.id === "resumen" || step.id === "historial";
+  const wide = step.id === "resumen" || step.id === "historial" || step.id === "tramos";
 
   const validateStep = () => {
     const e = validateTripStep(step.id, t);
