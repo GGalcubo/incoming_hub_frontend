@@ -46,7 +46,7 @@ export function App() {
   };
 
   const changeStatus = async (t: Trip, est: TripStatus): Promise<Trip> => {
-    const updated = await api.updateTrip({ ...t, est });
+    const updated = await api.setStatus(t.id, est);
     setTrips((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
     const label = STATUSES.find((s) => s.id === est)?.label ?? est;
     flash(`Viaje ${updated.id} → ${label}`);

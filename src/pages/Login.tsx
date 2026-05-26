@@ -10,7 +10,7 @@ import styles from "./Login.module.css";
 export function Login() {
   const navigate = useNavigate();
   const { login } = useUser();
-  const [user, setUser] = useState("operador@incoming-hub.com");
+  const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState<{ user?: string; pass?: string; form?: string }>({});
   const [loading, setLoading] = useState(false);

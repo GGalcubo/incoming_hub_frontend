@@ -50,6 +50,7 @@ export interface HistoryEntry {
 
 export interface Trip {
   id: string;
+  numero?: string;
   date: string;
   time: string;
   pax: number;

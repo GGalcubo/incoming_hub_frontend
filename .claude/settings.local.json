@@ -41,7 +41,9 @@
       "Bash(curl -s -i -X OPTIONS \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Access-Control-Request-Method: POST\" -H \"Access-Control-Request-Headers: content-type\" --max-time 30)",
       "Bash(npm test *)",
       "Bash(curl -s -D - -o /dev/null -X OPTIONS \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Access-Control-Request-Method: POST\" -H \"Access-Control-Request-Headers: content-type\" --max-time 30)",
-      "Bash(curl -s -D - -o /dev/null -X POST \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Content-Type: application/json\" -d \"{}\" --max-time 30)"
+      "Bash(curl -s -D - -o /dev/null -X POST \"https://incoming-hub-00af8e68af77.herokuapp.com/api/v1/auth/login/\" -H \"Origin: http://localhost:5173\" -H \"Content-Type: application/json\" -d \"{}\" --max-time 30)",
+      "Bash(node -e ' *)",
+      "Bash(curl -s \"https://incoming-hub-00af8e68af77.herokuapp.com/api/schema/?format=json\" -o schema.tmp.json)"
     ]
   }
 }

@@ -1,73 +1,26 @@
 import { EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
-import type { ExcelRow, Trip, User } from "../types/domain";
+import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
+import { drfErrorMessage, getToken, setOnUnauthorized, VIAJES_BASE } from "./http";
+import * as viajes from "./viajes";
+
+export { setOnUnauthorized };
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const USE_MOCK = !API_URL;
-// El login puede apuntar a la API real aunque el resto siga en mock.
 const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
 const USE_AUTH_MOCK = !AUTH_URL;
-const USER_STORAGE_KEY = "proxy:user";
+// Los viajes usan el backend real si hay base (VITE_API_URL o, por defecto, el de auth).
+const USE_VIAJES_MOCK = !VIAJES_BASE;
+// El parser de Excel tiene su propio endpoint; mientras no haya VITE_API_URL, mock.
+const USE_EXCEL_MOCK = !API_URL;
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 let mockTrips: Trip[] = [...SEED_TRIPS];
 
-let onUnauthorized: () => void = () => {};
-export function setOnUnauthorized(handler: () => void) {
-  onUnauthorized = handler;
-}
-
-function getToken(): string | null {
-  try {
-    const raw = localStorage.getItem(USER_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<User>;
-    return parsed.token ?? null;
-  } catch {
-    return null;
-  }
-}
-
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getToken();
-  const res = await fetch(`${API_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers ?? {}),
-    },
-    ...init,
-  });
-  if (res.status === 401) {
-    onUnauthorized();
-    throw new Error("Sesión expirada");
-  }
-  if (!res.ok) {
-    throw new Error(`${res.status} ${res.statusText}`);
-  }
-  return (await res.json()) as T;
-}
-
 function buildUser(user: string, token: string, refresh?: string): User {
   const payload = decodeJwt(token);
   return { user, token, refresh, exp: payload?.exp };
-}
-
-// Extrae un mensaje legible de las respuestas de error de Django REST Framework.
-function drfErrorMessage(body: unknown, fallback: string): string {
-  if (typeof body === "string" && body) return body;
-  if (body && typeof body === "object") {
-    const obj = body as Record<string, unknown>;
-    if (typeof obj.detail === "string") return obj.detail;
-    const parts: string[] = [];
-    for (const value of Object.values(obj)) {
-      if (Array.isArray(value)) parts.push(...value.map(String));
-      else if (typeof value === "string") parts.push(value);
-    }
-    if (parts.length) return parts.join(" ");
-  }
-  return fallback;
 }
 
 export const api = {
@@ -96,38 +49,56 @@ export const api = {
   },
 
   async listTrips(): Promise<Trip[]> {
-    if (USE_MOCK) {
+    if (USE_VIAJES_MOCK) {
       await wait(150);
       return [...mockTrips];
     }
-    return http<Trip[]>("/trips");
+    return viajes.listTrips();
+  },
+
+  async getTrip(id: string): Promise<Trip> {
+    if (USE_VIAJES_MOCK) {
+      await wait(100);
+      const t = mockTrips.find((x) => x.id === id);
+      if (!t) throw new Error("Viaje no encontrado");
+      return t;
+    }
+    return viajes.getTrip(id);
   },
 
   async createTrip(trip: Partial<Trip>): Promise<Trip> {
-    if (USE_MOCK) {
+    if (USE_VIAJES_MOCK) {
       await wait(250);
       const id = "RX-0" + (8420 + mockTrips.length + 1);
       const created = { ...(trip as Trip), id, est: trip.est ?? "PENDIENTE" };
       mockTrips = [created, ...mockTrips];
       return created;
     }
-    return http<Trip>("/trips", { method: "POST", body: JSON.stringify(trip) });
+    return viajes.createTrip(trip as Trip);
   },
 
   async updateTrip(trip: Trip): Promise<Trip> {
-    if (USE_MOCK) {
+    if (USE_VIAJES_MOCK) {
       await wait(200);
       mockTrips = mockTrips.map((t) => (t.id === trip.id ? trip : t));
       return trip;
     }
-    return http<Trip>(`/trips/${trip.id}`, {
-      method: "PUT",
-      body: JSON.stringify(trip),
-    });
+    return viajes.updateTrip(trip);
+  },
+
+  async setStatus(id: string, est: TripStatus): Promise<Trip> {
+    if (USE_VIAJES_MOCK) {
+      await wait(150);
+      let next: Trip | undefined;
+      mockTrips = mockTrips.map((t) => (t.id === id ? (next = { ...t, est }) : t));
+      if (!next) throw new Error("Viaje no encontrado");
+      return next;
+    }
+    return viajes.setStatus(id, est);
   },
 
   async cancelTrip(id: string, reason: string): Promise<Trip> {
-    if (USE_MOCK) {
+    if (USE_VIAJES_MOCK) {
       await wait(200);
       const next = mockTrips.find((t) => t.id === id);
       if (!next) throw new Error("Viaje no encontrado");
@@ -139,14 +110,20 @@ export const api = {
       mockTrips = mockTrips.map((t) => (t.id === id ? updated : t));
       return updated;
     }
-    return http<Trip>(`/trips/${id}/cancel`, {
-      method: "POST",
-      body: JSON.stringify({ reason }),
-    });
+    return viajes.cancelTrip(id, reason);
+  },
+
+  async deleteTrip(id: string): Promise<void> {
+    if (USE_VIAJES_MOCK) {
+      await wait(150);
+      mockTrips = mockTrips.filter((t) => t.id !== id);
+      return;
+    }
+    return viajes.deleteTrip(id);
   },
 
   async parseExcel(_file: File): Promise<ExcelRow[]> {
-    if (USE_MOCK) {
+    if (USE_EXCEL_MOCK) {
       await wait(600);
       return EXCEL_SAMPLE;
     }
@@ -158,22 +135,27 @@ export const api = {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: fd,
     });
-    if (res.status === 401) {
-      onUnauthorized();
-      throw new Error("Sesión expirada");
-    }
+    if (res.status === 401) throw new Error("Sesión expirada");
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return (await res.json()) as ExcelRow[];
   },
 
   async syncExcelRows(rows: number[]): Promise<{ count: number }> {
-    if (USE_MOCK) {
+    if (USE_EXCEL_MOCK) {
       await wait(500);
       return { count: rows.length };
     }
-    return http<{ count: number }>("/trips/excel/sync", {
+    const token = getToken();
+    const res = await fetch(`${API_URL}/trips/excel/sync`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({ rows }),
     });
+    if (res.status === 401) throw new Error("Sesión expirada");
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return (await res.json()) as { count: number };
   },
 };
