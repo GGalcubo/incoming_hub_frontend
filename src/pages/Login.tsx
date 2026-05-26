@@ -49,7 +49,7 @@ export function Login() {
             <Input
               value={user}
               onChange={(e) => setUser(e.target.value)}
-              placeholder="usuario@agencia"
+              placeholder=""
             />
           </Field>
           <Field label="Contraseña" required error={err.pass}>
