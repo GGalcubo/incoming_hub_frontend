@@ -110,14 +110,8 @@
 }
 
 /* ---- StepTramos ---- */
-.mapCell {
-  grid-column: span 2;
-}
-
-@media (max-width: 768px) {
-  .mapCell {
-    grid-column: auto;
-  }
+.routeMap {
+  margin-top: 16px;
 }
 
 .obsRow {

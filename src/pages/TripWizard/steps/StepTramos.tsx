@@ -3,8 +3,8 @@ import { Field, Input, Select, Textarea } from "../../../components/ui/Field";
 import { Icon } from "../../../components/ui/Icon";
 import { hasGoogleMapsKey } from "../../../lib/gmaps";
 import { cx } from "../../../lib/cx";
-import type { Leg } from "../../../types/domain";
-import { LegMap } from "../LegMap";
+import type { LatLng, Leg } from "../../../types/domain";
+import { RouteMap } from "../RouteMap";
 import { PlaceCombo } from "../PlaceCombo";
 import { geocodePlaceId } from "../geocode";
 import type { StepProps } from "../types";
@@ -51,6 +51,12 @@ export function StepTramos({ t, set, errs }: StepProps) {
       }
     }
     set({ legs: next });
+  };
+  // El punto 0 del recorrido es el origen del primer tramo; el punto k (>=1)
+  // es el destino del tramo k-1 (que updateLeg propaga como origen del k).
+  const setPoint = (index: number, text: string, coords: LatLng) => {
+    if (index === 0) updateLeg(0, { origin: text, originCoords: coords });
+    else updateLeg(index - 1, { destination: text, destinationCoords: coords });
   };
 
   return (
@@ -151,20 +157,6 @@ export function StepTramos({ t, set, errs }: StepProps) {
                 }
               />
             </Field>
-            {hasGoogleMapsKey() && (
-              <div className={styles.mapCell}>
-                <LegMap
-                  leg={leg}
-                  lockOrigin={i > 0}
-                  onPickOrigin={(text, coords) =>
-                    updateLeg(i, { origin: text, originCoords: coords })
-                  }
-                  onPickDestination={(text, coords) =>
-                    updateLeg(i, { destination: text, destinationCoords: coords })
-                  }
-                />
-              </div>
-            )}
           </div>
         </div>
       ))}
@@ -172,6 +164,12 @@ export function StepTramos({ t, set, errs }: StepProps) {
       <Button kind="ghost" icon="plus" onClick={addLeg} className={styles.addBtn}>
         Agregar destino
       </Button>
+
+      {hasGoogleMapsKey() && (
+        <div className={styles.routeMap}>
+          <RouteMap legs={t.legs} onSetPoint={setPoint} />
+        </div>
+      )}
 
       <div className={styles.obsRow}>
         <Field label="Observaciones">
