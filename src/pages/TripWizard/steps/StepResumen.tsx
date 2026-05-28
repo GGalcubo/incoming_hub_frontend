@@ -1,6 +1,13 @@
 import type { Trip } from "../../../types/domain";
 import styles from "./steps.module.css";
 
+const TYPE_LABELS: Record<string, string> = {
+  in: "Llegada (in)",
+  out: "Salida (out)",
+  otro: "Otro",
+  disposicion: "Hs disposición",
+};
+
 export function StepResumen({ t }: { t: Trip }) {
   const Item = ({ l, v }: { l: string; v: React.ReactNode }) => (
     <div className={styles.summaryItem}>
@@ -30,11 +37,17 @@ export function StepResumen({ t }: { t: Trip }) {
                     <span className={styles.legDir}>Hasta</span>
                     <span>{l.destination || "—"}</span>
                   </div>
-                  {l.type === "disposicion" && l.hours ? (
-                    <span className={styles.legMeta}>· {l.hours} hs disposición</span>
-                  ) : (
-                    l.flight && <span className={styles.legMeta}>· {l.flight}</span>
-                  )}
+                  <div className={styles.legRow}>
+                    <span className={styles.legDir}>Tipo</span>
+                    <span className={styles.legMeta}>
+                      {TYPE_LABELS[l.type] ?? l.type}
+                      {l.type === "disposicion" && l.hours
+                        ? ` · ${l.hours} hs`
+                        : l.flight
+                          ? ` · ${l.flight}`
+                          : ""}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

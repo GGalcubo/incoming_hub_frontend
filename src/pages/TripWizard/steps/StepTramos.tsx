@@ -155,6 +155,7 @@ export function StepTramos({ t, set, errs }: StepProps) {
                       label="Origen"
                       required
                       error={errs[`leg-${i}-origin`]}
+                      span={2}
                     >
                       <PlaceCombo
                         value={leg.origin}
@@ -178,7 +179,7 @@ export function StepTramos({ t, set, errs }: StepProps) {
                   label={i === 0 ? "Destino" : undefined}
                   required={i === 0}
                   error={errs[`leg-${i}-destination`]}
-                  span={i === 0 ? undefined : 2}
+                  span={2}
                 >
                   <PlaceCombo
                     value={leg.destination}

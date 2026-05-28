@@ -29,7 +29,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const stepsBase: StepDef[] = [
     { id: "viaje", label: "Viaje" },
     { id: "tramos", label: "Destinos" },
-    { id: "costos", label: "Costos" },
+    ...(mode === "edit" ? [{ id: "costos" as const, label: "Costos" }] : []),
     { id: "resumen", label: "Resumen" },
     ...(mode === "edit" ? [{ id: "historial" as const, label: "Historial" }] : []),
   ];
