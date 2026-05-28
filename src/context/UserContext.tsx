@@ -6,13 +6,18 @@ import type { User } from "../types/domain";
 
 const STORAGE_KEY = "proxy:user";
 
+function clearStored() {
+  localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_KEY);
+}
+
 function loadUser(): User | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) ?? sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as User;
     if (!parsed.token || isExpired(parsed.token)) {
-      localStorage.removeItem(STORAGE_KEY);
+      clearStored();
       return null;
     }
     return parsed;
@@ -23,7 +28,7 @@ function loadUser(): User | null {
 
 interface UserContextValue {
   user: User | null;
-  login: (u: User) => void;
+  login: (u: User, remember?: boolean) => void;
   logout: () => void;
 }
 
@@ -35,13 +40,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const value = useMemo<UserContextValue>(
     () => ({
       user,
-      login: (u: User) => {
+      login: (u: User, remember = true) => {
         setUser(u);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+        clearStored();
+        const store = remember ? localStorage : sessionStorage;
+        store.setItem(STORAGE_KEY, JSON.stringify(u));
       },
       logout: () => {
         setUser(null);
-        localStorage.removeItem(STORAGE_KEY);
+        clearStored();
       },
     }),
     [user],

@@ -12,6 +12,7 @@ export function Login() {
   const { login } = useUser();
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
+  const [remember, setRemember] = useState(true);
   const [err, setErr] = useState<{ user?: string; pass?: string; form?: string }>({});
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export function Login() {
     setLoading(true);
     try {
       const u = await api.login(user, pass);
-      login(u);
+      login(u, remember);
       navigate("/viajes");
     } catch (ex) {
       setErr({ form: ex instanceof Error ? ex.message : "Error de autenticación" });
@@ -60,6 +61,14 @@ export function Login() {
               placeholder=""
             />
           </Field>
+          <label className={styles.remember}>
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(e) => setRemember(e.target.checked)}
+            />
+            Recordarme en este equipo
+          </label>
           {err.form && <div className={styles.formError}>{err.form}</div>}
           <Button
             type="submit"

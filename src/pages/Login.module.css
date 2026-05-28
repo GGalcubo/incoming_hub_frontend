@@ -46,6 +46,24 @@
   gap: 16px;
 }
 
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 400 13px/18px Heming;
+  color: var(--fg-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.remember input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--brand-500);
+}
+
 .formError {
   font: 400 12px/16px Heming;
   color: var(--danger-fg);
