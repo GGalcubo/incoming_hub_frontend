@@ -21,6 +21,7 @@ export const STATUSES: StatusMeta[] = [
   { id: "CANCELADO", label: "Cancelado" },
   { id: "NO_SHOW", label: "No show" },
   { id: "REPROGRAMADO", label: "Reprogramado" },
+  { id: "MODIFICADO", label: "Modificado" },
   { id: "EN_ESPERA", label: "En espera" },
 ];
 

@@ -6,6 +6,7 @@ export type TripStatus =
   | "CANCELADO"
   | "NO_SHOW"
   | "REPROGRAMADO"
+  | "MODIFICADO"
   | "EN_ESPERA";
 
 export type LegType = "in" | "out" | "otro" | "disposicion";

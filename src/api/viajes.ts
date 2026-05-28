@@ -30,6 +30,7 @@ const ESTADO_TO_STATUS: Record<number, TripStatus> = {
   6: "NO_SHOW",
   7: "REPROGRAMADO",
   8: "EN_ESPERA",
+  9: "MODIFICADO",
 };
 const STATUS_TO_ESTADO: Record<TripStatus, number> = Object.fromEntries(
   Object.entries(ESTADO_TO_STATUS).map(([id, st]) => [st, Number(id)]),

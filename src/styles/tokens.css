@@ -114,6 +114,7 @@
   --status-cancelado-bg:    rgba(232,68,68,.16);   --status-cancelado-fg:    #FF7A7A;
   --status-noshow-bg:       rgba(232,68,128,.16);  --status-noshow-fg:       #FF85A8;
   --status-reprogramado-bg: rgba(154,108,232,.18); --status-reprogramado-fg: #B89BFF;
+  --status-modificado-bg:   rgba(56,160,232,.16);  --status-modificado-fg:   #6FC0FF;
   --status-enespera-bg:     rgba(122,122,122,.18); --status-enespera-fg:     #C2C2C2;
 
   /* ---------- SCROLLBAR -------------------------------------- */

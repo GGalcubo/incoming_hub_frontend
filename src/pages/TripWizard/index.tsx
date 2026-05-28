@@ -255,7 +255,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
                 icon="check"
                 onClick={() => {
                   setShowSaveConfirm(false);
-                  onSave(t);
+                  onSave(t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" });
                 }}
               >
                 Sí, continuar
