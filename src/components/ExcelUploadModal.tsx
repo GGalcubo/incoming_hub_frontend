@@ -104,7 +104,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         <Button kind="primary" disabled={selectedCount === 0 || submitting} onClick={sync}>
           {submitting
             ? "Sincronizando…"
-            : `Sincronizar ${selectedCount} viaje${selectedCount === 1 ? "" : "s"} con Central`}
+            : `Sincronizar ${selectedCount} viaje${selectedCount === 1 ? "" : "s"} con Incoming`}
         </Button>
       </>
     ) : null;
@@ -123,7 +123,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
       {stage === "pick" && (
         <div className={styles.pickWrap}>
           <div className={styles.intro}>
-            Subí un archivo .xlsx. Vamos a validar fila por fila antes de sincronizar con Central.
+            Subí un archivo .xlsx. Vamos a validar fila por fila antes de sincronizar con Incoming.
           </div>
           <label
             className={cx(styles.dropzone, dragOver && styles.dropzoneActive)}
