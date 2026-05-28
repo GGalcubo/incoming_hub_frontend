@@ -39,6 +39,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const step = stepsBase[stepIdx];
   const set = (patch: Partial<Trip>) => setT((prev) => ({ ...prev, ...patch }));
@@ -189,7 +190,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               kind="primary"
               icon="check"
               size={isMobile ? "sm" : "md"}
-              onClick={() => onSave(t)}
+              onClick={() => (mode === "edit" ? setShowSaveConfirm(true) : onSave(t))}
             >
               {mode === "edit" ? "Guardar" : "Guardar viaje"}
             </Button>
@@ -237,6 +238,34 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               placeholder="Ej. Cancelado por el pasajero"
             />
           </Field>
+        </Modal>
+      )}
+
+      {showSaveConfirm && (
+        <Modal
+          open
+          onClose={() => setShowSaveConfirm(false)}
+          title="Modificar viaje"
+          width={460}
+          footer={
+            <>
+              <Button onClick={() => setShowSaveConfirm(false)}>Volver</Button>
+              <Button
+                kind="primary"
+                icon="check"
+                onClick={() => {
+                  setShowSaveConfirm(false);
+                  onSave(t);
+                }}
+              >
+                Sí, continuar
+              </Button>
+            </>
+          }
+        >
+          <div className={styles.cancelText}>
+            Estás modificando un viaje que ya está creado. ¿Estás seguro que deseás continuar?
+          </div>
         </Modal>
       )}
     </div>
