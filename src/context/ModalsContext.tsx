@@ -38,7 +38,7 @@ export function ModalsProvider({ children }: { children: ReactNode }) {
         open={settingsOpen}
         user={user}
         onClose={() => setSettingsOpen(false)}
-        onSave={() => flash("Preferencias guardadas", "success")}
+        onSave={() => flash("Perfil actualizado", "success")}
       />
     </ModalsContext.Provider>
   );

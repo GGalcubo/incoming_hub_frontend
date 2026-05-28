@@ -1,7 +1,8 @@
+import type { MeProfile, MeWrite } from "./backend";
 import { EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
-import { drfErrorMessage, getToken, setOnUnauthorized, VIAJES_BASE } from "./http";
+import { drfErrorMessage, getToken, request, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -17,6 +18,42 @@ const USE_EXCEL_MOCK = !API_URL;
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 let mockTrips: Trip[] = [...SEED_TRIPS];
+
+const MOCK_ME_KEY = "proxy:mockMe";
+
+function loadMockMe(): MeProfile {
+  let username = "usuario";
+  try {
+    const raw = localStorage.getItem("proxy:user");
+    if (raw) username = (JSON.parse(raw) as Partial<User>).user ?? username;
+  } catch {
+    /* sin sesión */
+  }
+  const defaults: MeProfile = {
+    id: 0,
+    username,
+    email: "",
+    first_name: "",
+    last_name: "",
+    role: "admin",
+    phone: "",
+  };
+  try {
+    const raw = localStorage.getItem(MOCK_ME_KEY);
+    if (!raw) return defaults;
+    return { ...defaults, ...(JSON.parse(raw) as Partial<MeProfile>), username };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveMockMe(me: MeProfile) {
+  try {
+    localStorage.setItem(MOCK_ME_KEY, JSON.stringify(me));
+  } catch {
+    /* ignore */
+  }
+}
 
 function buildUser(user: string, token: string, refresh?: string): User {
   const payload = decodeJwt(token);
@@ -46,6 +83,27 @@ export const api = {
     }
     const data = (await res.json()) as { access: string; refresh?: string };
     return buildUser(user, data.access, data.refresh);
+  },
+
+  async getMe(): Promise<MeProfile> {
+    if (USE_AUTH_MOCK) {
+      await wait(150);
+      return loadMockMe();
+    }
+    return request<MeProfile>("/auth/me/");
+  },
+
+  async updateMe(patch: MeWrite): Promise<MeProfile> {
+    if (USE_AUTH_MOCK) {
+      await wait(200);
+      const next = { ...loadMockMe(), ...patch } as MeProfile;
+      saveMockMe(next);
+      return next;
+    }
+    return request<MeProfile>("/auth/me/", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
   },
 
   async listTrips(): Promise<Trip[]> {

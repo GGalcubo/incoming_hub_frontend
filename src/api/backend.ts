@@ -146,6 +146,30 @@ export interface ViajeWrite {
   horas_minimas_cancelacion?: number;
 }
 
+// ── Perfil de usuario (/auth/me/) ────────────────────────────────────────────
+export type RoleEnum = "admin" | "agency_staff" | "agency_operator";
+
+// Lectura del usuario autenticado (GET /auth/me/).
+export interface MeProfile {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: RoleEnum | null;
+  phone: string;
+}
+
+// Cuerpo editable del perfil (PATCH /auth/me/). El backend no expone endpoint
+// para cambiar contraseña ni permite editar el rol del propio usuario.
+export interface MeWrite {
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+}
+
 // Cuerpo escribible de un tramo.
 export interface TramoWrite {
   viaje: number;
