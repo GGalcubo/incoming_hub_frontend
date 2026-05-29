@@ -47,18 +47,28 @@ function destinosOf(t: Trip): string[] {
   return t.dst ? [t.dst] : [];
 }
 
+// Acota una dirección geocodificada a su primer segmento (nombre del lugar),
+// p. ej. "NH, Bolívar, C1066AAD, CABA" → "NH".
+function shortPlace(s: string): string {
+  const first = s.split(",")[0]?.trim();
+  return first || s;
+}
+
+function PlaceCell({ value }: { value: string }) {
+  if (!value) return <span className={styles.dim}>—</span>;
+  return (
+    <span className={styles.place} title={value}>
+      {shortPlace(value)}
+    </span>
+  );
+}
+
 function DestinosCell({ trip }: { trip: Trip }) {
   const ds = destinosOf(trip);
   if (!ds.length) return <span className={styles.dim}>—</span>;
-  if (ds.length === 1) return <>{ds[0]}</>;
   return (
-    <span className={styles.destinos}>
-      {ds.map((d, i) => (
-        <span key={i} className={styles.destinoStop}>
-          {i > 0 && <Icon name="chevright" size={11} className={styles.destinoArrow} />}
-          {d}
-        </span>
-      ))}
+    <span className={styles.place} title={ds.join("  →  ")}>
+      {ds.map(shortPlace).join("  →  ")}
     </span>
   );
 }
@@ -271,8 +281,10 @@ export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: T
                 <td className={styles.td}>{fmtDate(t.date)}</td>
                 <td className={cx(styles.td, styles.tdTnum)}>{t.time}</td>
                 <td className={styles.td}>{t.cat}</td>
-                <td className={styles.td}>{t.ori}</td>
-                <td className={styles.td}>
+                <td className={cx(styles.td, styles.tdPlace)}>
+                  <PlaceCell value={t.ori} />
+                </td>
+                <td className={cx(styles.td, styles.tdPlace)}>
                   <DestinosCell trip={t} />
                 </td>
                 <td className={styles.td}>{t.pax}</td>

@@ -228,24 +228,15 @@
   white-space: nowrap;
 }
 
-.destinos {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  white-space: normal;
+.tdPlace {
+  max-width: 240px;
 }
 
-.destinoStop {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.destinoArrow {
-  color: var(--fg-muted);
-  margin: 0 2px;
-  flex: none;
+.place {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tdMono {
