@@ -43,7 +43,8 @@ export const PLACES = [
 ];
 
 const today = new Date();
-const fmt = (d: Date) => d.toISOString().slice(0, 10);
+const fmt = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 export const TODAY = fmt(today);
 export const TOMORROW = fmt(new Date(today.getTime() + 86400000));
 
