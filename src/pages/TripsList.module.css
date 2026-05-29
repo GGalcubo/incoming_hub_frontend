@@ -228,6 +228,26 @@
   white-space: nowrap;
 }
 
+.destinos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  white-space: normal;
+}
+
+.destinoStop {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.destinoArrow {
+  color: var(--fg-muted);
+  margin: 0 2px;
+  flex: none;
+}
+
 .tdMono {
   font-family: "JetBrains Mono";
   font-size: 12px;

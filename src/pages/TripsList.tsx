@@ -41,6 +41,28 @@ function widthClass(w: number | null): string | false {
   return w ? (styles[`w${w}`] ?? false) : false;
 }
 
+function destinosOf(t: Trip): string[] {
+  const ds = t.legs.map((l) => l.destination.trim()).filter(Boolean);
+  if (ds.length) return ds;
+  return t.dst ? [t.dst] : [];
+}
+
+function DestinosCell({ trip }: { trip: Trip }) {
+  const ds = destinosOf(trip);
+  if (!ds.length) return <span className={styles.dim}>—</span>;
+  if (ds.length === 1) return <>{ds[0]}</>;
+  return (
+    <span className={styles.destinos}>
+      {ds.map((d, i) => (
+        <span key={i} className={styles.destinoStop}>
+          {i > 0 && <Icon name="chevright" size={11} className={styles.destinoArrow} />}
+          {d}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: TripsListProps) {
   const [dateFilter, setDateFilter] = useState<string>(TODAY);
   const dateInputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +113,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: T
     t.time,
     t.cat,
     t.ori,
-    t.dst,
+    destinosOf(t).join(" → "),
     String(t.pax),
     STATUS_LABEL[t.est] ?? t.est,
     t.unit || "",
@@ -250,7 +272,9 @@ export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: T
                 <td className={cx(styles.td, styles.tdTnum)}>{t.time}</td>
                 <td className={styles.td}>{t.cat}</td>
                 <td className={styles.td}>{t.ori}</td>
-                <td className={styles.td}>{t.dst}</td>
+                <td className={styles.td}>
+                  <DestinosCell trip={t} />
+                </td>
                 <td className={styles.td}>{t.pax}</td>
                 <td className={styles.td}>
                   <StatusPicker value={t.est} onChange={(est) => onChangeStatus(t, est)} />
