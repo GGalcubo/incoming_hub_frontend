@@ -17,10 +17,10 @@ describe("validateTripStep — paso viaje", () => {
     expect(errs.date).toBeUndefined();
   });
 
-  it("marca nombre y apellido por pasajero", () => {
+  it("no valida pasajeros en este paso", () => {
     const errs = validateTripStep("viaje", EMPTY_TRIP);
-    expect(errs["pax-0-firstName"]).toBeDefined();
-    expect(errs["pax-0-lastName"]).toBeDefined();
+    expect(errs["pax-0-firstName"]).toBeUndefined();
+    expect(errs["pax-0-lastName"]).toBeUndefined();
   });
 
   it("no devuelve errores cuando los datos son válidos", () => {
@@ -28,28 +28,35 @@ describe("validateTripStep — paso viaje", () => {
       solicitante: "Ana",
       time: "10:00",
       cat: "Ejecutivo",
-      passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "+54 11 1234 5678" }],
     });
     expect(validateTripStep("viaje", trip)).toEqual({});
   });
+});
+
+describe("validateTripStep — paso pasajeros", () => {
+  it("marca nombre y apellido por pasajero", () => {
+    const errs = validateTripStep("pasajeros", EMPTY_TRIP);
+    expect(errs["pax-0-firstName"]).toBeDefined();
+    expect(errs["pax-0-lastName"]).toBeDefined();
+  });
+
+  it("no devuelve errores cuando los pasajeros son válidos", () => {
+    const trip = tripWith({
+      passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "+54 11 1234 5678" }],
+    });
+    expect(validateTripStep("pasajeros", trip)).toEqual({});
+  });
 
   it("valida el formato de teléfono solo cuando hay valor", () => {
-    const base = {
-      solicitante: "Ana",
-      time: "10:00",
-      cat: "Ejecutivo",
-    };
     const invalid = tripWith({
-      ...base,
       passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "abc" }],
     });
-    expect(validateTripStep("viaje", invalid)["pax-0-phone"]).toBeDefined();
+    expect(validateTripStep("pasajeros", invalid)["pax-0-phone"]).toBeDefined();
 
     const emptyPhone = tripWith({
-      ...base,
       passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "" }],
     });
-    expect(validateTripStep("viaje", emptyPhone)["pax-0-phone"]).toBeUndefined();
+    expect(validateTripStep("pasajeros", emptyPhone)["pax-0-phone"]).toBeUndefined();
   });
 });
 

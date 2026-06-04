@@ -9,6 +9,7 @@ import { cx } from "../../lib/cx";
 import type { Trip } from "../../types/domain";
 import { StepCostos } from "./steps/StepCostos";
 import { StepHistorial } from "./steps/StepHistorial";
+import { StepPasajeros } from "./steps/StepPasajeros";
 import { StepResumen } from "./steps/StepResumen";
 import { StepTramos } from "./steps/StepTramos";
 import { StepViaje } from "./steps/StepViaje";
@@ -28,6 +29,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const isMobile = useIsMobile();
   const stepsBase: StepDef[] = [
     { id: "viaje", label: "Viaje" },
+    { id: "pasajeros", label: "Pasajeros" },
     { id: "tramos", label: "Destinos" },
     ...(mode === "edit" ? [{ id: "costos" as const, label: "Costos" }] : []),
     { id: "resumen", label: "Resumen" },
@@ -168,6 +170,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
       <div className={styles.content}>
         <div className={cx(styles.card, wide && styles.cardWide)}>
           {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} />}
+          {step.id === "pasajeros" && <StepPasajeros t={t} set={set} errs={errs} />}
           {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} />}
           {step.id === "costos" && <StepCostos t={t} />}
           {step.id === "resumen" && <StepResumen t={t} />}

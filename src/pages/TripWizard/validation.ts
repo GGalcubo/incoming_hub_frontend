@@ -13,6 +13,9 @@ export function validateTripStep(stepId: StepId, t: Trip): Record<string, string
     if (!t.date) e.date = "La fecha es obligatoria";
     if (!t.time) e.time = "La hora es obligatoria";
     if (!t.cat) e.cat = "La categoría es obligatoria";
+  }
+
+  if (stepId === "pasajeros") {
     t.passengers.forEach((px, i) => {
       if (!px.firstName) e[`pax-${i}-firstName`] = "Ingresá el nombre";
       if (!px.lastName) e[`pax-${i}-lastName`] = "Ingresá el apellido";

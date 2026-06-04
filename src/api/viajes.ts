@@ -107,6 +107,16 @@ export function invalidateCatalogs() {
   catalogsPromise = null;
 }
 
+// Nombres de categorías de servicio activas, ordenadas, para poblar el dropdown
+// del wizard. Reusa el cache de catálogos de la sesión.
+export async function listCategorias(): Promise<string[]> {
+  const c = await loadCatalogs();
+  return c.categorias
+    .filter((x) => x.activo)
+    .sort((a, b) => a.orden - b.orden)
+    .map((x) => x.nombre);
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const agencyName = (a: Agencia) => a.razon_social_cliente || a.nombre_centro_costo || `Agencia ${a.id}`;
 

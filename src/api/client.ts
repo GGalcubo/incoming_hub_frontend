@@ -1,5 +1,5 @@
 import type { MeProfile, MeWrite } from "./backend";
-import { EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
+import { CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
 import { drfErrorMessage, getToken, request, setOnUnauthorized, VIAJES_BASE } from "./http";
@@ -104,6 +104,14 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     });
+  },
+
+  async listCategorias(): Promise<string[]> {
+    if (USE_VIAJES_MOCK) {
+      await wait(100);
+      return [...CATEGORIES];
+    }
+    return viajes.listCategorias();
   },
 
   async listTrips(): Promise<Trip[]> {
