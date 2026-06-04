@@ -8,6 +8,7 @@ import {
   type GMapsAutocompleteService,
   type GMapsPlacePrediction,
 } from "../../lib/gmaps";
+import { shortenAddress } from "./geocode";
 import styles from "./PlaceCombo.module.css";
 
 interface PlaceSuggestion {
@@ -75,8 +76,10 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
             id: pred.place_id,
             placeId: pred.place_id,
             main: pred.structured_formatting?.main_text ?? pred.description,
-            secondary: pred.structured_formatting?.secondary_text,
-            full: pred.description,
+            secondary: pred.structured_formatting?.secondary_text
+              ? shortenAddress(pred.structured_formatting.secondary_text)
+              : undefined,
+            full: shortenAddress(pred.description),
           })),
         );
       },

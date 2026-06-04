@@ -110,6 +110,37 @@ export interface GMapsPolyline {
   setMap(m: GMapsMap | null): void;
 }
 
+export interface GMapsDirectionsRequest {
+  origin: GMapsLatLngLiteral;
+  destination: GMapsLatLngLiteral;
+  waypoints?: { location: GMapsLatLngLiteral; stopover: boolean }[];
+  travelMode: string;
+  optimizeWaypoints?: boolean;
+}
+
+export interface GMapsDirectionsResult {
+  routes: unknown[];
+}
+
+export interface GMapsDirectionsService {
+  route(
+    req: GMapsDirectionsRequest,
+    cb: (result: GMapsDirectionsResult | null, status: string) => void,
+  ): void;
+}
+
+export interface GMapsDirectionsRendererOptions {
+  map?: GMapsMap | null;
+  suppressMarkers?: boolean;
+  preserveViewport?: boolean;
+  polylineOptions?: { strokeColor?: string; strokeOpacity?: number; strokeWeight?: number };
+}
+
+export interface GMapsDirectionsRenderer {
+  setDirections(result: GMapsDirectionsResult | null): void;
+  setMap(map: GMapsMap | null): void;
+}
+
 export interface GMapsPlacesNamespace {
   AutocompleteService: new () => GMapsAutocompleteService;
   AutocompleteSessionToken: new () => unknown;
@@ -126,6 +157,10 @@ export interface GMapsNamespace {
   Geocoder: new () => GMapsGeocoder;
   LatLngBounds: new () => GMapsLatLngBounds;
   Polyline: new (opts: GMapsPolylineOptions) => GMapsPolyline;
+  DirectionsService: new () => GMapsDirectionsService;
+  DirectionsRenderer: new (opts?: GMapsDirectionsRendererOptions) => GMapsDirectionsRenderer;
+  TravelMode?: { DRIVING: string };
+  DirectionsStatus?: { OK: string };
   places: GMapsPlacesNamespace;
   event: {
     removeListener(handle: unknown): void;

@@ -20,7 +20,8 @@ export function validateTripStep(stepId: StepId, t: Trip): Record<string, string
     t.passengers.forEach((px, i) => {
       if (!px.firstName) e[`pax-${i}-firstName`] = "Ingresá el nombre";
       if (!px.lastName) e[`pax-${i}-lastName`] = "Ingresá el apellido";
-      if (px.phone && !PHONE_RE.test(px.phone)) e[`pax-${i}-phone`] = "Teléfono inválido";
+      if (!px.phone) e[`pax-${i}-phone`] = "Ingresá el teléfono";
+      else if (!PHONE_RE.test(px.phone)) e[`pax-${i}-phone`] = "Teléfono inválido";
     });
   }
 

@@ -2,6 +2,26 @@ import { loadGoogleMaps, type GMapsGeocoder, type GMapsLatLngLiteral } from "../
 
 export const BA_CENTER: GMapsLatLngLiteral = { lat: -34.6037, lng: -58.3816 };
 
+// Acota una dirección formateada por Google: quita el código postal argentino,
+// abrevia las jurisdicciones largas (CABA / PBA) y elimina el país redundante.
+export function shortenAddress(raw: string): string {
+  if (!raw) return raw;
+  let s = raw;
+  // Código postal argentino (CPA): letra + 4 dígitos + 3 letras (ej. C1430BCR).
+  s = s.replace(/\b[A-Za-z]\d{4}[A-Za-z]{3}\b/g, "");
+  // Jurisdicciones: "Ciudad/Cdad. Autónoma de Buenos Aires" → CABA.
+  s = s.replace(/(?:Ciudad|Cdad\.?)\s*Aut[oó]noma de Buenos Aires/gi, "CABA");
+  s = s.replace(/Provincia de Buenos Aires/gi, "PBA");
+  // País redundante al final.
+  s = s.replace(/,?\s*Argentina\s*$/i, "");
+  // Limpieza de comas y espacios sobrantes.
+  s = s.replace(/\s{2,}/g, " ");
+  s = s.replace(/\s*,\s*,/g, ",");
+  s = s.replace(/\s+,/g, ",");
+  s = s.replace(/^[\s,]+|[\s,]+$/g, "");
+  return s.trim();
+}
+
 let geocoderInstance: GMapsGeocoder | null = null;
 
 function getGeocoder(cb: (g: GMapsGeocoder | null) => void) {
@@ -39,7 +59,8 @@ export function reverseGeocode(point: GMapsLatLngLiteral, cb: (address: string |
       return;
     }
     g.geocode({ location: point }, (results) => {
-      cb(results?.[0]?.formatted_address ?? null);
+      const addr = results?.[0]?.formatted_address;
+      cb(addr ? shortenAddress(addr) : null);
     });
   });
 }

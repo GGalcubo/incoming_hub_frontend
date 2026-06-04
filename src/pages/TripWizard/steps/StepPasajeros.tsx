@@ -54,7 +54,7 @@ export function StepPasajeros({ t, set, errs }: StepProps) {
                 onChange={(e) => updatePax(i, { lastName: e.target.value })}
               />
             </Field>
-            <Field label="Teléfono" error={errs[`pax-${i}-phone`]} span={2}>
+            <Field label="Teléfono" required error={errs[`pax-${i}-phone`]} span={2}>
               <Input
                 value={px.phone}
                 onChange={(e) => updatePax(i, { phone: e.target.value })}

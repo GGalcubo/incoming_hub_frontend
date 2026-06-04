@@ -3,6 +3,8 @@ import { Icon } from "../../components/ui/Icon";
 import { cx } from "../../lib/cx";
 import {
   loadGoogleMaps,
+  type GMapsDirectionsRenderer,
+  type GMapsDirectionsService,
   type GMapsLatLngLiteral,
   type GMapsMap,
   type GMapsMarker,
@@ -47,6 +49,10 @@ export function RouteMap({ legs, onSetPoint }: RouteMapProps) {
   const mapRef = useRef<GMapsMap | null>(null);
   const markersRef = useRef<(GMapsMarker | null)[]>([]);
   const polylineRef = useRef<GMapsPolyline | null>(null);
+  const directionsServiceRef = useRef<GMapsDirectionsService | null>(null);
+  const directionsRendererRef = useRef<GMapsDirectionsRenderer | null>(null);
+  // Clave del último recorrido pedido: descarta respuestas de Directions tardías.
+  const routeKeyRef = useRef("");
 
   const points = buildPoints(legs);
   const pointsRef = useRef(points);
@@ -178,7 +184,10 @@ export function RouteMap({ legs, onSetPoint }: RouteMapProps) {
     });
 
     const path = pts.filter((p) => p.coords).map((p) => p.coords!);
-    if (path.length >= 2) {
+    routeKeyRef.current = coordsKey;
+
+    // Dibuja una línea recta (geodésica) como fallback si no hay ruta por calle.
+    const drawStraight = () => {
       if (polylineRef.current) {
         polylineRef.current.setPath(path);
       } else {
@@ -191,12 +200,66 @@ export function RouteMap({ legs, onSetPoint }: RouteMapProps) {
           geodesic: true,
         });
       }
+    };
+    const clearStraight = () => {
+      polylineRef.current?.setMap(null);
+      polylineRef.current = null;
+    };
+    const clearRoute = () => {
+      directionsRendererRef.current?.setMap(null);
+      directionsRendererRef.current = null;
+    };
+
+    if (path.length >= 2) {
       const bounds = new maps.LatLngBounds();
       path.forEach((c) => bounds.extend(c));
       map.fitBounds(bounds, 48);
+
+      if (!directionsServiceRef.current && maps.DirectionsService) {
+        directionsServiceRef.current = new maps.DirectionsService();
+      }
+      const svc = directionsServiceRef.current;
+      if (svc) {
+        // Pedimos la ruta por calle (en auto). Mientras llega, ocultamos la recta.
+        clearStraight();
+        svc.route(
+          {
+            origin: path[0],
+            destination: path[path.length - 1],
+            waypoints: path.slice(1, -1).map((c) => ({ location: c, stopover: true })),
+            travelMode: maps.TravelMode?.DRIVING ?? "DRIVING",
+          },
+          (result, status) => {
+            // Descarta respuestas obsoletas (los puntos ya cambiaron).
+            if (routeKeyRef.current !== coordsKey) return;
+            if (result && status === (maps.DirectionsStatus?.OK ?? "OK")) {
+              if (!directionsRendererRef.current) {
+                directionsRendererRef.current = new maps.DirectionsRenderer({
+                  map,
+                  suppressMarkers: true,
+                  preserveViewport: true,
+                  polylineOptions: {
+                    strokeColor: "#3b82f6",
+                    strokeOpacity: 0.9,
+                    strokeWeight: 4,
+                  },
+                });
+              }
+              directionsRendererRef.current.setDirections(result);
+              clearStraight();
+            } else {
+              // Sin ruta (p. ej. tramo no manejable): caemos a la línea recta.
+              clearRoute();
+              drawStraight();
+            }
+          },
+        );
+      } else {
+        drawStraight();
+      }
     } else {
-      polylineRef.current?.setMap(null);
-      polylineRef.current = null;
+      clearRoute();
+      clearStraight();
       if (path.length === 1) {
         map.panTo(path[0]);
         map.setZoom(14);
@@ -208,6 +271,7 @@ export function RouteMap({ legs, onSetPoint }: RouteMapProps) {
     return () => {
       markersRef.current.forEach((m) => m?.setMap(null));
       polylineRef.current?.setMap(null);
+      directionsRendererRef.current?.setMap(null);
     };
   }, []);
 

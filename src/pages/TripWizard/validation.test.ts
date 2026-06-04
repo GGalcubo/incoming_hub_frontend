@@ -52,7 +52,7 @@ describe("validateTripStep — paso pasajeros", () => {
     expect(validateTripStep("pasajeros", trip)).toEqual({});
   });
 
-  it("valida el formato de teléfono solo cuando hay valor", () => {
+  it("exige el teléfono y valida su formato", () => {
     const invalid = tripWith({
       passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "abc" }],
     });
@@ -61,7 +61,7 @@ describe("validateTripStep — paso pasajeros", () => {
     const emptyPhone = tripWith({
       passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "" }],
     });
-    expect(validateTripStep("pasajeros", emptyPhone)["pax-0-phone"]).toBeUndefined();
+    expect(validateTripStep("pasajeros", emptyPhone)["pax-0-phone"]).toBeDefined();
   });
 });
 
