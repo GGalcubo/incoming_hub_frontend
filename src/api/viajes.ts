@@ -124,17 +124,28 @@ export async function listCategorias(): Promise<string[]> {
 export interface WizardIdentity {
   agencies: string[];
   ownAgency: string | null;
+  // Solicitantes activos por nombre de agencia (para que el admin pueda elegir).
+  solicitantesByAgency: Record<string, string[]>;
 }
 
 export async function loadWizardIdentity(me: MeProfile): Promise<WizardIdentity> {
   const c = await loadCatalogs();
-  const agencies = c.agencies.filter((a) => a.activo).map(agencyName);
+  const activeAgencies = c.agencies.filter((a) => a.activo);
+  const agencies = activeAgencies.map(agencyName);
   const email = (me.email ?? "").trim().toLowerCase();
   const mySol = email
     ? c.solicitantes.find((s) => (s.email ?? "").trim().toLowerCase() === email)
     : undefined;
   const ag = mySol ? c.agencies.find((a) => a.id === mySol.agencia) : undefined;
-  return { agencies, ownAgency: ag ? agencyName(ag) : null };
+
+  const solicitantesByAgency: Record<string, string[]> = {};
+  for (const a of activeAgencies) {
+    solicitantesByAgency[agencyName(a)] = c.solicitantes
+      .filter((s) => s.agencia === a.id && s.activo)
+      .map((s) => s.nombre);
+  }
+
+  return { agencies, ownAgency: ag ? agencyName(ag) : null, solicitantesByAgency };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

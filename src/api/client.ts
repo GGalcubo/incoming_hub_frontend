@@ -13,6 +13,8 @@ export interface WizardIdentity {
   ownAgency: string | null;
   solicitante: string;
   isAdmin: boolean;
+  // Solicitantes disponibles por agencia (el admin puede elegir uno).
+  solicitantesByAgency: Record<string, string[]>;
 }
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -130,10 +132,20 @@ export const api = {
     const isAdmin = me.role === "admin";
     if (USE_VIAJES_MOCK) {
       await wait(100);
-      return { agencies: [...AGENCIES], ownAgency: AGENCIES[0] ?? null, solicitante, isAdmin };
+      // Sin backend: cada agencia muestra al usuario logueado como solicitante.
+      const solicitantesByAgency = Object.fromEntries(
+        AGENCIES.map((a) => [a, [solicitante]]),
+      );
+      return {
+        agencies: [...AGENCIES],
+        ownAgency: AGENCIES[0] ?? null,
+        solicitante,
+        isAdmin,
+        solicitantesByAgency,
+      };
     }
-    const { agencies, ownAgency } = await viajes.loadWizardIdentity(me);
-    return { agencies, ownAgency, solicitante, isAdmin };
+    const { agencies, ownAgency, solicitantesByAgency } = await viajes.loadWizardIdentity(me);
+    return { agencies, ownAgency, solicitante, isAdmin, solicitantesByAgency };
   },
 
   async listTrips(): Promise<Trip[]> {
