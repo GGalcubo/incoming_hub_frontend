@@ -222,14 +222,6 @@ function resolveCategoria(t: Trip, c: Catalogs): number {
   return match?.id ?? c.categorias[0]?.id ?? 0;
 }
 
-function resolveSolicitante(t: Trip, c: Catalogs, agenciaId: number): number | undefined {
-  const name = (t.solicitante ?? "").trim().toLowerCase();
-  if (!name) return undefined;
-  const byName = c.solicitantes.filter((s) => s.nombre.trim().toLowerCase() === name);
-  const match = byName.find((s) => s.agencia === agenciaId) ?? byName[0];
-  return match?.id;
-}
-
 function resolvePasajeroPrincipal(t: Trip, c: Catalogs, agenciaId: number): number | undefined {
   const p = t.passengers[0];
   if (!p) return undefined;
@@ -262,8 +254,6 @@ export function buildViajePayload(
     puede_modificar: true,
     horas_minimas_cancelacion: 24,
   };
-  const solicitante = resolveSolicitante(t, c, agencia);
-  if (solicitante != null) payload.solicitante = solicitante;
   const principal = resolvePasajeroPrincipal(t, c, agencia);
   if (principal != null) payload.pasajero_principal = principal;
   if (opts.includeEstado) payload.estado = statusToEstado(t.est);
@@ -288,20 +278,10 @@ export function buildTramoPayloads(t: Trip, viajeId: number): TramoWrite[] {
 }
 
 // ── Upsert de catálogos al guardar ──────────────────────────────────────────
-// El backend no acepta solicitante/pasajeros inline en el viaje: son entidades
-// propias. Si el nombre cargado en el wizard no existe, lo creamos y lo dejamos
-// en el cache para que buildViajePayload lo resuelva.
-async function ensureSolicitante(t: Trip, c: Catalogs, agenciaId: number): Promise<void> {
-  const name = (t.solicitante ?? "").trim();
-  if (!name) return;
-  if (resolveSolicitante(t, c, agenciaId) != null) return;
-  const created = await request<Solicitante>("/agencies/solicitantes/", {
-    method: "POST",
-    body: JSON.stringify({ agencia: agenciaId, nombre: name }),
-  });
-  c.solicitantes.push(created);
-}
-
+// El solicitante lo asigna el backend (usuario logueado), no se envía. Las
+// personas/pasajeros sí son entidades propias: si el nombre cargado en el
+// wizard no existe, lo creamos y lo dejamos en el cache para que
+// buildViajePayload lo resuelva.
 async function ensurePersonas(t: Trip, c: Catalogs, agenciaId: number): Promise<void> {
   for (const p of t.passengers) {
     const nombre = `${p.firstName} ${p.lastName}`.trim();
@@ -335,7 +315,6 @@ export async function getTrip(id: string): Promise<Trip> {
 export async function createTrip(trip: Trip): Promise<Trip> {
   const catalogs = await loadCatalogs();
   const agenciaId = resolveAgencia(trip, catalogs);
-  await ensureSolicitante(trip, catalogs, agenciaId);
   await ensurePersonas(trip, catalogs, agenciaId);
   const payload = buildViajePayload(trip, catalogs, { includeEstado: false });
   const created = await request<Viaje>("/viajes/", {
@@ -349,7 +328,6 @@ export async function createTrip(trip: Trip): Promise<Trip> {
 export async function updateTrip(trip: Trip): Promise<Trip> {
   const catalogs = await loadCatalogs();
   const agenciaId = resolveAgencia(trip, catalogs);
-  await ensureSolicitante(trip, catalogs, agenciaId);
   await ensurePersonas(trip, catalogs, agenciaId);
   const payload = buildViajePayload(trip, catalogs, { includeEstado: true });
   const updated = await request<Viaje>(`/viajes/${trip.id}/`, {
