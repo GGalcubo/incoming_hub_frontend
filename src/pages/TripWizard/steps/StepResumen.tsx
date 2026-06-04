@@ -8,6 +8,13 @@ const TYPE_LABELS: Record<string, string> = {
   disposicion: "Hs disposición",
 };
 
+const TYPE_CLASSES: Record<string, string> = {
+  in: styles.legType_in,
+  out: styles.legType_out,
+  otro: styles.legType_otro,
+  disposicion: styles.legType_disposicion,
+};
+
 export function StepResumen({ t }: { t: Trip }) {
   const Item = ({ l, v }: { l: string; v: React.ReactNode }) => (
     <div className={styles.summaryItem}>
@@ -40,7 +47,7 @@ export function StepResumen({ t }: { t: Trip }) {
                   </div>
                   <div className={styles.legRow}>
                     <span className={styles.legDir}>Tipo</span>
-                    <span className={styles.legMeta}>
+                    <span className={`${styles.legMeta} ${TYPE_CLASSES[l.type] ?? ""}`}>
                       {TYPE_LABELS[l.type] ?? l.type}
                       {l.type === "disposicion" && l.hours
                         ? ` · ${l.hours} hs`

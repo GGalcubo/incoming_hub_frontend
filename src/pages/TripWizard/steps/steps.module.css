@@ -261,9 +261,22 @@
 }
 
 .legMeta {
-  color: var(--fg-muted);
-  font-family: "JetBrains Mono";
-  font-size: 12px;
+  font: 500 14px/20px Heming;
+  color: var(--fg-secondary);
+}
+
+/* Color por tipo de tramo (no grisado: el tipo es importante) */
+.legType_in {
+  color: #5BD6C0;
+}
+.legType_out {
+  color: var(--warning-fg);
+}
+.legType_disposicion {
+  color: #B79CFF;
+}
+.legType_otro {
+  color: var(--fg-secondary);
 }
 
 /* ---- StepHistorial ---- */
