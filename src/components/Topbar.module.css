@@ -100,6 +100,27 @@
   font-weight: 600;
 }
 
+/* primary nav button — filled brand, stands out as the main action */
+.navBtnPrimary {
+  background: var(--brand-500);
+  color: var(--fg-on-brand);
+  border-color: var(--brand-500);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+.navBtnPrimary:hover {
+  background: var(--brand-600, var(--brand-500));
+  color: var(--fg-on-brand);
+  filter: brightness(1.05);
+}
+
+/* keep filled look even when on the /viajes/nuevo route */
+.navBtnPrimary.navBtnActive {
+  background: var(--brand-500);
+  color: var(--fg-on-brand);
+}
+
 /* user menu */
 .userMenu {
   position: relative;

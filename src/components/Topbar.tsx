@@ -71,6 +71,7 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
               active={location.pathname === "/viajes/nuevo"}
               icon="plus"
               label="Nuevo viaje"
+              primary
               onClick={() => navigate("/viajes/nuevo")}
             />
           </nav>
@@ -99,12 +100,16 @@ interface NavButtonProps {
   icon: string;
   label: string;
   onClick: () => void;
+  primary?: boolean;
 }
 
-function NavButton({ active, icon, label, onClick }: NavButtonProps) {
+function NavButton({ active, icon, label, onClick, primary }: NavButtonProps) {
   return (
-    <button onClick={onClick} className={cx(styles.navBtn, active && styles.navBtnActive)}>
-      <Icon name={icon} size={16} stroke={active ? 2 : 1.5} />
+    <button
+      onClick={onClick}
+      className={cx(styles.navBtn, primary && styles.navBtnPrimary, active && styles.navBtnActive)}
+    >
+      <Icon name={icon} size={16} stroke={primary || active ? 2 : 1.5} />
       {label}
     </button>
   );
