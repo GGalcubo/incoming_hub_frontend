@@ -66,7 +66,6 @@ function PlaceCell({ value }: { value: string }) {
 function DestinosCell({ trip }: { trip: Trip }) {
   const ds = destinosOf(trip);
   if (!ds.length) return <span className={styles.dim}>—</span>;
-  const full = ds.join("  →  ");
   if (ds.length === 1) {
     return (
       <span className={styles.place} title={ds[0]}>
@@ -75,9 +74,13 @@ function DestinosCell({ trip }: { trip: Trip }) {
     );
   }
   return (
-    <span className={styles.destinos} title={full}>
-      <span className={styles.place}>{shortPlace(ds[0])}</span>
-      <span className={styles.moreChip}>+{ds.length - 1}</span>
+    <span className={styles.destinos}>
+      {ds.map((d, i) => (
+        <span key={i} className={styles.destinoLine} title={d}>
+          <span className={styles.destinoNum}>{i + 1}</span>
+          <span className={styles.place}>{shortPlace(d)}</span>
+        </span>
+      ))}
     </span>
   );
 }

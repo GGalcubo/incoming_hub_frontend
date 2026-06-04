@@ -241,22 +241,33 @@
 
 .destinos {
   display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.destinoLine {
+  display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
 
-.destinos .place {
+.destinoLine .place {
   flex: 1 1 auto;
 }
 
-.moreChip {
+.destinoNum {
   flex: none;
-  font: 500 11px/1 Heming;
-  color: var(--fg-secondary);
-  background: var(--brand-tint);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
-  padding: 3px 7px;
+  background: var(--brand-tint);
+  color: var(--fg-muted);
+  font: 500 10px/1 "JetBrains Mono";
 }
 
 .tdMono {
