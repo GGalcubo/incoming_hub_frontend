@@ -25,11 +25,16 @@ describe("validateTripStep — paso viaje", () => {
 
   it("no devuelve errores cuando los datos son válidos", () => {
     const trip = tripWith({
+      agc: "Travel BA",
       solicitante: "Ana",
       time: "10:00",
       cat: "Ejecutivo",
     });
     expect(validateTripStep("viaje", trip)).toEqual({});
+  });
+
+  it("marca la agencia faltante", () => {
+    expect(validateTripStep("viaje", EMPTY_TRIP).agc).toBeDefined();
   });
 });
 

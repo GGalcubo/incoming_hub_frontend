@@ -6,6 +6,7 @@ import type { LegType, Trip, TripCosts, TripStatus } from "../types/domain";
 import type {
   Agencia,
   CategoriaServicio,
+  MeProfile,
   Paginated,
   Persona,
   Solicitante,
@@ -115,6 +116,25 @@ export async function listCategorias(): Promise<string[]> {
     .filter((x) => x.activo)
     .sort((a, b) => a.orden - b.orden)
     .map((x) => x.nombre);
+}
+
+// Identidad para el wizard: lista de agencias y la agencia propia del usuario
+// logueado. La agencia propia se infiere cruzando el email del perfil con el
+// catálogo de solicitantes (el backend no la expone en /auth/me/).
+export interface WizardIdentity {
+  agencies: string[];
+  ownAgency: string | null;
+}
+
+export async function loadWizardIdentity(me: MeProfile): Promise<WizardIdentity> {
+  const c = await loadCatalogs();
+  const agencies = c.agencies.filter((a) => a.activo).map(agencyName);
+  const email = (me.email ?? "").trim().toLowerCase();
+  const mySol = email
+    ? c.solicitantes.find((s) => (s.email ?? "").trim().toLowerCase() === email)
+    : undefined;
+  const ag = mySol ? c.agencies.find((a) => a.id === mySol.agencia) : undefined;
+  return { agencies, ownAgency: ag ? agencyName(ag) : null };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

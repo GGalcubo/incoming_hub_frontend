@@ -20,6 +20,7 @@ export function StepResumen({ t }: { t: Trip }) {
       <h3 className={styles.h2}>Resumen del viaje</h3>
       <div className={styles.summaryList}>
         <Item l="Reserva" v={<span className={styles.mono}>{t.id}</span>} />
+        <Item l="Agencia" v={t.agc || "—"} />
         <Item l="Solicitante" v={t.solicitante || "—"} />
         <Item l="Fecha y hora" v={`${t.date} · ${t.time || "—"}`} />
         <Item l="Categoría" v={t.cat} />

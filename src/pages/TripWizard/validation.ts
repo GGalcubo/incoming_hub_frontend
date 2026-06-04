@@ -9,6 +9,7 @@ export function validateTripStep(stepId: StepId, t: Trip): Record<string, string
   const e: Record<string, string> = {};
 
   if (stepId === "viaje") {
+    if (!t.agc) e.agc = "Seleccioná la agencia";
     if (!t.solicitante) e.solicitante = "Ingresá el solicitante";
     if (!t.date) e.date = "La fecha es obligatoria";
     if (!t.time) e.time = "La hora es obligatoria";

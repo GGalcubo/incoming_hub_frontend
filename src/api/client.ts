@@ -1,11 +1,19 @@
 import type { MeProfile, MeWrite } from "./backend";
-import { CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
+import { AGENCIES, CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
 import { drfErrorMessage, getToken, request, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
+
+// Identidad que consume el wizard para los dropdowns de agencia y solicitante.
+export interface WizardIdentity {
+  agencies: string[];
+  ownAgency: string | null;
+  solicitante: string;
+  isAdmin: boolean;
+}
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
@@ -112,6 +120,20 @@ export const api = {
       return [...CATEGORIES];
     }
     return viajes.listCategorias();
+  },
+
+  // Datos de identidad para el wizard: agencias disponibles, agencia propia del
+  // usuario, su nombre como solicitante y si puede cambiar de agencia (admin).
+  async getWizardIdentity(): Promise<WizardIdentity> {
+    const me = await this.getMe();
+    const solicitante = `${me.first_name} ${me.last_name}`.trim() || me.username;
+    const isAdmin = me.role === "admin";
+    if (USE_VIAJES_MOCK) {
+      await wait(100);
+      return { agencies: [...AGENCIES], ownAgency: AGENCIES[0] ?? null, solicitante, isAdmin };
+    }
+    const { agencies, ownAgency } = await viajes.loadWizardIdentity(me);
+    return { agencies, ownAgency, solicitante, isAdmin };
   },
 
   async listTrips(): Promise<Trip[]> {
