@@ -66,9 +66,18 @@ function PlaceCell({ value }: { value: string }) {
 function DestinosCell({ trip }: { trip: Trip }) {
   const ds = destinosOf(trip);
   if (!ds.length) return <span className={styles.dim}>—</span>;
+  const full = ds.join("  →  ");
+  if (ds.length === 1) {
+    return (
+      <span className={styles.place} title={ds[0]}>
+        {shortPlace(ds[0])}
+      </span>
+    );
+  }
   return (
-    <span className={styles.place} title={ds.join("  →  ")}>
-      {ds.map(shortPlace).join("  →  ")}
+    <span className={styles.destinos} title={full}>
+      <span className={styles.place}>{shortPlace(ds[0])}</span>
+      <span className={styles.moreChip}>+{ds.length - 1}</span>
     </span>
   );
 }
@@ -277,7 +286,7 @@ export function TripsList({ trips, onOpen, onCopy, onExport, onChangeStatus }: T
           <tbody>
             {filtered.map((t) => (
               <tr key={t.id} onClick={() => onOpen(t)} className={styles.row}>
-                <td className={cx(styles.td, styles.tdMono)}>{t.id}</td>
+                <td className={cx(styles.td, styles.tdId)}>{t.id}</td>
                 <td className={styles.td}>{fmtDate(t.date)}</td>
                 <td className={cx(styles.td, styles.tdTnum)}>{t.time}</td>
                 <td className={styles.td}>{t.cat}</td>

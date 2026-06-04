@@ -239,10 +239,37 @@
   white-space: nowrap;
 }
 
+.destinos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.destinos .place {
+  flex: 1 1 auto;
+}
+
+.moreChip {
+  flex: none;
+  font: 500 11px/1 Heming;
+  color: var(--fg-secondary);
+  background: var(--brand-tint);
+  border-radius: 999px;
+  padding: 3px 7px;
+}
+
 .tdMono {
   font-family: "JetBrains Mono";
   font-size: 12px;
   color: var(--fg-muted);
+}
+
+/* ID: mismo gris que el resto de la fila (no apagado) */
+.tdId {
+  font-family: "JetBrains Mono";
+  font-size: 12px;
+  color: var(--fg-secondary);
 }
 
 .tdTnum {
