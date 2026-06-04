@@ -122,7 +122,13 @@ export function StepViaje({ t, set, errs }: StepProps) {
           <Input type="date" value={t.date} onChange={(e) => set({ date: e.target.value })} />
         </Field>
         <Field label="Hora" required error={errs.time}>
-          <Input type="time" value={t.time} onChange={(e) => set({ time: e.target.value })} />
+          <Input
+            type="time"
+            lang="es-ES"
+            step={60}
+            value={t.time}
+            onChange={(e) => set({ time: e.target.value })}
+          />
         </Field>
         <Field label="Categoría de servicio" required error={errs.cat} span={2}>
           <Select value={t.cat} onChange={(e) => set({ cat: e.target.value })}>
