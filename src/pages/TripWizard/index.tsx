@@ -42,6 +42,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
+  const [showEditWarning, setShowEditWarning] = useState(mode === "edit");
 
   const step = stepsBase[stepIdx];
   const set = (patch: Partial<Trip>) => setT((prev) => ({ ...prev, ...patch }));
@@ -241,6 +242,31 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               placeholder="Ej. Cancelado por el pasajero"
             />
           </Field>
+        </Modal>
+      )}
+
+      {showEditWarning && (
+        <Modal
+          open
+          onClose={onCancel}
+          title="Modificar viaje"
+          width={460}
+          footer={
+            <>
+              <Button onClick={onCancel}>Volver</Button>
+              <Button
+                kind="primary"
+                icon="check"
+                onClick={() => setShowEditWarning(false)}
+              >
+                Sí, continuar
+              </Button>
+            </>
+          }
+        >
+          <div className={styles.cancelText}>
+            Estás modificando un viaje que ya está creado. ¿Estás seguro que deseás continuar?
+          </div>
         </Modal>
       )}
 
