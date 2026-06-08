@@ -144,6 +144,33 @@ export async function listAgenciasMin(): Promise<AgenciaMin[]> {
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
+// Acceso a la vista de pasajeros según el rol: el admin ve todas las agencias y
+// puede filtrar libremente; el no-admin queda restringido a su propia agencia.
+// La agencia propia se infiere cruzando el email del perfil con los solicitantes
+// (el backend no la expone en /auth/me/), igual que loadWizardIdentity.
+export interface PassengersAccess {
+  isAdmin: boolean;
+  agencies: AgenciaMin[];
+  ownAgencyId: number | null;
+}
+
+export async function loadPassengersAccess(me: MeProfile): Promise<PassengersAccess> {
+  const isAdmin = me.role === "admin";
+  const agencies = await listAgenciasMin();
+  let ownAgencyId: number | null = null;
+  if (!isAdmin) {
+    const email = (me.email ?? "").trim().toLowerCase();
+    if (email) {
+      const solicitantes = await fetchAll<Solicitante>("/agencies/solicitantes/");
+      const mySol = solicitantes.find(
+        (s) => (s.email ?? "").trim().toLowerCase() === email,
+      );
+      ownAgencyId = mySol?.agencia ?? null;
+    }
+  }
+  return { isAdmin, agencies, ownAgencyId };
+}
+
 // Nombres de categorías de servicio activas, ordenadas, para poblar el dropdown
 // del wizard. Reusa el cache de catálogos de la sesión.
 export async function listCategorias(): Promise<string[]> {

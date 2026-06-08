@@ -1,5 +1,5 @@
 import type { MeProfile, MeWrite, Paginated, Persona } from "./backend";
-import type { AgenciaMin, PersonasQuery } from "./viajes";
+import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
@@ -212,13 +212,20 @@ export const api = {
     return viajes.listPersonasPage(q);
   },
 
-  // Agencias (id + nombre) para el dropdown de la vista de pasajeros.
-  async listAgencias(): Promise<AgenciaMin[]> {
+  // Acceso a la vista de pasajeros según rol: agencias visibles y, si no es
+  // admin, la agencia propia a la que queda restringido.
+  async passengersAccess(): Promise<PassengersAccess> {
+    const me = await this.getMe();
     if (USE_VIAJES_MOCK) {
       await wait(80);
-      return AGENCIES.map((nombre, i) => ({ id: i + 1, nombre }));
+      const isAdmin = me.role === "admin";
+      return {
+        isAdmin,
+        agencies: AGENCIES.map((nombre, i) => ({ id: i + 1, nombre })),
+        ownAgencyId: isAdmin ? null : 1,
+      };
     }
-    return viajes.listAgenciasMin();
+    return viajes.loadPassengersAccess(me);
   },
 
   async getTrip(id: string): Promise<Trip> {

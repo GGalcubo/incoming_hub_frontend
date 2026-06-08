@@ -18,18 +18,25 @@ export function PassengersList() {
   const [q, setQ] = useState("");
   const search = useDebouncedValue(q.trim(), 300);
 
-  const { data: agencias = [] } = useQuery({
-    queryKey: ["agencias"],
-    queryFn: () => api.listAgencias(),
+  const { data: access } = useQuery({
+    queryKey: ["passengersAccess"],
+    queryFn: () => api.passengersAccess(),
     staleTime: 5 * 60_000,
   });
+  const isAdmin = access?.isAdmin ?? false;
+  const agencias = access?.agencies ?? [];
   const agencyName = useMemo(() => {
     const m = new Map<number, string>();
     for (const a of agencias) m.set(a.id, a.nombre);
     return m;
   }, [agencias]);
 
-  const agenciaId = agencyFilter ? Number(agencyFilter) : null;
+  // Admin: filtro libre por el dropdown. No-admin: forzado a su propia agencia.
+  const agenciaId = isAdmin
+    ? agencyFilter
+      ? Number(agencyFilter)
+      : null
+    : access?.ownAgencyId ?? null;
 
   const {
     data,
@@ -46,6 +53,7 @@ export function PassengersList() {
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) =>
       lastPage.next ? allPages.length + 1 : undefined,
+    enabled: !!access,
   });
 
   const rows = useMemo<Persona[]>(
@@ -78,17 +86,25 @@ export function PassengersList() {
     <div className={styles.page}>
       <div className={styles.toolbar}>
         <div className={styles.agencyWrap}>
-          <Select
-            value={agencyFilter}
-            onChange={(e) => setAgencyFilter(e.target.value)}
-          >
-            <option value="">Todas las agencias</option>
-            {agencias.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nombre}
+          {isAdmin ? (
+            <Select
+              value={agencyFilter}
+              onChange={(e) => setAgencyFilter(e.target.value)}
+            >
+              <option value="">Todas las agencias</option>
+              {agencias.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.nombre}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Select value={agenciaId ?? ""} disabled>
+              <option value={agenciaId ?? ""}>
+                {(agenciaId != null && agencyName.get(agenciaId)) || "Tu agencia"}
               </option>
-            ))}
-          </Select>
+            </Select>
+          )}
         </div>
 
         <div className={styles.searchWrap}>
