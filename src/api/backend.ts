@@ -51,6 +51,7 @@ export interface Persona {
   telefono: string;
   dni: string | null;
   email: string | null;
+  fecha_creacion: string;
 }
 
 export interface TramoPasajero {

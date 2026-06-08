@@ -1,78 +1,78 @@
-import { useMemo, useState } from "react";
-import { AGENCIES } from "../data/seed";
-import type { Passenger, Trip } from "../types/domain";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { api } from "../api/client";
+import type { Persona } from "../api/backend";
 import { Icon } from "../components/ui/Icon";
 import { Input, Select } from "../components/ui/Field";
 import { cx } from "../lib/cx";
+import { useDebouncedValue } from "../lib/useDebouncedValue";
 import styles from "./Passengers.module.css";
 
-interface PassengersListProps {
-  trips: Trip[];
-  loading: boolean;
-}
+const COLUMNS = ["Nombre", "Apellido", "Teléfono", "Email", "Agencia", "Fecha creado"];
 
-interface PassengerRow extends Passenger {
-  agc: string;
-  createdAt: string;
-}
+const ROW_HEIGHT = 45;
 
-const PAGE_SIZE = 10;
-
-const COLUMNS: [string, "w160" | "w130" | null][] = [
-  ["Nombre", null],
-  ["Apellido", null],
-  ["Teléfono", "w160"],
-  ["Email", null],
-  ["Agencia", "w160"],
-  ["Fecha creado", "w130"],
-];
-
-export function PassengersList({ trips, loading }: PassengersListProps) {
+export function PassengersList() {
   const [agencyFilter, setAgencyFilter] = useState<string>("");
   const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
+  const search = useDebouncedValue(q.trim(), 300);
 
-  const rows = useMemo<PassengerRow[]>(() => {
-    const map = new Map<string, PassengerRow>();
-    for (const t of trips) {
-      for (const p of t.passengers) {
-        const key = `${p.firstName} ${p.lastName}`.trim();
-        if (!key) continue;
-        const prev = map.get(key);
-        if (!prev) {
-          map.set(key, { ...p, agc: t.agc, createdAt: t.date });
-        } else {
-          if (t.date < prev.createdAt) prev.createdAt = t.date;
-          if (t.date >= prev.createdAt) prev.agc = t.agc;
-        }
-      }
+  const { data: agencias = [] } = useQuery({
+    queryKey: ["agencias"],
+    queryFn: () => api.listAgencias(),
+    staleTime: 5 * 60_000,
+  });
+  const agencyName = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const a of agencias) m.set(a.id, a.nombre);
+    return m;
+  }, [agencias]);
+
+  const agenciaId = agencyFilter ? Number(agencyFilter) : null;
+
+  const {
+    data,
+    isLoading,
+    isError,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["personas", search, agenciaId],
+    queryFn: ({ pageParam }) =>
+      api.listPersonas({ page: pageParam, search, agencia: agenciaId }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.next ? allPages.length + 1 : undefined,
+  });
+
+  const rows = useMemo<Persona[]>(
+    () => data?.pages.flatMap((p) => p.results) ?? [],
+    [data],
+  );
+  const total = data?.pages[0]?.count ?? 0;
+
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 12,
+  });
+
+  // Pide la siguiente página cuando el último ítem virtual entra en rango.
+  const virtualItems = virtualizer.getVirtualItems();
+  useEffect(() => {
+    const last = virtualItems[virtualItems.length - 1];
+    if (!last) return;
+    if (last.index >= rows.length - 1 && hasNextPage && !isFetchingNextPage) {
+      fetchNextPage();
     }
-    return Array.from(map.values()).sort((a, b) =>
-      `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`),
-    );
-  }, [trips]);
+  }, [virtualItems, rows.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  const filtered = useMemo(() => {
-    let r = rows;
-    if (agencyFilter) r = r.filter((p) => p.agc === agencyFilter);
-    if (q.trim()) {
-      const s = q.toLowerCase();
-      r = r.filter(
-        (p) =>
-          `${p.firstName} ${p.lastName}`.toLowerCase().includes(s) ||
-          p.phone.toLowerCase().includes(s) ||
-          (p.email ?? "").toLowerCase().includes(s) ||
-          p.agc.toLowerCase().includes(s),
-      );
-    }
-    return r;
-  }, [rows, agencyFilter, q]);
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-
-  const resetPage = () => setPage(1);
+  const showEmpty = !isLoading && !isError && rows.length === 0;
 
   return (
     <div className={styles.page}>
@@ -80,15 +80,12 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
         <div className={styles.agencyWrap}>
           <Select
             value={agencyFilter}
-            onChange={(e) => {
-              setAgencyFilter(e.target.value);
-              resetPage();
-            }}
+            onChange={(e) => setAgencyFilter(e.target.value)}
           >
             <option value="">Todas las agencias</option>
-            {AGENCIES.map((a) => (
-              <option key={a} value={a}>
-                {a}
+            {agencias.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.nombre}
               </option>
             ))}
           </Select>
@@ -98,10 +95,7 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
           <Icon name="search" size={14} className={styles.searchIcon} />
           <Input
             value={q}
-            onChange={(e) => {
-              setQ(e.target.value);
-              resetPage();
-            }}
+            onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar por nombre, email o teléfono"
             className={styles.searchInput}
           />
@@ -110,81 +104,87 @@ export function PassengersList({ trips, loading }: PassengersListProps) {
         <div className={styles.spacer} />
       </div>
 
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr className={styles.headRow}>
-              {COLUMNS.map(([label, w]) => (
-                <th key={label} className={cx(styles.th, w && styles[w])}>
-                  {label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((p) => (
-              <tr key={`${p.firstName} ${p.lastName}`}>
-                <td className={styles.td}>{p.firstName}</td>
-                <td className={styles.td}>{p.lastName}</td>
-                <td className={cx(styles.td, styles.tdMono)}>{p.phone || "—"}</td>
-                <td className={styles.td}>
-                  {p.email || <span className={styles.dim}>—</span>}
-                </td>
-                <td className={styles.td}>{p.agc}</td>
-                <td className={cx(styles.td, styles.tdTnum)}>{fmtDate(p.createdAt)}</td>
-              </tr>
-            ))}
-            {pageRows.length === 0 && (
-              <tr>
-                <td colSpan={6} className={styles.empty}>
-                  <div className={styles.emptyTitle}>
-                    {loading ? "Cargando pasajeros…" : "No hay pasajeros para mostrar."}
+      <div className={styles.tableWrap} ref={parentRef}>
+        <div className={styles.headGrid}>
+          {COLUMNS.map((label) => (
+            <div key={label} className={styles.cellTh}>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {showEmpty ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyTitle}>No hay pasajeros para mostrar.</div>
+            <div className={styles.emptySub}>
+              Probá cambiar la agencia o limpiar la búsqueda.
+            </div>
+          </div>
+        ) : isLoading ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyTitle}>Cargando pasajeros…</div>
+          </div>
+        ) : isError ? (
+          <div className={styles.empty}>
+            <div className={styles.emptyTitle}>No se pudieron cargar los pasajeros.</div>
+            <div className={styles.emptySub}>
+              {error instanceof Error ? error.message : "Reintentá en unos segundos."}
+            </div>
+          </div>
+        ) : (
+          <div style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+            {virtualItems.map((vi) => {
+              const p = rows[vi.index];
+              const { firstName, lastName } = splitName(p.nombre);
+              return (
+                <div
+                  key={p.id}
+                  className={styles.rowGrid}
+                  style={{
+                    height: vi.size,
+                    transform: `translateY(${vi.start}px)`,
+                  }}
+                >
+                  <div className={styles.cell}>{firstName || "—"}</div>
+                  <div className={styles.cell}>{lastName || <span className={styles.dim}>—</span>}</div>
+                  <div className={cx(styles.cell, styles.tdMono)}>{p.telefono || "—"}</div>
+                  <div className={styles.cell}>
+                    {p.email || <span className={styles.dim}>—</span>}
                   </div>
-                  {!loading && (
-                    <div className={styles.emptySub}>
-                      Probá cambiar la agencia o limpiar la búsqueda.
-                    </div>
-                  )}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+                  <div className={styles.cell}>
+                    {agencyName.get(p.agencia) ?? <span className={styles.dim}>—</span>}
+                  </div>
+                  <div className={cx(styles.cell, styles.tdTnum)}>{fmtDate(p.fecha_creacion)}</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {isFetchingNextPage && (
+          <div className={styles.loadingMore}>Cargando más…</div>
+        )}
       </div>
 
       <div className={styles.footer}>
         <div className={styles.count}>
-          <span className={styles.countNum}>{filtered.length}</span> pasajeros
-        </div>
-        <div className={styles.pager}>
-          <button
-            disabled={safePage <= 1}
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            title="Anterior"
-            className={styles.pageBtn}
-            aria-label="Anterior"
-          >
-            <Icon name="chevleft" size={14} />
-          </button>
-          <span className={styles.pageNum}>
-            {safePage} / {totalPages}
-          </span>
-          <button
-            disabled={safePage >= totalPages}
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            title="Siguiente"
-            className={styles.pageBtn}
-            aria-label="Siguiente"
-          >
-            <Icon name="chevright" size={14} />
-          </button>
+          <span className={styles.countNum}>{rows.length}</span>
+          {total > rows.length ? ` de ${total}` : ""} pasajeros
         </div>
       </div>
     </div>
   );
 }
 
+function splitName(nombre: string): { firstName: string; lastName: string } {
+  const parts = nombre.trim().split(/\s+/);
+  return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
+}
+
 function fmtDate(s: string) {
-  const [y, m, d] = s.split("-");
+  if (!s) return "—";
+  const date = s.slice(0, 10);
+  const [y, m, d] = date.split("-");
+  if (!y || !m || !d) return "—";
   return `${d}/${m}/${y.slice(2)}`;
 }

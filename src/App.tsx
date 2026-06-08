@@ -113,7 +113,7 @@ export function App() {
           element={
             <>
               <Topbar title="Pasajeros" subtitle="Consulta de pasajeros registrados" />
-              <PassengersList trips={trips} loading={loading} />
+              <PassengersList />
             </>
           }
         />

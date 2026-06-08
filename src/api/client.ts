@@ -1,4 +1,5 @@
-import type { MeProfile, MeWrite } from "./backend";
+import type { MeProfile, MeWrite, Paginated, Persona } from "./backend";
+import type { AgenciaMin, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
@@ -63,6 +64,32 @@ function saveMockMe(me: MeProfile) {
   } catch {
     /* ignore */
   }
+}
+
+const MOCK_PERSONAS_PAGE_SIZE = 20;
+
+// Deriva un catálogo de personas (mock) a partir de los pasajeros de los viajes
+// seed, deduplicado por nombre. Solo se usa cuando no hay backend real.
+function mockPersonas(): Persona[] {
+  const byName = new Map<string, Persona>();
+  let id = 1;
+  for (const t of mockTrips) {
+    const agIdx = AGENCIES.indexOf(t.agc);
+    for (const p of t.passengers) {
+      const nombre = `${p.firstName} ${p.lastName}`.trim();
+      if (!nombre || byName.has(nombre.toLowerCase())) continue;
+      byName.set(nombre.toLowerCase(), {
+        id: id++,
+        agencia: agIdx >= 0 ? agIdx + 1 : 0,
+        nombre,
+        telefono: p.phone ?? "",
+        dni: null,
+        email: p.email ?? null,
+        fecha_creacion: t.date,
+      });
+    }
+  }
+  return Array.from(byName.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
 function buildUser(user: string, token: string, refresh?: string): User {
@@ -154,6 +181,44 @@ export const api = {
       return [...mockTrips];
     }
     return viajes.listTrips();
+  },
+
+  // Una página del catálogo de pasajeros (búsqueda/filtro/paginación server-side).
+  async listPersonas(q: PersonasQuery): Promise<Paginated<Persona>> {
+    if (USE_VIAJES_MOCK) {
+      await wait(150);
+      let all = mockPersonas();
+      if (q.agencia != null) all = all.filter((p) => p.agencia === q.agencia);
+      const s = q.search?.trim().toLowerCase();
+      if (s) {
+        all = all.filter(
+          (p) =>
+            p.nombre.toLowerCase().includes(s) ||
+            (p.telefono ?? "").toLowerCase().includes(s) ||
+            (p.email ?? "").toLowerCase().includes(s),
+        );
+      }
+      const page = q.page ?? 1;
+      const start = (page - 1) * MOCK_PERSONAS_PAGE_SIZE;
+      const results = all.slice(start, start + MOCK_PERSONAS_PAGE_SIZE);
+      const hasNext = start + MOCK_PERSONAS_PAGE_SIZE < all.length;
+      return {
+        count: all.length,
+        next: hasNext ? `mock?page=${page + 1}` : null,
+        previous: page > 1 ? `mock?page=${page - 1}` : null,
+        results,
+      };
+    }
+    return viajes.listPersonasPage(q);
+  },
+
+  // Agencias (id + nombre) para el dropdown de la vista de pasajeros.
+  async listAgencias(): Promise<AgenciaMin[]> {
+    if (USE_VIAJES_MOCK) {
+      await wait(80);
+      return AGENCIES.map((nombre, i) => ({ id: i + 1, nombre }));
+    }
+    return viajes.listAgenciasMin();
   },
 
   async getTrip(id: string): Promise<Trip> {

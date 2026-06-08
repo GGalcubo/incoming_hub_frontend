@@ -108,6 +108,42 @@ export function invalidateCatalogs() {
   catalogsPromise = null;
 }
 
+// ── Pasajeros (personas) con paginación/búsqueda server-side ─────────────────
+// La vista /pasajeros consulta /personas/ directamente (page-number pagination,
+// `search` y filtro `agencia` resueltos en el backend) en vez de derivar de los
+// viajes. Devuelve la página cruda para alimentar el infinite scroll.
+export interface PersonasQuery {
+  page?: number;
+  search?: string;
+  agencia?: number | null;
+}
+
+export function listPersonasPage(q: PersonasQuery): Promise<Paginated<Persona>> {
+  const params = new URLSearchParams();
+  params.set("page", String(q.page ?? 1));
+  params.set("ordering", "nombre");
+  if (q.search?.trim()) params.set("search", q.search.trim());
+  if (q.agencia != null) params.set("agencia", String(q.agencia));
+  return request<Paginated<Persona>>(`/personas/?${params.toString()}`);
+}
+
+// Agencias mínimas (id + nombre) para el dropdown de la vista de pasajeros y
+// para resolver el nombre de agencia de cada fila. Reusa el cache de catálogos.
+export interface AgenciaMin {
+  id: number;
+  nombre: string;
+}
+
+export async function listAgenciasMin(): Promise<AgenciaMin[]> {
+  // Consulta SOLO /agencies/ (no loadCatalogs(), que arrastraría todas las
+  // personas/solicitantes y reintroduciría el problema de performance).
+  const agencies = await fetchAll<Agencia>("/agencies/");
+  return agencies
+    .filter((a) => a.activo)
+    .map((a) => ({ id: a.id, nombre: agencyName(a) }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
 // Nombres de categorías de servicio activas, ordenadas, para poblar el dropdown
 // del wizard. Reusa el cache de catálogos de la sesión.
 export async function listCategorias(): Promise<string[]> {
