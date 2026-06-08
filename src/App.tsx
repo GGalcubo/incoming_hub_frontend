@@ -17,6 +17,7 @@ export function App() {
   const { flash } = useToast();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isOperator, setIsOperator] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -28,6 +29,23 @@ export function App() {
         setLoading(false);
       }
     });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setIsOperator(false);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getMe()
+      .then((me) => {
+        if (!cancelled) setIsOperator(me.role !== null && me.role !== "admin");
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -77,7 +95,12 @@ export function App() {
         <Route
           path="/viajes"
           element={
-            <TripsListRoute trips={trips} loading={loading} onChangeStatus={changeStatus} />
+            <TripsListRoute
+              trips={trips}
+              loading={loading}
+              onChangeStatus={changeStatus}
+              isOperator={isOperator}
+            />
           }
         />
         <Route path="/viajes/nuevo" element={<NewTripRoute onSave={saveTrip} />} />
@@ -109,10 +132,12 @@ function TripsListRoute({
   trips,
   loading,
   onChangeStatus,
+  isOperator,
 }: {
   trips: Trip[];
   loading: boolean;
   onChangeStatus: (t: Trip, est: TripStatus) => Promise<Trip>;
+  isOperator: boolean;
 }) {
   const navigate = useNavigate();
   const { flash } = useToast();
@@ -133,6 +158,7 @@ function TripsListRoute({
         onCopy={(msg) => flash(msg)}
         onExport={(msg) => flash(msg)}
         onChangeStatus={onChangeStatus}
+        isOperator={isOperator}
       />
     </>
   );
