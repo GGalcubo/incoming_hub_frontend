@@ -85,7 +85,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               {stepsBase.map((s, i) => {
                 const done = i < stepIdx;
                 const active = i === stepIdx;
-                const reachable = i <= stepIdx;
+                const reachable = mode === "edit" || i <= stepIdx;
                 return (
                   <Fragment key={s.id}>
                     <button
@@ -118,7 +118,7 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             {stepsBase.map((s, i) => {
               const done = i < stepIdx;
               const active = i === stepIdx;
-              const reachable = i <= stepIdx;
+              const reachable = mode === "edit" || i <= stepIdx;
               return (
                 <Fragment key={s.id}>
                   <button
