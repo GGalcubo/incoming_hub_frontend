@@ -57,7 +57,9 @@ export function App() {
       mode === "new" ? [saved, ...prev] : prev.map((x) => (x.id === saved.id ? saved : x)),
     );
     flash(
-      mode === "new" ? `Servicio Guardado #${saved.id}` : `Servicio Actualizado #${saved.id}`,
+      mode === "new"
+        ? `Servicio Guardado #${saved.id}`
+        : `Viaje #${saved.id} modificado correctamente`,
       "success",
     );
     return saved;
