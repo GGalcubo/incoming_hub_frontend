@@ -8,6 +8,7 @@ import type {
   CategoriaServicio,
   MeProfile,
   Paginated,
+  PasajeroWrite,
   Persona,
   Solicitante,
   TipoServicio,
@@ -336,10 +337,24 @@ function resolvePasajeroPrincipal(t: Trip, c: Catalogs, agenciaId: number): numb
   return match?.id;
 }
 
+// Mapea los pasajeros del wizard al formato embebido del backend. El primero con
+// nombre válido queda como `es_principal`. Se omiten teléfono/email vacíos.
+function buildPasajerosPayload(t: Trip): PasajeroWrite[] {
+  const valid = t.passengers
+    .map((p) => ({ p, nombre: `${p.firstName} ${p.lastName}`.trim() }))
+    .filter((x) => x.nombre);
+  return valid.map(({ p, nombre }, i) => ({
+    nombre,
+    ...(p.phone ? { telefono: p.phone } : {}),
+    ...(p.email ? { email: p.email } : {}),
+    es_principal: i === 0,
+  }));
+}
+
 export function buildViajePayload(
   t: Trip,
   c: Catalogs,
-  opts: { includeEstado: boolean },
+  opts: { includeEstado: boolean; includePasajeros?: boolean },
 ): ViajeWrite {
   const agencia = resolveAgencia(t, c);
   const firstLeg = t.legs[0];
@@ -358,8 +373,15 @@ export function buildViajePayload(
     puede_modificar: true,
     horas_minimas_cancelacion: 24,
   };
-  const principal = resolvePasajeroPrincipal(t, c, agencia);
-  if (principal != null) payload.pasajero_principal = principal;
+  if (opts.includePasajeros) {
+    // En creación el backend da de alta los pasajeros y fija el principal a
+    // partir de `es_principal`, así que no resolvemos `pasajero_principal`.
+    const pasajeros = buildPasajerosPayload(t);
+    if (pasajeros.length) payload.pasajeros = pasajeros;
+  } else {
+    const principal = resolvePasajeroPrincipal(t, c, agencia);
+    if (principal != null) payload.pasajero_principal = principal;
+  }
   if (opts.includeEstado) payload.estado = statusToEstado(t.est);
   return payload;
 }
@@ -418,13 +440,19 @@ export async function getTrip(id: string): Promise<Trip> {
 
 export async function createTrip(trip: Trip): Promise<Trip> {
   const catalogs = await loadCatalogs();
-  const agenciaId = resolveAgencia(trip, catalogs);
-  await ensurePersonas(trip, catalogs, agenciaId);
-  const payload = buildViajePayload(trip, catalogs, { includeEstado: false });
+  // Los pasajeros viajan dentro del mismo POST: el backend crea las Personas y
+  // asigna el pasajero principal, no hace falta pre-crearlas con ensurePersonas.
+  const payload = buildViajePayload(trip, catalogs, {
+    includeEstado: false,
+    includePasajeros: true,
+  });
   const created = await request<Viaje>("/viajes/", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  // Las personas recién creadas por el backend no están en el cache; lo
+  // invalidamos para que getTrip resuelva el nombre del pasajero principal.
+  invalidateCatalogs();
   await syncTramos(trip, created.id, []);
   return getTrip(String(created.id));
 }

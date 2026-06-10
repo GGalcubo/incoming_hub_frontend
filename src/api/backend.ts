@@ -127,6 +127,17 @@ export interface Viaje {
   puede_cancelar: string;
 }
 
+// Pasajero embebido en el POST de creación de viaje. El backend crea/resuelve la
+// `Persona` a partir de estos datos y marca como principal al que tenga
+// `es_principal: true`. Solo `nombre` es obligatorio.
+export interface PasajeroWrite {
+  nombre: string;
+  telefono?: string;
+  dni?: string;
+  email?: string;
+  es_principal?: boolean;
+}
+
 // Cuerpo escribible de un viaje (POST/PUT/PATCH). Solo campos editables.
 export interface ViajeWrite {
   referencia_externa?: string;
@@ -138,6 +149,9 @@ export interface ViajeWrite {
   hora_servicio: string;
   tipo_servicio: TipoServicio;
   pasajero_principal?: number | null;
+  // Alta de pasajeros en la misma llamada de creación del viaje. El backend los
+  // crea como Personas y asigna el `pasajero_principal`.
+  pasajeros?: PasajeroWrite[];
   cantidad_pasajeros?: number;
   cantidad_valijas?: number;
   observaciones?: string;
