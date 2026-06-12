@@ -88,12 +88,12 @@
 .tableBox {
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  overflow: auto;
+  /* visible para que el autocompletado de Google Maps no quede recortado */
+  overflow: visible;
 }
 
 .table {
   width: 100%;
-  min-width: 940px;
   border-collapse: collapse;
   font: 400 13px/18px Heming;
 }
@@ -183,6 +183,103 @@
 
 .note {
   font: 400 12px/16px Heming;
+  color: var(--fg-muted);
+}
+
+/* ---- celdas editables ---- */
+.tdTramos {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: top;
+  min-width: 320px;
+}
+
+.cellInput {
+  height: 30px;
+  padding: 0 8px;
+  font: 400 12px/16px Heming;
+}
+
+select.cellInput {
+  height: 30px;
+}
+
+.inlineRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+
+.iconBtn:hover {
+  color: var(--danger-fg);
+  border-color: var(--danger-fg);
+}
+
+.addInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--fg-link);
+  font: 500 12px/16px Heming;
+  cursor: pointer;
+}
+
+/* ---- tramo editable ---- */
+.legCard {
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  padding: 8px;
+  background: var(--bg-app);
+}
+
+.legHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.legNum {
+  font: 600 11px/14px Heming;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.legGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.legPlace {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legLabel {
+  font: 500 11px/14px Heming;
   color: var(--fg-muted);
 }
 

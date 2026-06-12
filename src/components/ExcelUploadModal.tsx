@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ExcelRow } from "../types/domain";
+import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { Modal } from "./ui/Modal";
+import { Input, Select } from "./ui/Field";
+import { PlaceCombo } from "../pages/TripWizard/PlaceCombo";
 import styles from "./ExcelUploadModal.module.css";
 
 interface ExcelUploadModalProps {
@@ -15,13 +17,72 @@ interface ExcelUploadModalProps {
 
 type Stage = "pick" | "validate" | "done";
 
+const LEG_TYPE_OPTIONS: { value: LegType; label: string }[] = [
+  { value: "in", label: "Llegada (in)" },
+  { value: "out", label: "Salida (out)" },
+  { value: "otro", label: "Otro" },
+  { value: "disposicion", label: "Hs disposición" },
+];
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// Revalida una fila a partir de sus campos editables. Reemplaza los avisos/errores
+// que vienen del parser una vez que el usuario empieza a editar, para que corregir
+// (p. ej. completar la hora) habilite la selección de la fila.
+function validateRow(r: ExcelRow): ExcelRow {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  if (!r.date) errors.push("Falta fecha");
+  if (!r.time) errors.push("Falta hora");
+  if (r.passengers.filter((p) => p.trim()).length === 0) errors.push("Falta pasajero");
+  if (r.legs.length === 0) {
+    errors.push("Falta tramo");
+  } else {
+    r.legs.forEach((l, i) => {
+      if (!l.origin.trim() || !l.destination.trim()) errors.push(`Tramo ${i + 1} incompleto`);
+    });
+  }
+  if (r.legs.length > 2) warnings.push(`Viaje con ${r.legs.length} tramos`);
+
+  return { ...r, errors, warnings };
+}
+
 export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalProps) {
   const [stage, setStage] = useState<Stage>("pick");
   const [filename, setFilename] = useState("");
   const [rows, setRows] = useState<ExcelRow[]>([]);
   const [selected, setSelected] = useState<Record<number, boolean>>({});
+  const [categorias, setCategorias] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+
+  // Catálogo de categorías para el dropdown (estricto: solo estos valores).
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    api.listCategorias().then((c) => {
+      if (alive) setCategorias(c);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  // Si una edición vuelve a meter errores en una fila seleccionada, la deselecciona.
+  useEffect(() => {
+    setSelected((s) => {
+      let changed = false;
+      const next = { ...s };
+      rows.forEach((r) => {
+        if (r.errors.length > 0 && next[r.row]) {
+          next[r.row] = false;
+          changed = true;
+        }
+      });
+      return changed ? next : s;
+    });
+  }, [rows]);
 
   const reset = () => {
     setStage("pick");
@@ -58,6 +119,51 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     if (!/\.(xlsx|xls)$/i.test(f.name)) return;
     await handleFile(f);
   };
+
+  // ---- edición de filas ----
+  const mutateRow = (rowNum: number, fn: (r: ExcelRow) => ExcelRow) => {
+    setRows((rs) => rs.map((r) => (r.row === rowNum ? validateRow(fn(r)) : r)));
+  };
+
+  const updateRow = (rowNum: number, patch: Partial<ExcelRow>) =>
+    mutateRow(rowNum, (r) => ({ ...r, ...patch }));
+
+  const updateLeg = (rowNum: number, i: number, patch: Partial<ExcelLeg>) =>
+    mutateRow(rowNum, (r) => {
+      const legs = r.legs.map((l, j) => (j === i ? { ...l, ...patch } : l));
+      // El destino de un tramo arrastra el origen del siguiente.
+      if ("destination" in patch && i + 1 < legs.length) {
+        legs[i + 1] = { ...legs[i + 1], origin: patch.destination ?? "" };
+      }
+      return { ...r, legs };
+    });
+
+  const addLeg = (rowNum: number) =>
+    mutateRow(rowNum, (r) => {
+      const last = r.legs[r.legs.length - 1];
+      return {
+        ...r,
+        legs: [
+          ...r.legs,
+          { type: "otro", origin: last?.destination ?? "", destination: "", flight: "" },
+        ],
+      };
+    });
+
+  const rmLeg = (rowNum: number, i: number) =>
+    mutateRow(rowNum, (r) => ({ ...r, legs: r.legs.filter((_, j) => j !== i) }));
+
+  const setPassenger = (rowNum: number, i: number, val: string) =>
+    mutateRow(rowNum, (r) => ({
+      ...r,
+      passengers: r.passengers.map((p, j) => (j === i ? val : p)),
+    }));
+
+  const addPassenger = (rowNum: number) =>
+    mutateRow(rowNum, (r) => ({ ...r, passengers: [...r.passengers, ""] }));
+
+  const rmPassenger = (rowNum: number, i: number) =>
+    mutateRow(rowNum, (r) => ({ ...r, passengers: r.passengers.filter((_, j) => j !== i) }));
 
   const summary = (() => {
     const ok = rows.filter((r) => r.errors.length === 0).length;
@@ -117,7 +223,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         reset();
       }}
       title="Cargar viajes por Excel"
-      width={1040}
+      width={1100}
       footer={footer}
     >
       {stage === "pick" && (
@@ -214,34 +320,160 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     <td className={cx(styles.td, styles.mono, styles.cSecondary)}>
                       {r.tripRef || <span className={styles.cDim}>—</span>}
                     </td>
-                    <td className={cx(styles.td, styles.cSecondary)}>
-                      {r.date} · {r.time || <span className={styles.cDim}>—</span>}
-                    </td>
-                    <td className={cx(styles.td, styles.cSecondary)}>
-                      {r.cat || <span className={styles.cDim}>—</span>}
-                    </td>
-                    <td className={cx(styles.tdWrap, styles.cSecondary)}>
-                      {r.passengers.length === 0 ? (
-                        <span className={styles.cDim}>—</span>
-                      ) : (
-                        <div className={styles.stack}>
-                          {r.passengers.map((p, i) => (
-                            <span key={i}>{p}</span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className={cx(styles.tdWrap, styles.cSecondary)}>
+
+                    {/* Fecha · Hora — selectores nativos acotados */}
+                    <td className={styles.tdWrap}>
                       <div className={styles.stack}>
-                        {r.legs.map((l, i) => (
-                          <span key={i}>
-                            {l.origin} → {l.destination}
-                            {l.flight && <span className={styles.legFlight}>· {l.flight}</span>}
-                          </span>
-                        ))}
+                        <Input
+                          type="date"
+                          min={todayISO()}
+                          value={r.date}
+                          className={styles.cellInput}
+                          onChange={(e) => updateRow(r.row, { date: e.target.value })}
+                        />
+                        <Input
+                          type="time"
+                          value={r.time}
+                          className={styles.cellInput}
+                          onChange={(e) => updateRow(r.row, { time: e.target.value })}
+                        />
                       </div>
                     </td>
-                    <td className={styles.td}>
+
+                    {/* Categoría — dropdown estricto del catálogo */}
+                    <td className={styles.tdWrap}>
+                      <Select
+                        value={categorias.includes(r.cat) ? r.cat : ""}
+                        className={styles.cellInput}
+                        onChange={(e) => updateRow(r.row, { cat: e.target.value })}
+                      >
+                        <option value="" disabled>
+                          Seleccionar…
+                        </option>
+                        {categorias.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </Select>
+                    </td>
+
+                    {/* Pasajeros — lista editable */}
+                    <td className={styles.tdWrap}>
+                      <div className={styles.stack}>
+                        {r.passengers.map((p, i) => (
+                          <div key={i} className={styles.inlineRow}>
+                            <Input
+                              value={p}
+                              className={styles.cellInput}
+                              placeholder="Nombre del pasajero"
+                              onChange={(e) => setPassenger(r.row, i, e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              className={styles.iconBtn}
+                              aria-label="Quitar pasajero"
+                              onClick={() => rmPassenger(r.row, i)}
+                            >
+                              <Icon name="trash" size={13} />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className={styles.addInline}
+                          onClick={() => addPassenger(r.row)}
+                        >
+                          <Icon name="plus" size={12} />
+                          Agregar pasajero
+                        </button>
+                      </div>
+                    </td>
+
+                    {/* Tramos — tipo de servicio + autocompletado de Google Maps */}
+                    <td className={styles.tdTramos}>
+                      <div className={styles.stack}>
+                        {r.legs.map((l, i) => {
+                          const isOtro = l.type === "otro";
+                          const isDisp = l.type === "disposicion";
+                          return (
+                            <div key={i} className={styles.legCard}>
+                              <div className={styles.legHead}>
+                                <span className={styles.legNum}>Tramo {i + 1}</span>
+                                {r.legs.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className={styles.iconBtn}
+                                    aria-label="Quitar tramo"
+                                    onClick={() => rmLeg(r.row, i)}
+                                  >
+                                    <Icon name="trash" size={13} />
+                                  </button>
+                                )}
+                              </div>
+                              <div className={styles.legGrid}>
+                                <Select
+                                  value={l.type ?? "otro"}
+                                  className={styles.cellInput}
+                                  onChange={(e) =>
+                                    updateLeg(r.row, i, {
+                                      type: e.target.value as LegType,
+                                      flight:
+                                        e.target.value === "otro" || e.target.value === "disposicion"
+                                          ? ""
+                                          : l.flight,
+                                    })
+                                  }
+                                >
+                                  {LEG_TYPE_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <Input
+                                  className={styles.cellInput}
+                                  value={l.flight ?? ""}
+                                  disabled={isOtro || isDisp}
+                                  placeholder={isOtro || isDisp ? "—" : "AA995, LA4302…"}
+                                  onChange={(e) =>
+                                    updateLeg(r.row, i, { flight: e.target.value })
+                                  }
+                                />
+                                <div className={styles.legPlace}>
+                                  <span className={styles.legLabel}>Origen</span>
+                                  <PlaceCombo
+                                    value={l.origin}
+                                    onChange={(v) => updateLeg(r.row, i, { origin: v })}
+                                    onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
+                                  />
+                                </div>
+                                <div className={styles.legPlace}>
+                                  <span className={styles.legLabel}>Destino</span>
+                                  <PlaceCombo
+                                    value={l.destination}
+                                    onChange={(v) => updateLeg(r.row, i, { destination: v })}
+                                    onPick={(desc) =>
+                                      updateLeg(r.row, i, { destination: desc })
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          className={styles.addInline}
+                          onClick={() => addLeg(r.row)}
+                        >
+                          <Icon name="plus" size={12} />
+                          Agregar tramo
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className={styles.tdWrap}>
                       {r.errors.length > 0 ? (
                         <div className={styles.stack}>
                           {r.errors.map((e, i) => (
@@ -274,8 +506,8 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
           </div>
 
           <div className={styles.note}>
-            Solo se sincronizan los viajes seleccionados. Los que tienen errores no se pueden
-            seleccionar — corregí el archivo y volvé a subir.
+            Editá los campos directamente en la tabla. Solo se sincronizan los viajes
+            seleccionados; los que tienen errores no se pueden seleccionar hasta corregirlos.
           </div>
         </div>
       )}
