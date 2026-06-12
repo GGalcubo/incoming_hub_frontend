@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api/client";
 import { Topbar } from "./components/Topbar";
+import { ExcelUploadModal } from "./components/ExcelUploadModal";
 import { STATUSES, TODAY, TOMORROW } from "./data/seed";
+import { useModals } from "./context/ModalsContext";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
 import { Login } from "./pages/Login";
@@ -15,6 +17,7 @@ import styles from "./App.module.css";
 export function App() {
   const { user } = useUser();
   const { flash } = useToast();
+  const { excelOpen, closeExcel } = useModals();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOperator, setIsOperator] = useState(false);
@@ -73,6 +76,14 @@ export function App() {
     return updated;
   };
 
+  // Tras sincronizar viajes desde el Excel, recargamos la lista para que los
+  // viajes recién creados (con las ediciones de la tabla) aparezcan al instante.
+  const onExcelSynced = async (n: number) => {
+    const list = await api.listTrips();
+    setTrips(list);
+    flash(`${n} viaje${n === 1 ? "" : "s"} sincronizado${n === 1 ? "" : "s"} con Central`, "success");
+  };
+
   const cancelTrip = async (t: Trip): Promise<Trip> => {
     const reasonMatch = t.obs.match(/Cancelado: (.+)$/);
     const reason = reasonMatch ? reasonMatch[1] : "Sin motivo";
@@ -122,6 +133,7 @@ export function App() {
         <Route path="/login" element={<Navigate to="/viajes" replace />} />
         <Route path="*" element={<Navigate to="/viajes" replace />} />
       </Routes>
+      <ExcelUploadModal open={excelOpen} onClose={closeExcel} onConfirm={onExcelSynced} />
     </Shell>
   );
 }

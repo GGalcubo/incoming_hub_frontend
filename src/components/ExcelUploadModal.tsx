@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
+import type { ExcelLeg, ExcelPassenger, ExcelRow, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
@@ -35,7 +35,13 @@ function validateRow(r: ExcelRow): ExcelRow {
 
   if (!r.date) errors.push("Falta fecha");
   if (!r.time) errors.push("Falta hora");
-  if (r.passengers.filter((p) => p.trim()).length === 0) errors.push("Falta pasajero");
+  const named = r.passengers.filter((p) => p.name.trim());
+  if (named.length === 0) {
+    errors.push("Falta pasajero");
+  } else if (named.some((p) => !p.phone.trim())) {
+    // El teléfono es obligatorio para todo pasajero.
+    errors.push("Falta teléfono de pasajero");
+  }
   if (r.legs.length === 0) {
     errors.push("Falta tramo");
   } else {
@@ -55,6 +61,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [categorias, setCategorias] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
   // Catálogo de categorías para el dropdown (estricto: solo estos valores).
@@ -90,6 +97,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setRows([]);
     setSelected({});
     setSubmitting(false);
+    setSyncError(null);
     setDragOver(false);
   };
 
@@ -153,14 +161,14 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   const rmLeg = (rowNum: number, i: number) =>
     mutateRow(rowNum, (r) => ({ ...r, legs: r.legs.filter((_, j) => j !== i) }));
 
-  const setPassenger = (rowNum: number, i: number, val: string) =>
+  const updatePassenger = (rowNum: number, i: number, patch: Partial<ExcelPassenger>) =>
     mutateRow(rowNum, (r) => ({
       ...r,
-      passengers: r.passengers.map((p, j) => (j === i ? val : p)),
+      passengers: r.passengers.map((p, j) => (j === i ? { ...p, ...patch } : p)),
     }));
 
   const addPassenger = (rowNum: number) =>
-    mutateRow(rowNum, (r) => ({ ...r, passengers: [...r.passengers, ""] }));
+    mutateRow(rowNum, (r) => ({ ...r, passengers: [...r.passengers, { name: "", phone: "" }] }));
 
   const rmPassenger = (rowNum: number, i: number) =>
     mutateRow(rowNum, (r) => ({ ...r, passengers: r.passengers.filter((_, j) => j !== i) }));
@@ -173,15 +181,18 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   })();
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
-  const selectedRows = rows.filter((r) => selected[r.row]).map((r) => r.row);
+  const selectedRows = rows.filter((r) => selected[r.row]);
 
   const sync = async () => {
     setSubmitting(true);
+    setSyncError(null);
     try {
       const res = await api.syncExcelRows(selectedRows);
       onConfirm(res.count);
       reset();
       onClose();
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : "No se pudo sincronizar. Reintentá.");
     } finally {
       setSubmitting(false);
     }
@@ -358,25 +369,37 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                       </Select>
                     </td>
 
-                    {/* Pasajeros — lista editable */}
+                    {/* Pasajeros — lista editable; el teléfono es obligatorio */}
                     <td className={styles.tdWrap}>
                       <div className={styles.stack}>
                         {r.passengers.map((p, i) => (
-                          <div key={i} className={styles.inlineRow}>
+                          <div key={i} className={styles.paxCard}>
+                            <div className={styles.legHead}>
+                              <span className={styles.legNum}>Pasajero {i + 1}</span>
+                              {r.passengers.length > 1 && (
+                                <button
+                                  type="button"
+                                  className={styles.iconBtn}
+                                  aria-label="Quitar pasajero"
+                                  onClick={() => rmPassenger(r.row, i)}
+                                >
+                                  <Icon name="trash" size={13} />
+                                </button>
+                              )}
+                            </div>
                             <Input
-                              value={p}
+                              value={p.name}
                               className={styles.cellInput}
-                              placeholder="Nombre del pasajero"
-                              onChange={(e) => setPassenger(r.row, i, e.target.value)}
+                              placeholder="Nombre"
+                              onChange={(e) => updatePassenger(r.row, i, { name: e.target.value })}
                             />
-                            <button
-                              type="button"
-                              className={styles.iconBtn}
-                              aria-label="Quitar pasajero"
-                              onClick={() => rmPassenger(r.row, i)}
-                            >
-                              <Icon name="trash" size={13} />
-                            </button>
+                            <Input
+                              value={p.phone}
+                              type="tel"
+                              className={cx(styles.cellInput, !p.phone.trim() && styles.cellInputReq)}
+                              placeholder="Teléfono +54 11 …"
+                              onChange={(e) => updatePassenger(r.row, i, { phone: e.target.value })}
+                            />
                           </div>
                         ))}
                         <button
@@ -504,6 +527,13 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
               </tbody>
             </table>
           </div>
+
+          {syncError && (
+            <div className={styles.syncError}>
+              <Icon name="alert" size={13} />
+              {syncError}
+            </div>
+          )}
 
           <div className={styles.note}>
             Editá los campos directamente en la tabla. Solo se sincronizan los viajes

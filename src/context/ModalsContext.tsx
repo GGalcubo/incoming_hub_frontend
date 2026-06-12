@@ -1,12 +1,15 @@
 import { createContext, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { ExcelUploadModal } from "../components/ExcelUploadModal";
 import { UserSettingsModal } from "../components/UserSettingsModal";
 import { useToast } from "./ToastContext";
 import { useUser } from "./UserContext";
 
 interface ModalsContextValue {
   openExcel: () => void;
+  closeExcel: () => void;
+  // Estado del modal de Excel, expuesto para que <App> lo renderice y pueda
+  // refrescar la lista de viajes al sincronizar.
+  excelOpen: boolean;
   openSettings: () => void;
 }
 
@@ -21,19 +24,16 @@ export function ModalsProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ModalsContextValue>(
     () => ({
       openExcel: () => setExcelOpen(true),
+      closeExcel: () => setExcelOpen(false),
+      excelOpen,
       openSettings: () => setSettingsOpen(true),
     }),
-    [],
+    [excelOpen],
   );
 
   return (
     <ModalsContext.Provider value={value}>
       {children}
-      <ExcelUploadModal
-        open={excelOpen}
-        onClose={() => setExcelOpen(false)}
-        onConfirm={(n) => flash(`${n} viajes sincronizados con Central`)}
-      />
       <UserSettingsModal
         open={settingsOpen}
         user={user}

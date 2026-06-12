@@ -131,7 +131,7 @@ export const EXCEL_SAMPLE: ExcelRow[] = [
     date: TOMORROW,
     time: "07:00",
     cat: "Ejecutivo",
-    passengers: ["R. Méndez"],
+    passengers: [{ name: "R. Méndez", phone: "+54 11 5512 3344" }],
     legs: [{ origin: "Recoleta", destination: "Aeropuerto Ezeiza (EZE)", type: "out", flight: "AA995" }],
     warnings: [],
     errors: [],
@@ -142,7 +142,10 @@ export const EXCEL_SAMPLE: ExcelRow[] = [
     date: TOMORROW,
     time: "09:30",
     cat: "Premium",
-    passengers: ["K. Núñez", "M. Ríos"],
+    passengers: [
+      { name: "K. Núñez", phone: "+54 11 4490 7781" },
+      { name: "M. Ríos", phone: "+54 11 6033 2210" },
+    ],
     legs: [{ origin: "Palermo", destination: "Aeroparque Jorge Newbery (AEP)", type: "out" }],
     warnings: ["Hora en formato 12h"],
     errors: [],
@@ -153,7 +156,11 @@ export const EXCEL_SAMPLE: ExcelRow[] = [
     date: TOMORROW,
     time: "11:15",
     cat: "MiniVan",
-    passengers: ["S. Vega", "A. Soto", "J. Pereyra"],
+    passengers: [
+      { name: "S. Vega", phone: "+54 11 5120 9087" },
+      { name: "A. Soto", phone: "+54 11 3398 4456" },
+      { name: "J. Pereyra", phone: "+54 11 6677 1230" },
+    ],
     legs: [
       { origin: "Tigre", destination: "Microcentro", type: "otro" },
       { origin: "Microcentro", destination: "Puerto Madero", type: "otro" },
@@ -178,7 +185,7 @@ export const EXCEL_SAMPLE: ExcelRow[] = [
     date: TOMORROW,
     time: "14:00",
     cat: "Auto STD",
-    passengers: ["L. Bravo"],
+    passengers: [{ name: "L. Bravo", phone: "+54 11 2245 8890" }],
     legs: [
       { origin: "Aeroparque Jorge Newbery (AEP)", destination: "Hotel Faena", type: "in", flight: "LA4302" },
       { origin: "Hotel Faena", destination: "San Isidro", type: "otro" },

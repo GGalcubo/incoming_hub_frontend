@@ -89,13 +89,19 @@ export interface ExcelLeg {
   type?: LegType;
 }
 
+export interface ExcelPassenger {
+  name: string;
+  // Obligatorio: todo pasajero debe tener teléfono.
+  phone: string;
+}
+
 export interface ExcelRow {
   row: number;
   tripRef: string;
   date: string;
   time: string;
   cat: string;
-  passengers: string[];
+  passengers: ExcelPassenger[];
   legs: ExcelLeg[];
   warnings: string[];
   errors: string[];

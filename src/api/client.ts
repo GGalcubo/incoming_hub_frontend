@@ -312,10 +312,14 @@ export const api = {
     return (await res.json()) as ExcelRow[];
   },
 
-  async syncExcelRows(rows: number[]): Promise<{ count: number }> {
+  // Recibe las filas EDITADAS del modal (no solo los números de fila), para que
+  // los cambios hechos en la tabla de pre-carga se persistan al sincronizar.
+  async syncExcelRows(rows: ExcelRow[]): Promise<{ count: number }> {
     if (USE_EXCEL_MOCK) {
       await wait(500);
-      return { count: rows.length };
+      const created = rows.map((r, i) => excelRowToTrip(r, i));
+      mockTrips = [...created, ...mockTrips];
+      return { count: created.length };
     }
     const token = getToken();
     const res = await fetch(`${API_URL}/trips/excel/sync`, {
@@ -331,3 +335,35 @@ export const api = {
     return (await res.json()) as { count: number };
   },
 };
+
+// Convierte una fila de Excel (editada) en un viaje del catálogo mock.
+function excelRowToTrip(r: ExcelRow, index: number): Trip {
+  const named = r.passengers.filter((p) => p.name.trim());
+  return {
+    id: "RX-0" + (8420 + mockTrips.length + index + 1),
+    date: r.date,
+    time: r.time,
+    pax: named.length,
+    cat: r.cat,
+    ori: r.legs[0]?.origin ?? "",
+    dst: r.legs[r.legs.length - 1]?.destination ?? "",
+    est: "PENDIENTE",
+    agc: "",
+    ref: r.tripRef,
+    obs: "",
+    unit: "",
+    passengers: named.map((p) => {
+      const parts = p.name.trim().split(/\s+/);
+      return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" "), phone: p.phone };
+    }),
+    legs: r.legs.map((l) => ({
+      type: l.type ?? "otro",
+      origin: l.origin,
+      destination: l.destination,
+      flight: l.flight ?? "",
+      obs: "",
+    })),
+    costs: { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 },
+    history: [{ ts: r.date, user: "excel-import", action: "Importado desde Excel" }],
+  };
+}

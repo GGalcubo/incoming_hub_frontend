@@ -186,6 +186,18 @@
   color: var(--fg-muted);
 }
 
+.syncError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--danger-fg);
+  border-radius: 9px;
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font: 500 12px/16px Heming;
+}
+
 /* ---- celdas editables ---- */
 .tdTramos {
   padding: 10px 12px;
@@ -198,6 +210,23 @@
   height: 30px;
   padding: 0 8px;
   font: 400 12px/16px Heming;
+}
+
+/* Resalta el teléfono mientras está vacío (obligatorio). */
+.cellInputReq {
+  border-color: var(--danger-fg);
+}
+
+/* ---- pasajero editable ---- */
+.paxCard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  padding: 8px;
+  background: var(--bg-app);
 }
 
 select.cellInput {
