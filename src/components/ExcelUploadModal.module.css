@@ -47,10 +47,26 @@
   color: var(--fg-muted);
 }
 
-.templateLink {
-  font: 500 13px/18px Heming;
-  color: var(--fg-link);
+.exampleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--fg-secondary);
+  font: 600 13px/1 Heming;
   text-decoration: none;
+  cursor: pointer;
+  transition: border-color 120ms, color 120ms;
+}
+
+.exampleBtn:hover {
+  border-color: var(--brand-500);
+  color: var(--fg-primary);
 }
 
 /* ---- stage: validate ---- */

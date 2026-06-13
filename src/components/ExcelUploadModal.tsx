@@ -266,8 +266,9 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             <div className={styles.dropSub}>Formato .xlsx · máximo 200 filas</div>
             <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
           </label>
-          <a href="/plantilla-viajes.xlsx" download className={styles.templateLink}>
-            Descargar plantilla
+          <a href="/plantilla-viajes.xlsx" download className={styles.exampleBtn}>
+            <Icon name="download" size={15} />
+            Descargar Excel de ejemplo
           </a>
         </div>
       )}

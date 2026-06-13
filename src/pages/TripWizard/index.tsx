@@ -42,10 +42,13 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
-  const [showEditWarning, setShowEditWarning] = useState(mode === "edit");
+  const [dirty, setDirty] = useState(false);
 
   const step = stepsBase[stepIdx];
-  const set = (patch: Partial<Trip>) => setT((prev) => ({ ...prev, ...patch }));
+  const set = (patch: Partial<Trip>) => {
+    setDirty(true);
+    setT((prev) => ({ ...prev, ...patch }));
+  };
   const wide = step.id === "resumen" || step.id === "historial" || step.id === "tramos";
 
   const validateStep = () => {
@@ -194,7 +197,9 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               kind="primary"
               icon="check"
               size={isMobile ? "sm" : "md"}
-              onClick={() => (mode === "edit" ? setShowSaveConfirm(true) : onSave(t))}
+              onClick={() =>
+                mode === "edit" ? (dirty ? setShowSaveConfirm(true) : onSave(t)) : onSave(t)
+              }
             >
               {mode === "edit" ? "Guardar" : "Guardar viaje"}
             </Button>
@@ -242,31 +247,6 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
               placeholder="Ej. Cancelado por el pasajero"
             />
           </Field>
-        </Modal>
-      )}
-
-      {showEditWarning && (
-        <Modal
-          open
-          onClose={onCancel}
-          title="Modificar viaje"
-          width={460}
-          footer={
-            <>
-              <Button onClick={onCancel}>Volver</Button>
-              <Button
-                kind="primary"
-                icon="check"
-                onClick={() => setShowEditWarning(false)}
-              >
-                Sí, continuar
-              </Button>
-            </>
-          }
-        >
-          <div className={styles.cancelText}>
-            Estás modificando un viaje que ya está creado. ¿Estás seguro que deseás continuar?
-          </div>
         </Modal>
       )}
 
