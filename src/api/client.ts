@@ -1,9 +1,10 @@
 import type { MeProfile, MeWrite, Paginated, Persona } from "./backend";
 import type { PassengersAccess, PersonasQuery } from "./viajes";
-import { AGENCIES, CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
+import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
+import { parseSheet } from "../lib/excelParse";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
-import { drfErrorMessage, getToken, request, setOnUnauthorized, VIAJES_BASE } from "./http";
+import { drfErrorMessage, request, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -18,17 +19,37 @@ export interface WizardIdentity {
   solicitantesByAgency: Record<string, string[]>;
 }
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
 const USE_AUTH_MOCK = !AUTH_URL;
-// Los viajes usan el backend real si hay base (VITE_API_URL o, por defecto, el de auth).
+// Los viajes (y el guardado de la carga por Excel) usan el backend real si hay
+// base (VITE_API_URL o, por defecto, el de auth); si no, quedan en mock local.
 const USE_VIAJES_MOCK = !VIAJES_BASE;
-// El parser de Excel tiene su propio endpoint; mientras no haya VITE_API_URL, mock.
-const USE_EXCEL_MOCK = !API_URL;
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-let mockTrips: Trip[] = [...SEED_TRIPS];
+// Persistimos los viajes mock en localStorage para que sobrevivan a un refresh
+// del navegador. Sin esto, cada recarga reinicia al seed y "se pierde" lo guardado.
+const MOCK_TRIPS_KEY = "proxy:mockTrips";
+
+function loadMockTrips(): Trip[] {
+  try {
+    const raw = localStorage.getItem(MOCK_TRIPS_KEY);
+    if (raw) return JSON.parse(raw) as Trip[];
+  } catch {
+    /* almacenamiento no disponible o dato inválido */
+  }
+  return [...SEED_TRIPS];
+}
+
+function saveMockTrips() {
+  try {
+    localStorage.setItem(MOCK_TRIPS_KEY, JSON.stringify(mockTrips));
+  } catch {
+    /* ignore */
+  }
+}
+
+let mockTrips: Trip[] = loadMockTrips();
 
 const MOCK_ME_KEY = "proxy:mockMe";
 
@@ -244,6 +265,7 @@ export const api = {
       const id = "RX-0" + (8420 + mockTrips.length + 1);
       const created = { ...(trip as Trip), id, est: trip.est ?? "PENDIENTE" };
       mockTrips = [created, ...mockTrips];
+      saveMockTrips();
       return created;
     }
     return viajes.createTrip(trip as Trip);
@@ -253,6 +275,7 @@ export const api = {
     if (USE_VIAJES_MOCK) {
       await wait(200);
       mockTrips = mockTrips.map((t) => (t.id === trip.id ? trip : t));
+      saveMockTrips();
       return trip;
     }
     return viajes.updateTrip(trip);
@@ -264,6 +287,7 @@ export const api = {
       let next: Trip | undefined;
       mockTrips = mockTrips.map((t) => (t.id === id ? (next = { ...t, est }) : t));
       if (!next) throw new Error("Viaje no encontrado");
+      saveMockTrips();
       return next;
     }
     return viajes.setStatus(id, est);
@@ -280,6 +304,7 @@ export const api = {
         obs: next.obs + (next.obs ? " · " : "") + "Cancelado: " + reason,
       };
       mockTrips = mockTrips.map((t) => (t.id === id ? updated : t));
+      saveMockTrips();
       return updated;
     }
     return viajes.cancelTrip(id, reason);
@@ -289,58 +314,46 @@ export const api = {
     if (USE_VIAJES_MOCK) {
       await wait(150);
       mockTrips = mockTrips.filter((t) => t.id !== id);
+      saveMockTrips();
       return;
     }
     return viajes.deleteTrip(id);
   },
 
-  async parseExcel(_file: File): Promise<ExcelRow[]> {
-    if (USE_EXCEL_MOCK) {
-      await wait(600);
-      return EXCEL_SAMPLE;
-    }
-    const token = getToken();
-    const fd = new FormData();
-    fd.append("file", _file);
-    const res = await fetch(`${API_URL}/trips/excel/parse`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: fd,
+  // Parsea el .xlsx en el navegador: el backend no tiene endpoint de Excel.
+  // Lee la primera hoja siguiendo la convención de columnas de la plantilla.
+  async parseExcel(file: File): Promise<ExcelRow[]> {
+    const XLSX = await import("xlsx");
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if (!ws) return [];
+    const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, {
+      header: 1,
+      raw: false,
+      blankrows: false,
     });
-    if (res.status === 401) throw new Error("Sesión expirada");
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return (await res.json()) as ExcelRow[];
+    return parseSheet(aoa);
   },
 
-  // Recibe las filas EDITADAS del modal (no solo los números de fila), para que
-  // los cambios hechos en la tabla de pre-carga se persistan al sincronizar.
+  // Guarda los viajes creando cada uno con createTrip (mock o backend real /viajes/).
+  // La agencia sale del usuario logueado; el solicitante lo fija el backend.
   async syncExcelRows(rows: ExcelRow[]): Promise<{ count: number }> {
-    if (USE_EXCEL_MOCK) {
-      await wait(500);
-      const created = rows.map((r, i) => excelRowToTrip(r, i));
-      mockTrips = [...created, ...mockTrips];
-      return { count: created.length };
+    const identity = await this.getWizardIdentity();
+    const agc = identity.ownAgency ?? identity.agencies[0] ?? "";
+    let count = 0;
+    for (const r of rows) {
+      await this.createTrip(excelRowToTrip(r, agc));
+      count++;
     }
-    const token = getToken();
-    const res = await fetch(`${API_URL}/trips/excel/sync`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ rows }),
-    });
-    if (res.status === 401) throw new Error("Sesión expirada");
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return (await res.json()) as { count: number };
+    return { count };
   },
 };
 
-// Convierte una fila de Excel (editada) en un viaje del catálogo mock.
-function excelRowToTrip(r: ExcelRow, index: number): Trip {
+// Convierte una fila de Excel (editada) en el viaje a crear.
+function excelRowToTrip(r: ExcelRow, agc: string): Partial<Trip> {
   const named = r.passengers.filter((p) => p.name.trim());
   return {
-    id: "RX-0" + (8420 + mockTrips.length + index + 1),
     date: r.date,
     time: r.time,
     pax: named.length,
@@ -348,7 +361,7 @@ function excelRowToTrip(r: ExcelRow, index: number): Trip {
     ori: r.legs[0]?.origin ?? "",
     dst: r.legs[r.legs.length - 1]?.destination ?? "",
     est: "PENDIENTE",
-    agc: "",
+    agc,
     ref: r.tripRef,
     obs: "",
     unit: "",
@@ -364,6 +377,6 @@ function excelRowToTrip(r: ExcelRow, index: number): Trip {
       obs: "",
     })),
     costs: { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 },
-    history: [{ ts: r.date, user: "excel-import", action: "Importado desde Excel" }],
+    history: [],
   };
 }

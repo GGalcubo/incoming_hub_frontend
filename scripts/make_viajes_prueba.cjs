@@ -20,6 +20,7 @@ const headers = [
   "Hora",
   "Categoria",
   "Pasajeros",
+  "Telefonos",
   "Tipo",
   "Origen",
   "Destino",
@@ -29,44 +30,44 @@ const headers = [
 
 const rows = [
   // V1 — OK: 1 tramo, 1 pasajero, salida con vuelo
-  ["V1", tomorrow, "06:45", "Ejecutivo", "Homero Simpson",
+  ["V1", tomorrow, "06:45", "Ejecutivo", "Homero Simpson", "+54 11 5010 1010",
    "out", "Recoleta", "Aeropuerto Ezeiza (EZE)", "AA1010", ""],
 
   // V2 — OK: 1 tramo, 2 pasajeros (pipe), llegada con vuelo
-  ["V2", tomorrow, "09:15", "Auto STD", "Marge Bouvier | Ned Flanders",
+  ["V2", tomorrow, "09:15", "Auto STD", "Marge Bouvier | Ned Flanders", "+54 11 5020 2020 | +54 11 5020 3030",
    "in", "Aeroparque Jorge Newbery (AEP)", "Hotel Faena", "LA2480", "Cartel: Sr. Flanders"],
 
   // V3 — OK: 2 tramos, 3 pasajeros
-  ["V3", tomorrow, "11:30", "MiniVan", "Lisa Simpson | Bart Simpson | Milhouse V.",
+  ["V3", tomorrow, "11:30", "MiniVan", "Lisa Simpson | Bart Simpson | Milhouse V.", "+54 11 5030 1111 | +54 11 5030 2222 | +54 11 5030 3333",
    "otro", "Tigre", "Microcentro", "", "Reservar 3 valijas"],
-  ["V3", "", "", "", "",
+  ["V3", "", "", "", "", "",
    "otro", "Microcentro", "Puerto Madero", "", ""],
 
   // V4 — AVISO "Viaje con 3 tramos": día completo in -> otro -> out
-  ["V4", tomorrow, "13:00", "Ejecutivo", "Montgomery Burns",
+  ["V4", tomorrow, "13:00", "Ejecutivo", "Montgomery Burns", "+54 11 5040 4040",
    "in", "Aeropuerto Ezeiza (EZE)", "Hotel Alvear", "IB6843", ""],
-  ["V4", "", "", "", "",
+  ["V4", "", "", "", "", "",
    "otro", "Hotel Alvear", "San Isidro", "", ""],
-  ["V4", "", "", "", "",
+  ["V4", "", "", "", "", "",
    "out", "San Isidro", "Aeropuerto Ezeiza (EZE)", "IB6844", ""],
 
   // V5 — ERROR "Falta hora" + "Falta pasajero": probar la edición/validación en vivo
-  ["V5", tomorrow, "", "Auto STD", "",
+  ["V5", tomorrow, "", "Auto STD", "", "",
    "otro", "Belgrano", "Palermo", "", "Completar hora y pasajero al cargar"],
 
   // V6 — disposición (sin vuelo)
-  ["V6", inTwoDays, "10:00", "MiniVan", "Apu Nahasapeemapetilon",
+  ["V6", inTwoDays, "10:00", "MiniVan", "Apu Nahasapeemapetilon", "+54 11 5060 6060",
    "disposicion", "Hotel Hilton Puerto Madero", "Hotel Hilton Puerto Madero", "", "4 hs a disposición"],
 
   // V7 — OK: traslado simple entre barrios
-  ["V7", inTwoDays, "16:20", "Ejecutivo", "Krusty el Payaso",
+  ["V7", inTwoDays, "16:20", "Ejecutivo", "Krusty el Payaso", "+54 11 5070 7070",
    "otro", "Microcentro", "La Boca", "", "Pasajero VIP"],
 ];
 
 const aoa = [headers, ...rows];
 const ws = XLSX.utils.aoa_to_sheet(aoa);
 ws["!cols"] = [
-  { wch: 7 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 34 },
+  { wch: 7 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 34 }, { wch: 34 },
   { wch: 12 }, { wch: 32 }, { wch: 32 }, { wch: 10 }, { wch: 30 },
 ];
 

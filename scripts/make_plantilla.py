@@ -1,3 +1,4 @@
+import os
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
@@ -14,6 +15,7 @@ headers = [
     "Hora",
     "Categoria",
     "Pasajeros",
+    "Telefonos",
     "Tipo",
     "Origen",
     "Destino",
@@ -29,33 +31,34 @@ tomorrow = (date.today() + timedelta(days=1)).isoformat()
 #   - La PRIMERA fila de cada Viaje lleva: Fecha, Hora, Categoria, Pasajeros.
 #   - Las filas siguientes con el mismo Viaje agregan tramos adicionales.
 #   - Pasajeros: varios separados con " | "  (ej: "R. Mendez | M. Rios").
+#   - Telefonos: OBLIGATORIO, uno por pasajero, mismo orden, separados con " | ".
 #   - Tipo: in (llegada con vuelo) / out (salida con vuelo) / otro / disposicion.
 
 rows = [
     # V1 - simple, 1 tramo, 1 pasajero
-    ["V1", tomorrow, "07:00", "Ejecutivo", "R. Mendez",
+    ["V1", tomorrow, "07:00", "Ejecutivo", "R. Mendez", "+54 11 5512 3344",
      "out", "Recoleta", "Aeropuerto Ezeiza (EZE)", "AA995", ""],
 
     # V2 - 1 tramo, 2 pasajeros (pipe-separados)
-    ["V2", tomorrow, "09:30", "Ejecutivo", "K. Nunez | M. Rios",
+    ["V2", tomorrow, "09:30", "Ejecutivo", "K. Nunez | M. Rios", "+54 11 4490 7781 | +54 11 6033 2210",
      "out", "Palermo", "Aeroparque Jorge Newbery (AEP)", "", ""],
 
     # V3 - 2 tramos, 3 pasajeros. La 2da fila solo lleva Viaje + datos del tramo.
-    ["V3", tomorrow, "11:15", "MiniVan", "S. Vega | A. Soto | J. Pereyra",
+    ["V3", tomorrow, "11:15", "MiniVan", "S. Vega | A. Soto | J. Pereyra", "+54 11 5120 9087 | +54 11 3398 4456 | +54 11 6677 1230",
      "otro", "Tigre", "Microcentro", "", "Reservar 3 valijas"],
-    ["V3", "", "", "", "",
+    ["V3", "", "", "", "", "",
      "otro", "Microcentro", "Puerto Madero", "", ""],
 
     # V4 - 3 tramos (in -> otro -> out), 1 pasajero, ejemplo realista de un dia completo
-    ["V4", tomorrow, "14:00", "Auto STD", "L. Bravo",
+    ["V4", tomorrow, "14:00", "Auto STD", "L. Bravo", "+54 11 2245 8890",
      "in", "Aeroparque Jorge Newbery (AEP)", "Hotel Faena", "LA4302", ""],
-    ["V4", "", "", "", "",
+    ["V4", "", "", "", "", "",
      "otro", "Hotel Faena", "San Isidro", "", ""],
-    ["V4", "", "", "", "",
+    ["V4", "", "", "", "", "",
      "out", "San Isidro", "Aeropuerto Ezeiza (EZE)", "AA996", ""],
 
     # V5 - disposicion (sin vuelo, sin destino fijo realmente)
-    ["V5", tomorrow, "10:00", "Ejecutivo", "F. Acosta",
+    ["V5", tomorrow, "10:00", "Ejecutivo", "F. Acosta", "+54 11 5588 1020",
      "disposicion", "Hotel Alvear", "Hotel Alvear", "", "4 hs disposicion"],
 ]
 for r in rows:
@@ -110,6 +113,10 @@ ws.cell(row=1, column=5).comment = Comment(
     "Plantilla",
 )
 ws.cell(row=1, column=6).comment = Comment(
+    "OBLIGATORIO. Un telefono por pasajero, en el MISMO orden, separados por  |  .",
+    "Plantilla",
+)
+ws.cell(row=1, column=7).comment = Comment(
     "in = llegada (con vuelo)\nout = salida (con vuelo)\notro = traslado\ndisposicion = horas a disposicion",
     "Plantilla",
 )
@@ -121,11 +128,12 @@ widths = {
     "C": 8,    # Hora
     "D": 12,   # Categoria
     "E": 34,   # Pasajeros
-    "F": 12,   # Tipo
-    "G": 32,   # Origen
-    "H": 32,   # Destino
-    "I": 10,   # Vuelo
-    "J": 30,   # Observaciones
+    "F": 34,   # Telefonos
+    "G": 12,   # Tipo
+    "H": 32,   # Origen
+    "I": 32,   # Destino
+    "J": 10,   # Vuelo
+    "K": 30,   # Observaciones
 }
 for col, w in widths.items():
     ws.column_dimensions[col].width = w
@@ -152,6 +160,7 @@ instrucciones = [
     ("Fecha / Hora", "Solo en la PRIMERA fila de cada Viaje. Formato Fecha YYYY-MM-DD, Hora HH:MM (24h)."),
     ("Categoria", "Auto STD / Ejecutivo / MiniVan. Solo en la primera fila del Viaje."),
     ("Pasajeros", "Solo en la primera fila. Separa varios pasajeros con  |  (pipe). Maximo 4."),
+    ("Telefonos", "OBLIGATORIO. Un telefono por pasajero, en el mismo orden, separados con  |  (pipe)."),
     ("Tipo", "in = llegada con vuelo · out = salida con vuelo · otro = traslado · disposicion = horas a disposicion."),
     ("Origen / Destino", "Direccion o lugar. En tramos siguientes, Origen suele coincidir con el Destino anterior."),
     ("Vuelo", "Solo para tipo in / out (ej: AA995). Dejar vacio en otros casos."),
@@ -168,6 +177,6 @@ for label, text in instrucciones:
     ws2.row_dimensions[row].height = 30
     row += 1
 
-out = r"C:\caltamirano\logos2\public\plantilla-viajes.xlsx"
+out = os.path.join(os.path.dirname(__file__), "..", "public", "plantilla-viajes.xlsx")
 wb.save(out)
 print("OK", out)

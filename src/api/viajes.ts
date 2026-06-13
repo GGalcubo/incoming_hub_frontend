@@ -287,7 +287,8 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     .map((id) => c.personas.find((p) => p.id === id))
     .filter((p): p is Persona => p != null)
     .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
-  if (passengers.length === 0) passengers.push({ firstName: "", lastName: "", phone: "" });
+  if (passengers.length === 0)
+    passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
   const costs: TripCosts = v.costo
     ? {
