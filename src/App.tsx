@@ -21,6 +21,9 @@ export function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOperator, setIsOperator] = useState(false);
+  // Señal para que la lista salte a la fecha de los viajes recién sincronizados.
+  // Es un objeto nuevo en cada sync para forzar el efecto aunque la fecha repita.
+  const [dateFocus, setDateFocus] = useState<{ date: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -78,9 +81,13 @@ export function App() {
 
   // Tras sincronizar viajes desde el Excel, recargamos la lista para que los
   // viajes recién creados (con las ediciones de la tabla) aparezcan al instante.
-  const onExcelSynced = async (n: number) => {
+  const onExcelSynced = async (n: number, dates: string[]) => {
     const list = await api.listTrips();
     setTrips(list);
+    // Saltar a la fecha más temprana de lo sincronizado para que se vea sin
+    // tener que cambiar el filtro a mano.
+    const earliest = dates.filter(Boolean).sort()[0];
+    if (earliest) setDateFocus({ date: earliest });
     flash(`${n} viaje${n === 1 ? "" : "s"} sincronizado${n === 1 ? "" : "s"} con Central`, "success");
   };
 
@@ -113,6 +120,7 @@ export function App() {
               loading={loading}
               onChangeStatus={changeStatus}
               isOperator={isOperator}
+              dateFocus={dateFocus}
             />
           }
         />
@@ -147,11 +155,13 @@ function TripsListRoute({
   loading,
   onChangeStatus,
   isOperator,
+  dateFocus,
 }: {
   trips: Trip[];
   loading: boolean;
   onChangeStatus: (t: Trip, est: TripStatus) => Promise<Trip>;
   isOperator: boolean;
+  dateFocus: { date: string } | null;
 }) {
   const navigate = useNavigate();
   const { flash } = useToast();
@@ -173,6 +183,7 @@ function TripsListRoute({
         onExport={(msg) => flash(msg)}
         onChangeStatus={onChangeStatus}
         isOperator={isOperator}
+        dateFocus={dateFocus}
       />
     </>
   );

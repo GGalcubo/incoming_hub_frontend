@@ -12,7 +12,8 @@ import styles from "./ExcelUploadModal.module.css";
 interface ExcelUploadModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (count: number) => void;
+  // dates: fechas de los viajes sincronizados, para que la lista salte a ellas.
+  onConfirm: (count: number, dates: string[]) => void;
 }
 
 type Stage = "pick" | "validate" | "done";
@@ -188,7 +189,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setSyncError(null);
     try {
       const res = await api.syncExcelRows(selectedRows);
-      onConfirm(res.count);
+      onConfirm(res.count, selectedRows.map((r) => r.date));
       reset();
       onClose();
     } catch (e) {
