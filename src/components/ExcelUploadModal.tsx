@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ExcelLeg, ExcelPassenger, ExcelRow, LegType } from "../types/domain";
+import type { ExcelLeg, ExcelPassenger, ExcelRow, LatLng, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
+import { hasGoogleMapsKey } from "../lib/gmaps";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { Modal } from "./ui/Modal";
 import { Input, Select } from "./ui/Field";
 import { PlaceCombo } from "../pages/TripWizard/PlaceCombo";
+import { geocodeAddressAsync } from "../pages/TripWizard/geocode";
 import styles from "./ExcelUploadModal.module.css";
 
 interface ExcelUploadModalProps {
@@ -188,8 +190,11 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setSubmitting(true);
     setSyncError(null);
     try {
-      const res = await api.syncExcelRows(selectedRows);
-      onConfirm(res.count, selectedRows.map((r) => r.date));
+      // Geocodificamos las direcciones de texto del Excel (primer resultado de
+      // Google) para que los tramos guardados tengan coordenadas usables en Maps.
+      const rowsToSync = await geocodeRows(selectedRows);
+      const res = await api.syncExcelRows(rowsToSync);
+      onConfirm(res.count, rowsToSync.map((r) => r.date));
       reset();
       onClose();
     } catch (e) {
@@ -545,6 +550,36 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
       )}
     </Modal>
   );
+}
+
+// Resuelve a coordenadas las direcciones de texto de cada tramo, usando el primer
+// resultado de Google. Cachea por dirección para no repetir geocodings iguales y
+// respeta las coords que ya vengan (p. ej. del autocompletado). Sin API key, no
+// geocodifica y devuelve las filas tal cual.
+async function geocodeRows(rows: ExcelRow[]): Promise<ExcelRow[]> {
+  if (!hasGoogleMapsKey()) return rows;
+  const cache = new Map<string, LatLng | undefined>();
+  const resolve = async (addr: string): Promise<LatLng | undefined> => {
+    const key = addr.trim().toLowerCase();
+    if (!key) return undefined;
+    if (cache.has(key)) return cache.get(key);
+    const coords = (await geocodeAddressAsync(addr)) ?? undefined;
+    cache.set(key, coords);
+    return coords;
+  };
+  const out: ExcelRow[] = [];
+  for (const r of rows) {
+    const legs: ExcelLeg[] = [];
+    for (const l of r.legs) {
+      legs.push({
+        ...l,
+        originCoords: l.originCoords ?? (await resolve(l.origin)),
+        destinationCoords: l.destinationCoords ?? (await resolve(l.destination)),
+      });
+    }
+    out.push({ ...r, legs });
+  }
+  return out;
 }
 
 type PillTone = "success" | "warning" | "danger";

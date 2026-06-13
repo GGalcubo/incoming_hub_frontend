@@ -87,6 +87,9 @@ export interface ExcelLeg {
   destination: string;
   flight?: string;
   type?: LegType;
+  // Coordenadas resueltas por Google (geocoding) para poder usarlas en el mapa.
+  originCoords?: LatLng;
+  destinationCoords?: LatLng;
 }
 
 export interface ExcelPassenger {

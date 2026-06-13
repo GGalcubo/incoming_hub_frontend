@@ -375,6 +375,8 @@ function excelRowToTrip(r: ExcelRow, agc: string): Partial<Trip> {
       destination: l.destination,
       flight: l.flight ?? "",
       obs: "",
+      originCoords: l.originCoords,
+      destinationCoords: l.destinationCoords,
     })),
     costs: { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 },
     history: [],
