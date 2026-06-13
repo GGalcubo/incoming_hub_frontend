@@ -246,7 +246,6 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
   const agencia = c.agencies.find((a) => a.id === v.agencia);
   const categoria = c.categorias.find((x) => x.id === v.categoria_servicio);
   const solicitante = c.solicitantes.find((s) => s.id === v.solicitante);
-  const principal = c.personas.find((p) => p.id === v.pasajero_principal);
 
   const tramos = [...v.tramos].sort((a, b) => a.numero_tramo - b.numero_tramo);
   const legs = tramos.map((tr, i) => {
@@ -272,9 +271,23 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     });
   }
 
-  const passengers = principal
-    ? [{ ...splitName(principal.nombre), phone: principal.telefono ?? "", email: principal.email ?? undefined }]
-    : [{ firstName: "", lastName: "", phone: "" }];
+  // Reúne los ids de pasajeros: primero el principal, luego los embebidos en los
+  // tramos (pasajeros_tramo). Así el pasajero aparece al editar aunque el viaje
+  // no traiga `pasajero_principal` (p. ej. si el backend no lo fijó en el alta).
+  const passengerIds: number[] = [];
+  if (v.pasajero_principal != null) passengerIds.push(v.pasajero_principal);
+  for (const tr of tramos) {
+    for (const pt of tr.pasajeros_tramo ?? []) {
+      if (pt.pasajero != null && !passengerIds.includes(pt.pasajero)) {
+        passengerIds.push(pt.pasajero);
+      }
+    }
+  }
+  const passengers = passengerIds
+    .map((id) => c.personas.find((p) => p.id === id))
+    .filter((p): p is Persona => p != null)
+    .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
+  if (passengers.length === 0) passengers.push({ firstName: "", lastName: "", phone: "" });
 
   const costs: TripCosts = v.costo
     ? {
