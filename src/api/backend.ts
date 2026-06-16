@@ -81,6 +81,18 @@ export interface Tramo {
   pasajeros_tramo: TramoPasajero[];
 }
 
+// Pasajero embebido en la lectura de un viaje (GET /viajes/). El backend ya
+// resuelve la Persona y devuelve sus datos junto con el flag de principal.
+export interface PasajeroRead {
+  id: number;
+  persona: number;
+  nombre: string;
+  telefono: string | null;
+  dni: string | null;
+  email: string | null;
+  es_principal: boolean;
+}
+
 export interface CostoViaje {
   id: number;
   viaje: number;
@@ -125,6 +137,8 @@ export interface Viaje {
   tramos: Tramo[];
   costo: CostoViaje | null;
   puede_cancelar: string;
+  // Pasajeros del viaje, embebidos por el backend en la lectura.
+  pasajeros: PasajeroRead[];
 }
 
 // Pasajero embebido en el POST de creación de viaje. El backend crea/resuelve la

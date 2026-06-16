@@ -271,22 +271,29 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     });
   }
 
-  // Reúne los ids de pasajeros: primero el principal, luego los embebidos en los
-  // tramos (pasajeros_tramo). Así el pasajero aparece al editar aunque el viaje
-  // no traiga `pasajero_principal` (p. ej. si el backend no lo fijó en el alta).
-  const passengerIds: number[] = [];
-  if (v.pasajero_principal != null) passengerIds.push(v.pasajero_principal);
-  for (const tr of tramos) {
-    for (const pt of tr.pasajeros_tramo ?? []) {
-      if (pt.pasajero != null && !passengerIds.includes(pt.pasajero)) {
-        passengerIds.push(pt.pasajero);
+  // Los pasajeros vienen embebidos en el viaje (`v.pasajeros`) con nombre,
+  // teléfono y email ya resueltos por el backend. Ordenamos el principal primero.
+  let passengers = [...(v.pasajeros ?? [])]
+    .sort((a, b) => Number(b.es_principal) - Number(a.es_principal))
+    .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
+
+  // Fallback (viajes viejos sin `pasajeros`): reconstruir desde el principal y
+  // los pasajeros embebidos en los tramos, resolviendo el nombre vía catálogo.
+  if (passengers.length === 0) {
+    const passengerIds: number[] = [];
+    if (v.pasajero_principal != null) passengerIds.push(v.pasajero_principal);
+    for (const tr of tramos) {
+      for (const pt of tr.pasajeros_tramo ?? []) {
+        if (pt.pasajero != null && !passengerIds.includes(pt.pasajero)) {
+          passengerIds.push(pt.pasajero);
+        }
       }
     }
+    passengers = passengerIds
+      .map((id) => c.personas.find((p) => p.id === id))
+      .filter((p): p is Persona => p != null)
+      .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
   }
-  const passengers = passengerIds
-    .map((id) => c.personas.find((p) => p.id === id))
-    .filter((p): p is Persona => p != null)
-    .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
   if (passengers.length === 0)
     passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
