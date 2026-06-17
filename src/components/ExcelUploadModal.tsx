@@ -194,6 +194,17 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
       // Google) para que los tramos guardados tengan coordenadas usables en Maps.
       const rowsToSync = await geocodeRows(selectedRows);
       const res = await api.syncExcelRows(rowsToSync);
+
+      // El alta es atómica: si no se creó ninguno, mostramos qué fila falló y
+      // dejamos el modal abierto para corregir.
+      if (res.count === 0 && res.errors.length > 0) {
+        setSyncError(
+          "No se guardó ningún viaje. " +
+            res.errors.map((e) => `Fila ${e.row}: ${e.message}`).join(" · "),
+        );
+        return;
+      }
+
       onConfirm(res.count, rowsToSync.map((r) => r.date));
       reset();
       onClose();

@@ -17,7 +17,7 @@ import type {
   Viaje,
   ViajeWrite,
 } from "./backend";
-import { request } from "./http";
+import { drfErrorMessage, getToken, request, VIAJES_BASE } from "./http";
 
 // ── Estados ────────────────────────────────────────────────────────────────
 // El backend expone `estado` como entero pero NO publica un endpoint de
@@ -476,6 +476,92 @@ export async function createTrip(trip: Trip): Promise<Trip> {
   invalidateCatalogs();
   await syncTramos(trip, created.id, []);
   return getTrip(String(created.id));
+}
+
+// ── Alta en lote (carga por Excel) ──────────────────────────────────────────
+// Crea todos los viajes en UN solo POST a /viajes/bulk/ (atómico en el backend:
+// si uno falla, no se crea ninguno). Cada item lleva un `id_temporal` asignado
+// por el front para correlacionar el resultado/errores con la fila de origen.
+// Los tramos NO viajan en el bulk (son readOnly ahí), así que se crean después
+// para cada viaje devuelto, en paralelo.
+export interface BulkItem {
+  id_temporal: string;
+  trip: Trip;
+}
+
+export interface BulkError {
+  id_temporal: string;
+  message: string;
+}
+
+export interface BulkResult {
+  count: number;
+  errors: BulkError[];
+}
+
+export async function createTripsBulk(items: BulkItem[]): Promise<BulkResult> {
+  const c = await loadCatalogs();
+
+  // 1) Un único POST con todos los viajes + pasajeros.
+  const payload = items.map(({ id_temporal, trip }) => ({
+    ...buildViajePayload(trip, c, { includeEstado: false, includePasajeros: true }),
+    id_temporal,
+  }));
+
+  const token = getToken();
+  const res = await fetch(`${VIAJES_BASE}/viajes/bulk/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+  const body = (await res.json().catch(() => null)) as
+    | { creados?: { id_temporal: string; viaje: Viaje }[]; errores?: { id_temporal: string; errores: unknown }[] }
+    | null;
+
+  // 400 → no se creó ninguno; devolvemos el detalle por id_temporal.
+  if (!res.ok) {
+    const errores = body?.errores ?? [];
+    if (errores.length) {
+      return {
+        count: 0,
+        errors: errores.map((e) => ({
+          id_temporal: e.id_temporal,
+          message: drfErrorMessage(e.errores, "Datos inválidos"),
+        })),
+      };
+    }
+    throw new Error(drfErrorMessage(body, `${res.status} ${res.statusText}`));
+  }
+
+  // 201 → viajes creados. El backend dio de alta personas nuevas, invalidamos el
+  // cache para que las próximas lecturas resuelvan los pasajeros principales.
+  const creados = body?.creados ?? [];
+  invalidateCatalogs();
+
+  // 2) Tramos de cada viaje creado, en paralelo (esto el bulk no lo hace).
+  const tripById = new Map(items.map((it) => [it.id_temporal, it.trip]));
+  const errors: BulkError[] = [];
+  await Promise.all(
+    creados.map(async ({ id_temporal, viaje }) => {
+      const trip = tripById.get(id_temporal);
+      if (!trip) return;
+      try {
+        for (const tramo of buildTramoPayloads(trip, viaje.id)) {
+          await request<Tramo>("/tramos/", { method: "POST", body: JSON.stringify(tramo) });
+        }
+      } catch (e) {
+        errors.push({
+          id_temporal,
+          message: `Viaje creado, pero falló un tramo: ${e instanceof Error ? e.message : "error"}`,
+        });
+      }
+    }),
+  );
+
+  return { count: creados.length, errors };
 }
 
 export async function updateTrip(trip: Trip): Promise<Trip> {

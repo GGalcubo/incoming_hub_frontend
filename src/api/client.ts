@@ -336,17 +336,38 @@ export const api = {
     return parseSheet(aoa);
   },
 
-  // Guarda los viajes creando cada uno con createTrip (mock o backend real /viajes/).
-  // La agencia sale del usuario logueado; el solicitante lo fija el backend.
-  async syncExcelRows(rows: ExcelRow[]): Promise<{ count: number }> {
+  // Guarda los viajes del Excel. Contra el backend real se hace en UN solo POST
+  // a /viajes/bulk/ (atómico): si alguno falla no se crea ninguno y se devuelve
+  // qué fila falló. En mock se cae al alta uno por uno. La agencia sale del
+  // usuario logueado; el solicitante lo fija el backend.
+  async syncExcelRows(
+    rows: ExcelRow[],
+  ): Promise<{ count: number; errors: { row: number; message: string }[] }> {
     const identity = await this.getWizardIdentity();
     const agc = identity.ownAgency ?? identity.agencies[0] ?? "";
-    let count = 0;
-    for (const r of rows) {
-      await this.createTrip(excelRowToTrip(r, agc));
-      count++;
+
+    if (USE_VIAJES_MOCK) {
+      let count = 0;
+      for (const r of rows) {
+        await this.createTrip(excelRowToTrip(r, agc));
+        count++;
+      }
+      return { count, errors: [] };
     }
-    return { count };
+
+    // id_temporal = "tmp-<fila>" para mapear errores del backend a la fila.
+    const items = rows.map((r) => ({
+      id_temporal: `tmp-${r.row}`,
+      trip: excelRowToTrip(r, agc) as Trip,
+    }));
+    const res = await viajes.createTripsBulk(items);
+    return {
+      count: res.count,
+      errors: res.errors.map((e) => ({
+        row: Number(e.id_temporal.replace("tmp-", "")) || 0,
+        message: e.message,
+      })),
+    };
   },
 };
 
