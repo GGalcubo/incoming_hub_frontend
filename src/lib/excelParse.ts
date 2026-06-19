@@ -6,8 +6,7 @@
 import * as XLSX from "xlsx";
 import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { normalizePlace } from "./places";
-
-const PHONE_RE = /^[+\d\s-]{8,20}$/;
+import { validateExcelRow } from "./excelValidate";
 
 // Normaliza texto para comparar headers/valores: sin acentos, minúsculas, sin
 // espacios redundantes.
@@ -31,8 +30,6 @@ function parseTipo(raw: string): LegType | null {
   if (s.includes("otro")) return "otro";
   return null;
 }
-
-const TIPO_CON_VUELO = new Set<LegType>(["in", "out"]);
 
 // Acepta "07:30", "7:30" o una fracción de día de Excel (por las dudas) → "HH:MM".
 function parseHora(raw: string): string {
@@ -81,9 +78,6 @@ function buildHeaderMap(headerRow: unknown[]): Record<string, number> {
 }
 
 function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
   // Fecha: Dia / Mes / Año (numéricos).
   const d = parseInt(get("dia"), 10);
   const m = parseInt(get("mes"), 10);
@@ -94,35 +88,21 @@ function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
     d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 2000
   ) {
     date = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  } else {
-    errors.push("Fecha incompleta o inválida (Dia/Mes/Año)");
   }
 
   const time = parseHora(get("hora"));
-  if (!time) errors.push("Falta la hora");
-
   const cat = get("cat");
-  if (!cat) errors.push("Falta la categoría");
 
-  const tipo = parseTipo(get("tipo"));
-  if (!tipo) errors.push("Tipo inválido (Llegada/Salida/Otro/Hs Disposición)");
+  const tipoText = get("tipo");
+  const tipo = parseTipo(tipoText);
 
   const passengers = get("pax")
     .split("|")
     .map((s) => s.trim())
     .filter(Boolean);
-  if (passengers.length === 0) warnings.push("Sin pasajero");
-  if (passengers.length > 4) warnings.push("Más de 4 pasajeros");
 
   // Teléfonos alineados por posición con los pasajeros (mismo orden, " | ").
   const phones = get("tel").split("|").map((s) => s.trim());
-  const phonesPresentes = phones.filter(Boolean);
-  phonesPresentes.forEach((ph) => {
-    if (!PHONE_RE.test(ph)) warnings.push(`Teléfono con formato dudoso: ${ph}`);
-  });
-  if (phonesPresentes.length > passengers.length) {
-    warnings.push("Hay más teléfonos que pasajeros");
-  }
 
   // Tramos: Origen→Destino (tipo de la fila), luego →Destino2, →Destino3 (otro).
   const origen = normalizePlace(get("origen"));
@@ -143,10 +123,16 @@ function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
   if (destino2) legs.push({ origin: destino, destination: destino2, type: "otro" });
   if (destino3) legs.push({ origin: destino2, destination: destino3, type: "otro" });
 
-  if (!origen) errors.push("Falta el origen");
-  if (!destino) errors.push("Falta el destino");
-  if (tipo && TIPO_CON_VUELO.has(tipo) && !flight) {
-    warnings.push("Tipo in/out sin número de vuelo");
+  // Validación estructural compartida con el modal (fuente única de verdad).
+  const { errors, warnings } = validateExcelRow({ date, time, cat, passengers, phones, legs });
+  // El tipo se parsea de texto libre; si no se reconoce, el tramo queda "otro".
+  if (!tipo) {
+    warnings.push(
+      tipoText ? `Tipo no reconocido: "${tipoText}" (se usó Otro)` : "Falta el tipo (se usó Otro)",
+    );
+  }
+  if (phones.filter(Boolean).length > passengers.length) {
+    warnings.push("Hay más teléfonos que pasajeros");
   }
 
   return {

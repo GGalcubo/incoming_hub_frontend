@@ -2,7 +2,7 @@
 // devuelve coords + el formatted_address COMPLETO (sin acortar), para mostrarlo
 // en la pre-carga y crear el viaje con lat/lng. Vive en lib/ (solo depende de
 // lib/gmaps) para no invertir el layering desde api/.
-import type { ExcelRow } from "../types/domain";
+import type { ExcelLeg, ExcelRow } from "../types/domain";
 import {
   hasGoogleMapsKey,
   loadGoogleMaps,
@@ -57,27 +57,35 @@ export async function geocodeRows(rows: ExcelRow[]): Promise<ExcelRow[]> {
     return cache.get(key) ?? null;
   };
 
+  // No muta las filas (devuelve copias) y es idempotente: solo geocodifica los
+  // endpoints SIN coords, así respeta lo ya resuelto y re-resuelve lo editado.
+  const out: ExcelRow[] = [];
   for (const row of rows) {
+    const warnings = [...row.warnings];
+    const legs: ExcelLeg[] = [];
     for (const leg of row.legs) {
-      if (leg.origin) {
-        const o = await resolve(leg.origin);
+      const next: ExcelLeg = { ...leg };
+      if (next.origin && !next.originCoords) {
+        const o = await resolve(next.origin);
         if (o) {
-          leg.originCoords = { lat: o.lat, lng: o.lng };
-          leg.originResolved = o.formatted;
+          next.originCoords = { lat: o.lat, lng: o.lng };
+          next.originResolved = o.formatted;
         } else {
-          row.warnings.push(`No se pudo geolocalizar el origen "${leg.origin}"`);
+          warnings.push(`No se pudo geolocalizar el origen "${next.origin}"`);
         }
       }
-      if (leg.destination) {
-        const d = await resolve(leg.destination);
+      if (next.destination && !next.destinationCoords) {
+        const d = await resolve(next.destination);
         if (d) {
-          leg.destinationCoords = { lat: d.lat, lng: d.lng };
-          leg.destinationResolved = d.formatted;
+          next.destinationCoords = { lat: d.lat, lng: d.lng };
+          next.destinationResolved = d.formatted;
         } else {
-          row.warnings.push(`No se pudo geolocalizar el destino "${leg.destination}"`);
+          warnings.push(`No se pudo geolocalizar el destino "${next.destination}"`);
         }
       }
+      legs.push(next);
     }
+    out.push({ ...row, legs, warnings });
   }
-  return rows;
+  return out;
 }

@@ -1,28 +1,76 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ExcelRow, LegType } from "../types/domain";
+import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
+import { validateExcelRow } from "../lib/excelValidate";
+import { PlaceCombo } from "../pages/TripWizard/PlaceCombo";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
+import { Input, Select } from "./ui/Field";
 import { Modal } from "./ui/Modal";
 import styles from "./ExcelUploadModal.module.css";
 
 interface ExcelUploadModalProps {
   open: boolean;
   onClose: () => void;
+  // dates: fechas de los viajes cargados, para que la lista salte a ellas.
   onConfirm: (count: number, dates: string[]) => void;
 }
 
-type Stage = "pick" | "validate" | "done";
+type Stage = "pick" | "validate";
+
+const LEG_TYPE_OPTIONS: { value: LegType; label: string }[] = [
+  { value: "in", label: "Llegada (in)" },
+  { value: "out", label: "Salida (out)" },
+  { value: "otro", label: "Otro" },
+  { value: "disposicion", label: "Hs disposición" },
+];
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+// Reaplica la validación a una fila editada (misma función que usa el parser).
+function revalidate(r: ExcelRow): ExcelRow {
+  const { errors, warnings } = validateExcelRow(r);
+  return { ...r, errors, warnings };
+}
 
 export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalProps) {
   const [stage, setStage] = useState<Stage>("pick");
   const [filename, setFilename] = useState("");
   const [rows, setRows] = useState<ExcelRow[]>([]);
   const [selected, setSelected] = useState<Record<number, boolean>>({});
+  const [categorias, setCategorias] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  // Catálogo de categorías para el dropdown (estricto: solo estos valores).
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    api.listCategorias().then((c) => {
+      if (alive) setCategorias(c);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
+
+  // Si una edición vuelve a meter errores en una fila seleccionada, la deselecciona.
+  useEffect(() => {
+    setSelected((s) => {
+      let changed = false;
+      const next = { ...s };
+      rows.forEach((r) => {
+        if (r.errors.length > 0 && next[r.row]) {
+          next[r.row] = false;
+          changed = true;
+        }
+      });
+      return changed ? next : s;
+    });
+  }, [rows]);
 
   const reset = () => {
     setStage("pick");
@@ -30,8 +78,9 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setRows([]);
     setSelected({});
     setSubmitting(false);
-    setDragOver(false);
     setParsing(false);
+    setSyncError(null);
+    setDragOver(false);
   };
 
   const handleFile = async (f: File) => {
@@ -66,6 +115,82 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     await handleFile(f);
   };
 
+  // ---- edición de filas ----
+  const mutateRow = (rowNum: number, fn: (r: ExcelRow) => ExcelRow) => {
+    setRows((rs) => rs.map((r) => (r.row === rowNum ? revalidate(fn(r)) : r)));
+  };
+
+  const updateRow = (rowNum: number, patch: Partial<ExcelRow>) =>
+    mutateRow(rowNum, (r) => ({ ...r, ...patch }));
+
+  const updateLeg = (rowNum: number, i: number, patch: Partial<ExcelLeg>) =>
+    mutateRow(rowNum, (r) => {
+      const legs = r.legs.map((l, j) => {
+        if (j !== i) return l;
+        const next = { ...l, ...patch };
+        // Cambiar el texto invalida las coords/dirección resuelta (se re-geocodifica al cargar).
+        if ("origin" in patch) {
+          next.originCoords = undefined;
+          next.originResolved = undefined;
+        }
+        if ("destination" in patch) {
+          next.destinationCoords = undefined;
+          next.destinationResolved = undefined;
+        }
+        return next;
+      });
+      // El destino de un tramo arrastra el origen del siguiente.
+      if ("destination" in patch && i + 1 < legs.length) {
+        legs[i + 1] = {
+          ...legs[i + 1],
+          origin: patch.destination ?? "",
+          originCoords: undefined,
+          originResolved: undefined,
+        };
+      }
+      return { ...r, legs };
+    });
+
+  const addLeg = (rowNum: number) =>
+    mutateRow(rowNum, (r) => {
+      const last = r.legs[r.legs.length - 1];
+      return {
+        ...r,
+        legs: [...r.legs, { type: "otro", origin: last?.destination ?? "", destination: "" }],
+      };
+    });
+
+  const rmLeg = (rowNum: number, i: number) =>
+    mutateRow(rowNum, (r) => ({ ...r, legs: r.legs.filter((_, j) => j !== i) }));
+
+  const setPassenger = (rowNum: number, i: number, name: string) =>
+    mutateRow(rowNum, (r) => ({
+      ...r,
+      passengers: r.passengers.map((p, j) => (j === i ? name : p)),
+    }));
+
+  const setPhone = (rowNum: number, i: number, phone: string) =>
+    mutateRow(rowNum, (r) => {
+      const phones = [...(r.phones ?? [])];
+      while (phones.length <= i) phones.push("");
+      phones[i] = phone;
+      return { ...r, phones };
+    });
+
+  const addPassenger = (rowNum: number) =>
+    mutateRow(rowNum, (r) => ({
+      ...r,
+      passengers: [...r.passengers, ""],
+      phones: [...(r.phones ?? []), ""],
+    }));
+
+  const rmPassenger = (rowNum: number, i: number) =>
+    mutateRow(rowNum, (r) => ({
+      ...r,
+      passengers: r.passengers.filter((_, j) => j !== i),
+      phones: (r.phones ?? []).filter((_, j) => j !== i),
+    }));
+
   const summary = (() => {
     const ok = rows.filter((r) => r.errors.length === 0).length;
     const warn = rows.filter((r) => r.warnings.length > 0 && r.errors.length === 0).length;
@@ -78,14 +203,29 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
 
   const sync = async () => {
     setSubmitting(true);
+    setSyncError(null);
     try {
-      const res = await api.importExcelRows(selectedExcelRows);
+      // Geocodifica lo editado (idempotente: respeta lo ya resuelto) antes de crear.
+      const { geocodeRows } = await import("../lib/geocode");
+      const rowsToSync = await geocodeRows(selectedExcelRows);
+      const res = await api.importExcelRows(rowsToSync);
+
+      if (res.count === 0 && res.errors.length > 0) {
+        setSyncError(
+          "No se cargó ningún viaje. " +
+            res.errors.map((e) => `Fila ${e.row}: ${e.message}`).join(" · "),
+        );
+        return;
+      }
+
       onConfirm(
         res.count,
-        selectedExcelRows.map((r) => r.date),
+        rowsToSync.map((r) => r.date),
       );
       reset();
       onClose();
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : "No se pudo cargar. Reintentá.");
     } finally {
       setSubmitting(false);
     }
@@ -101,7 +241,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
       >
         Cancelar
       </Button>
-    ) : stage === "validate" ? (
+    ) : (
       <>
         <Button
           onClick={() => {
@@ -117,7 +257,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             : `Cargar ${selectedCount} viaje${selectedCount === 1 ? "" : "s"}`}
         </Button>
       </>
-    ) : null;
+    );
 
   return (
     <Modal
@@ -133,7 +273,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
       {stage === "pick" && (
         <div className={styles.pickWrap}>
           <div className={styles.intro}>
-            Subí un archivo .xlsx. Vamos a validar fila por fila antes de cargar los viajes.
+            Subí un archivo .xlsx. Vas a poder revisar y editar cada fila antes de cargar los viajes.
           </div>
           {parsing ? (
             <div className={styles.parsing}>
@@ -207,10 +347,8 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     />
                   </th>
                   <th className={styles.th}>Fila</th>
-                  <th className={styles.th}>Viaje</th>
                   <th className={styles.th}>Fecha · Hora</th>
                   <th className={styles.th}>Categoría</th>
-                  <th className={styles.th}>Tipo</th>
                   <th className={styles.th}>Pasajeros</th>
                   <th className={styles.th}>Tramos</th>
                   <th className={styles.th}>Estado de validación</th>
@@ -232,56 +370,175 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     <td className={cx(styles.td, styles.mono, styles.cMuted)}>
                       {formatRows(r.rows ?? [r.row])}
                     </td>
-                    <td className={cx(styles.td, styles.mono, styles.cSecondary)}>
-                      {r.tripRef || <span className={styles.cDim}>—</span>}
-                    </td>
-                    <td className={cx(styles.td, styles.cSecondary)}>
-                      {r.date} · {r.time || <span className={styles.cDim}>—</span>}
-                    </td>
-                    <td className={cx(styles.td, styles.cSecondary)}>
-                      {r.cat || <span className={styles.cDim}>—</span>}
-                    </td>
-                    <td className={cx(styles.td, styles.cSecondary)}>
-                      {r.legs[0]?.type ? (
-                        TIPO_LABEL[r.legs[0].type]
-                      ) : (
-                        <span className={styles.cDim}>—</span>
-                      )}
-                    </td>
-                    <td className={cx(styles.tdWrap, styles.cSecondary)}>
-                      {r.passengers.length === 0 ? (
-                        <span className={styles.cDim}>—</span>
-                      ) : (
-                        <div className={styles.stack}>
-                          {r.passengers.map((p, i) => (
-                            <span key={i}>
-                              {p}
-                              {r.phones?.[i] && (
-                                <span className={styles.legFlight}>· {r.phones[i]}</span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className={cx(styles.tdWrap, styles.cSecondary)}>
+
+                    {/* Fecha · Hora */}
+                    <td className={styles.tdWrap}>
                       <div className={styles.stack}>
-                        {r.legs.map((l, i) => (
-                          <span key={i} className={styles.legItem}>
-                            <span>
-                              {l.origin} → {l.destination}
-                              {l.flight && <span className={styles.legFlight}>· {l.flight}</span>}
-                            </span>
-                            {(l.originResolved || l.destinationResolved) && (
-                              <span className={styles.legResolved}>
-                                {l.originResolved ?? l.origin} → {l.destinationResolved ?? l.destination}
-                              </span>
-                            )}
-                          </span>
-                        ))}
+                        <Input
+                          type="date"
+                          min={todayISO()}
+                          value={r.date}
+                          className={styles.cellInput}
+                          onChange={(e) => updateRow(r.row, { date: e.target.value })}
+                        />
+                        <Input
+                          type="time"
+                          value={r.time}
+                          className={styles.cellInput}
+                          onChange={(e) => updateRow(r.row, { time: e.target.value })}
+                        />
                       </div>
                     </td>
-                    <td className={styles.td}>
+
+                    {/* Categoría — dropdown estricto del catálogo */}
+                    <td className={styles.tdWrap}>
+                      <Select
+                        value={categorias.includes(r.cat) ? r.cat : ""}
+                        className={styles.cellInput}
+                        onChange={(e) => updateRow(r.row, { cat: e.target.value })}
+                      >
+                        <option value="" disabled>
+                          Seleccionar…
+                        </option>
+                        {categorias.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </Select>
+                    </td>
+
+                    {/* Pasajeros — nombre + teléfono, editable */}
+                    <td className={styles.tdWrap}>
+                      <div className={styles.stack}>
+                        {r.passengers.map((p, i) => (
+                          <div key={i} className={styles.paxCard}>
+                            <div className={styles.legHead}>
+                              <span className={styles.legNum}>Pasajero {i + 1}</span>
+                              {r.passengers.length > 1 && (
+                                <button
+                                  type="button"
+                                  className={styles.iconBtn}
+                                  aria-label="Quitar pasajero"
+                                  onClick={() => rmPassenger(r.row, i)}
+                                >
+                                  <Icon name="trash" size={13} />
+                                </button>
+                              )}
+                            </div>
+                            <Input
+                              value={p}
+                              className={styles.cellInput}
+                              placeholder="Nombre"
+                              onChange={(e) => setPassenger(r.row, i, e.target.value)}
+                            />
+                            <Input
+                              value={r.phones?.[i] ?? ""}
+                              type="tel"
+                              className={styles.cellInput}
+                              placeholder="Teléfono +54 11 …"
+                              onChange={(e) => setPhone(r.row, i, e.target.value)}
+                            />
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          className={styles.addInline}
+                          onClick={() => addPassenger(r.row)}
+                        >
+                          <Icon name="plus" size={12} />
+                          Agregar pasajero
+                        </button>
+                      </div>
+                    </td>
+
+                    {/* Tramos — tipo + vuelo + origen/destino con autocompletado de Google */}
+                    <td className={styles.tdTramos}>
+                      <div className={styles.stack}>
+                        {r.legs.map((l, i) => {
+                          const noFlight = l.type === "otro" || l.type === "disposicion";
+                          return (
+                            <div key={i} className={styles.legCard}>
+                              <div className={styles.legHead}>
+                                <span className={styles.legNum}>Tramo {i + 1}</span>
+                                {r.legs.length > 1 && (
+                                  <button
+                                    type="button"
+                                    className={styles.iconBtn}
+                                    aria-label="Quitar tramo"
+                                    onClick={() => rmLeg(r.row, i)}
+                                  >
+                                    <Icon name="trash" size={13} />
+                                  </button>
+                                )}
+                              </div>
+                              <div className={styles.legGrid}>
+                                <Select
+                                  value={l.type ?? "otro"}
+                                  className={styles.cellInput}
+                                  onChange={(e) =>
+                                    updateLeg(r.row, i, {
+                                      type: e.target.value as LegType,
+                                      flight:
+                                        e.target.value === "otro" || e.target.value === "disposicion"
+                                          ? ""
+                                          : l.flight,
+                                    })
+                                  }
+                                >
+                                  {LEG_TYPE_OPTIONS.map((o) => (
+                                    <option key={o.value} value={o.value}>
+                                      {o.label}
+                                    </option>
+                                  ))}
+                                </Select>
+                                <Input
+                                  className={styles.cellInput}
+                                  value={l.flight ?? ""}
+                                  disabled={noFlight}
+                                  placeholder={noFlight ? "—" : "AA995, LA4302…"}
+                                  onChange={(e) => updateLeg(r.row, i, { flight: e.target.value })}
+                                />
+                                <div className={styles.legPlace}>
+                                  <span className={styles.legLabel}>Origen</span>
+                                  <PlaceCombo
+                                    value={l.origin}
+                                    onChange={(v) => updateLeg(r.row, i, { origin: v })}
+                                    onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
+                                  />
+                                  {l.originResolved && (
+                                    <span className={styles.legResolved}>{l.originResolved}</span>
+                                  )}
+                                </div>
+                                <div className={styles.legPlace}>
+                                  <span className={styles.legLabel}>Destino</span>
+                                  <PlaceCombo
+                                    value={l.destination}
+                                    onChange={(v) => updateLeg(r.row, i, { destination: v })}
+                                    onPick={(desc) => updateLeg(r.row, i, { destination: desc })}
+                                  />
+                                  {l.destinationResolved && (
+                                    <span className={styles.legResolved}>
+                                      {l.destinationResolved}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          className={styles.addInline}
+                          onClick={() => addLeg(r.row)}
+                        >
+                          <Icon name="plus" size={12} />
+                          Agregar tramo
+                        </button>
+                      </div>
+                    </td>
+
+                    <td className={styles.tdWrap}>
                       {r.errors.length > 0 ? (
                         <div className={styles.stack}>
                           {r.errors.map((e, i) => (
@@ -313,9 +570,16 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             </table>
           </div>
 
+          {syncError && (
+            <div className={styles.syncError}>
+              <Icon name="alert" size={13} />
+              {syncError}
+            </div>
+          )}
+
           <div className={styles.note}>
-            Solo se cargan los viajes seleccionados. Los que tienen errores no se pueden
-            seleccionar — corregí el archivo y volvé a subir.
+            Editá los campos directamente en la tabla. Solo se cargan los viajes seleccionados;
+            los que tienen errores no se pueden seleccionar hasta corregirlos.
           </div>
         </div>
       )}
@@ -345,15 +609,6 @@ function formatRows(rows: number[]): string {
   }
   return parts.join(", ");
 }
-
-// El tipo de servicio es uno por VIAJE (no por tramo): se toma del primer
-// tramo, que es el que lo lleva. Mismos labels que el Select del wizard.
-const TIPO_LABEL: Record<LegType, string> = {
-  in: "Llegada (in)",
-  out: "Salida (out)",
-  otro: "Otro",
-  disposicion: "Hs disposición",
-};
 
 type PillTone = "success" | "warning" | "danger";
 

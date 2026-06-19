@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as XLSX from "xlsx";
 import { parseExcelFile } from "./excelParse";
+import { validateExcelRow } from "./excelValidate";
 import { normalizePlace } from "./places";
 
 const HEADERS = [
@@ -67,6 +68,39 @@ describe("parseExcelFile", () => {
       ]),
     );
     expect(rows[0].errors.length).toBeGreaterThan(0); // falta hora + tipo
+  });
+});
+
+describe("validateExcelRow", () => {
+  const base = {
+    date: "2026-06-20",
+    time: "07:30",
+    cat: "Ejecutivo",
+    passengers: ["Juan Perez"],
+    phones: ["+54 11 5555-1234"],
+    legs: [{ origin: "Recoleta", destination: "Centro", type: "out" as const }],
+  };
+
+  it("una fila completa no tiene errores", () => {
+    expect(validateExcelRow(base).errors).toHaveLength(0);
+  });
+
+  it("marca errores cuando faltan fecha/hora/categoría o el tramo está incompleto", () => {
+    expect(validateExcelRow({ ...base, time: "" }).errors).toContain("Falta la hora");
+    expect(validateExcelRow({ ...base, date: "" }).errors).toContain("Falta la fecha");
+    expect(validateExcelRow({ ...base, cat: "" }).errors).toContain("Falta la categoría");
+    const incompleto = validateExcelRow({
+      ...base,
+      legs: [{ origin: "Recoleta", destination: "", type: "otro" as const }],
+    });
+    expect(incompleto.errors).toContain("Tramo 1 incompleto");
+  });
+
+  it("avisa (no error) si no hay pasajero o el teléfono es dudoso", () => {
+    const sinPax = validateExcelRow({ ...base, passengers: [] });
+    expect(sinPax.errors).toHaveLength(0);
+    expect(sinPax.warnings).toContain("Sin pasajero");
+    expect(validateExcelRow({ ...base, phones: ["123"] }).warnings.length).toBeGreaterThan(0);
   });
 });
 
