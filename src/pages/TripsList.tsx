@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { STATUSES, TODAY, TOMORROW } from "../data/seed";
 import type { Trip, TripStatus } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
@@ -17,6 +17,8 @@ interface TripsListProps {
   onExport: (msg: string) => void;
   onChangeStatus: (t: Trip, est: TripStatus) => void;
   isOperator?: boolean;
+  // Cuando cambia, la lista salta a esa fecha (p. ej. tras sincronizar Excel).
+  dateFocus?: { date: string } | null;
 }
 
 type SortKey = keyof Trip | "id" | "pasajero";
@@ -154,8 +156,14 @@ export function TripsList({
   onExport,
   onChangeStatus,
   isOperator = false,
+  dateFocus,
 }: TripsListProps) {
   const [dateFilter, setDateFilter] = useState<string>(TODAY);
+
+  // Al sincronizar viajes desde Excel, saltar al día de esos viajes para que se vean.
+  useEffect(() => {
+    if (dateFocus?.date) setDateFilter(dateFocus.date);
+  }, [dateFocus]);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<TripStatus[]>([]);
   const [q, setQ] = useState("");

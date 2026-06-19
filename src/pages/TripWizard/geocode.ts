@@ -65,6 +65,12 @@ export function reverseGeocode(point: GMapsLatLngLiteral, cb: (address: string |
   });
 }
 
+// Versión con Promise de geocodeAddress: resuelve la dirección a coordenadas
+// usando el primer resultado de Google (o null si no hay key/coincidencia).
+export function geocodeAddressAsync(address: string): Promise<GMapsLatLngLiteral | null> {
+  return new Promise((resolve) => geocodeAddress(address, resolve));
+}
+
 export function geocodeAddress(address: string, cb: (coords: GMapsLatLngLiteral | null) => void) {
   getGeocoder((g) => {
     if (!g) {

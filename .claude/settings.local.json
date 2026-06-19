@@ -46,7 +46,9 @@
       "Bash(curl -s \"https://incoming-hub-00af8e68af77.herokuapp.com/api/schema/?format=json\" -o schema.tmp.json)",
       "WebFetch(domain:incoming-hub-00af8e68af77.herokuapp.com)",
       "Bash(curl -s \"https://incoming-hub-00af8e68af77.herokuapp.com/api/schema/?format=json\" -o \"C:/caltamirano/logos2/schema_tmp.json\")",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(node_modules/.bin/tsc -p tsconfig.app.json --noEmit)",
+      "Bash(echo \"EXIT: $?\")"
     ]
   }
 }

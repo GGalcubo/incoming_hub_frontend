@@ -106,8 +106,9 @@ export interface ExcelRow {
   time: string;
   cat: string;
   passengers: string[];
-  // Teléfono del pasajero principal (columna Telefono del Excel).
-  phone?: string;
+  // Teléfonos alineados por posición con `passengers` (columna Telefono del
+  // Excel: varios separados con " | " en el mismo orden que los pasajeros).
+  phones?: string[];
   // Observaciones libres (columna Observaciones).
   obs?: string;
   legs: ExcelLeg[];

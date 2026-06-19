@@ -251,7 +251,12 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                       ) : (
                         <div className={styles.stack}>
                           {r.passengers.map((p, i) => (
-                            <span key={i}>{p}</span>
+                            <span key={i}>
+                              {p}
+                              {r.phones?.[i] && (
+                                <span className={styles.legFlight}>· {r.phones[i]}</span>
+                              )}
+                            </span>
                           ))}
                         </div>
                       )}

@@ -246,7 +246,6 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
   const agencia = c.agencies.find((a) => a.id === v.agencia);
   const categoria = c.categorias.find((x) => x.id === v.categoria_servicio);
   const solicitante = c.solicitantes.find((s) => s.id === v.solicitante);
-  const principal = c.personas.find((p) => p.id === v.pasajero_principal);
 
   const tramos = [...v.tramos].sort((a, b) => a.numero_tramo - b.numero_tramo);
   const legs = tramos.map((tr, i) => {
@@ -272,9 +271,31 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     });
   }
 
-  const passengers = principal
-    ? [{ ...splitName(principal.nombre), phone: principal.telefono ?? "", email: principal.email ?? undefined }]
-    : [{ firstName: "", lastName: "", phone: "" }];
+  // Los pasajeros vienen embebidos en el viaje (`v.pasajeros`) con nombre,
+  // teléfono y email ya resueltos por el backend. Ordenamos el principal primero.
+  let passengers = [...(v.pasajeros ?? [])]
+    .sort((a, b) => Number(b.es_principal) - Number(a.es_principal))
+    .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
+
+  // Fallback (viajes viejos sin `pasajeros`): reconstruir desde el principal y
+  // los pasajeros embebidos en los tramos, resolviendo el nombre vía catálogo.
+  if (passengers.length === 0) {
+    const passengerIds: number[] = [];
+    if (v.pasajero_principal != null) passengerIds.push(v.pasajero_principal);
+    for (const tr of tramos) {
+      for (const pt of tr.pasajeros_tramo ?? []) {
+        if (pt.pasajero != null && !passengerIds.includes(pt.pasajero)) {
+          passengerIds.push(pt.pasajero);
+        }
+      }
+    }
+    passengers = passengerIds
+      .map((id) => c.personas.find((p) => p.id === id))
+      .filter((p): p is Persona => p != null)
+      .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
+  }
+  if (passengers.length === 0)
+    passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
   const costs: TripCosts = v.costo
     ? {
@@ -415,10 +436,10 @@ export function excelRowToTrip(r: ExcelRow, agc: string, solicitante: string): T
   const passengers = r.passengers.length
     ? r.passengers.map((nombre, i) => ({
         ...splitName(nombre),
-        // El teléfono del Excel es uno solo: va al pasajero principal.
-        phone: i === 0 ? (r.phone ?? "") : "",
+        // Teléfonos alineados por posición con los pasajeros.
+        phone: r.phones?.[i] ?? "",
       }))
-    : [{ firstName: "", lastName: "", phone: r.phone ?? "" }];
+    : [{ firstName: "", lastName: "", phone: r.phones?.[0] ?? "" }];
 
   const legs = (r.legs.length
     ? r.legs

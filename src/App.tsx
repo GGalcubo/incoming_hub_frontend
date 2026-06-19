@@ -23,16 +23,24 @@ export function App() {
     if (!user) return;
     let cancelled = false;
     setLoading(true);
-    api.listTrips().then((list) => {
-      if (!cancelled) {
-        setTrips(list);
-        setLoading(false);
-      }
-    });
+    api
+      .listTrips()
+      .then((list) => {
+        if (!cancelled) setTrips(list);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          const detail = err instanceof Error ? err.message : "Error desconocido";
+          flash(`No se pudieron cargar los viajes: ${detail}`, "error");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [user, flash]);
 
   useEffect(() => {
     if (!user) {

@@ -30,7 +30,7 @@ describe("parseExcelFile", () => {
     expect(rows[0].date).toBe("2026-06-20");
     expect(rows[0].time).toBe("07:30");
     expect(rows[0].cat).toBe("Ejecutivo");
-    expect(rows[0].phone).toBe("+54 11 5555-1234");
+    expect(rows[0].phones).toEqual(["+54 11 5555-1234"]);
     expect(rows[0].legs[0].type).toBe("in"); // "Llegada (in)" → in
     expect(rows[0].legs[0].origin).toBe("Aeropuerto Ezeiza (EZE)"); // alias EZE
     expect(rows[0].errors).toHaveLength(0);
@@ -46,6 +46,18 @@ describe("parseExcelFile", () => {
     expect(rows[0].legs).toHaveLength(2);
     expect(rows[0].legs[1].origin).toBe("Hotel Alvear");
     expect(rows[0].legs[1].destination).toBe("San Isidro");
+  });
+
+  it("alinea varios teléfonos con los pasajeros por posición", async () => {
+    const rows = await parseExcelFile(
+      buildFile([
+        [20, 6, 2026, "10:00", "Auto Std", "M. ROJO | N. FABBRI",
+         "+54 11 4490 7781 | +54 11 6033 2210", "Salida (out)",
+         "Santos Dumont 3429", "Aeropuerto Ezeiza (EZE)", "AR1256", "", "", ""],
+      ]),
+    );
+    expect(rows[0].passengers).toEqual(["M. ROJO", "N. FABBRI"]);
+    expect(rows[0].phones).toEqual(["+54 11 4490 7781", "+54 11 6033 2210"]);
   });
 
   it("marca errores en filas incompletas", async () => {

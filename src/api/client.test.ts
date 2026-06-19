@@ -57,7 +57,7 @@ describe("api (modo mock)", () => {
         time: "07:30",
         cat: "Ejecutivo",
         passengers: ["Juan Perez"],
-        phone: "+54 11 5555-1234",
+        phones: ["+54 11 5555-1234"],
         legs: [{ origin: "Recoleta", destination: "Aeropuerto Ezeiza (EZE)", type: "out" }],
         warnings: [],
         errors: [],

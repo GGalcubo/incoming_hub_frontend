@@ -3,7 +3,7 @@
 #   - Fecha partida en Dia / Mes / Año (3 columnas numericas).
 #   - Una fila por VIAJE. Tramos adicionales del mismo viaje se cargan en las
 #     columnas "Destino 2" y "Destino 3" (no se repiten filas).
-#   - Columna "Tel Pasajero" para el telefono del pasajero principal.
+#   - Columna "Telefono": uno por pasajero, mismo orden, separados con " | ".
 #   - Tipo y Categoria con desplegable (validacion de datos) desde la hoja LOV.
 #
 # NOTA: el parseo real del Excel ocurre en el backend (/trips/excel/parse).
@@ -52,8 +52,9 @@ rows = [
     [D, M, Y, "07:30", "Ejecutivo", "JUAN PABLO VOJVODA", "+54 9 11 5555-1234",
      "Llegada (in)", "Aeropuerto Ezeiza (EZE)", "725 Continental", "AR1234", "", "", ""],
 
-    # Salida con vuelo, 2 pasajeros (separados con  |  )
-    [D, M, Y, "10:00", "Auto Std", "M. ROJO | N. FABBRI", "+54 9 11 5555-2256",
+    # Salida con vuelo, 2 pasajeros (separados con  |  ) y 2 telefonos alineados
+    [D, M, Y, "10:00", "Auto Std", "M. ROJO | N. FABBRI",
+     "+54 9 11 4490-7781 | +54 9 11 6033-2210",
      "Salida (out)", "Santos Dumont 3429", "Aeropuerto Ezeiza (EZE)", "AR1256", "", "", ""],
 
     # Salida con vuelo (interior), categoria MB
@@ -104,6 +105,9 @@ ws.cell(row=1, column=1).comment = Comment(
     "Dia / Mes / Año: completar solo con numeros (ej: 19 / 6 / 2026).", "Plantilla")
 ws.cell(row=1, column=6).comment = Comment(
     "Varios pasajeros separados por  |  (ej: M. Rojo | N. Fabbri). Maximo 4.", "Plantilla")
+ws.cell(row=1, column=7).comment = Comment(
+    "Un telefono por pasajero, en el MISMO orden y separados por  |  "
+    "(ej: +54 9 11 4490-7781 | +54 9 11 6033-2210).", "Plantilla")
 ws.cell(row=1, column=8).comment = Comment(
     "Llegada (in) = arribo con vuelo\nSalida (out) = salida con vuelo\n"
     "Hs Disposición = horas a disposicion\nOtro = traslado", "Plantilla")
@@ -171,7 +175,8 @@ instrucciones = [
     ("Hora", "Formato HH:MM en 24 horas (ej: 07:30)."),
     ("Categoria", "Elegir del desplegable: Auto Std / Ejecutivo / MB / Vito."),
     ("Pasajeros", "Nombre del pasajero. Varios separados con  |  (pipe). Maximo 4."),
-    ("Telefono", "Telefono valido del pasajero principal (ej: +54 9 11 5555-1234)."),
+    ("Telefono", "Un telefono por pasajero, en el mismo orden que Pasajeros, separados con  |  "
+                 "(ej: +54 9 11 4490-7781 | +54 9 11 6033-2210)."),
     ("Tipo", "Llegada (in) = arribo con vuelo · Salida (out) = salida con vuelo · "
              "Hs Disposición = horas a disposicion · Otro = traslado."),
     ("Origen / Destino", "Direccion o lugar (el sistema usa Google Maps para geolocalizar la direccion)."),

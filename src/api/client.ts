@@ -3,7 +3,7 @@ import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
-import { drfErrorMessage, request, setOnUnauthorized, VIAJES_BASE } from "./http";
+import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -20,12 +20,35 @@ export interface WizardIdentity {
 
 const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
 const USE_AUTH_MOCK = !AUTH_URL;
-// Los viajes usan el backend real si hay base (VITE_API_URL o, por defecto, el de auth).
+// Los viajes (y el guardado de la carga por Excel) usan el backend real si hay
+// base (VITE_API_URL o, por defecto, el de auth); si no, quedan en mock local.
 const USE_VIAJES_MOCK = !VIAJES_BASE;
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-let mockTrips: Trip[] = [...SEED_TRIPS];
+// Persistimos los viajes mock en localStorage para que sobrevivan a un refresh
+// del navegador. Sin esto, cada recarga reinicia al seed y "se pierde" lo guardado.
+const MOCK_TRIPS_KEY = "proxy:mockTrips";
+
+function loadMockTrips(): Trip[] {
+  try {
+    const raw = localStorage.getItem(MOCK_TRIPS_KEY);
+    if (raw) return JSON.parse(raw) as Trip[];
+  } catch {
+    /* almacenamiento no disponible o dato inválido */
+  }
+  return [...SEED_TRIPS];
+}
+
+function saveMockTrips() {
+  try {
+    localStorage.setItem(MOCK_TRIPS_KEY, JSON.stringify(mockTrips));
+  } catch {
+    /* ignore */
+  }
+}
+
+let mockTrips: Trip[] = loadMockTrips();
 
 const MOCK_ME_KEY = "proxy:mockMe";
 
@@ -101,7 +124,7 @@ export const api = {
       if (!user || !pass) throw new Error("Usuario y contraseña requeridos");
       return buildUser(user, mockJwt(user));
     }
-    const res = await fetch(`${AUTH_URL}/auth/login/`, {
+    const res = await safeFetch(`${AUTH_URL}/auth/login/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: user, password: pass }),
@@ -241,6 +264,7 @@ export const api = {
       const id = "RX-0" + (8420 + mockTrips.length + 1);
       const created = { ...(trip as Trip), id, est: trip.est ?? "PENDIENTE" };
       mockTrips = [created, ...mockTrips];
+      saveMockTrips();
       return created;
     }
     return viajes.createTrip(trip as Trip);
@@ -250,6 +274,7 @@ export const api = {
     if (USE_VIAJES_MOCK) {
       await wait(200);
       mockTrips = mockTrips.map((t) => (t.id === trip.id ? trip : t));
+      saveMockTrips();
       return trip;
     }
     return viajes.updateTrip(trip);
@@ -261,6 +286,7 @@ export const api = {
       let next: Trip | undefined;
       mockTrips = mockTrips.map((t) => (t.id === id ? (next = { ...t, est }) : t));
       if (!next) throw new Error("Viaje no encontrado");
+      saveMockTrips();
       return next;
     }
     return viajes.setStatus(id, est);
@@ -277,6 +303,7 @@ export const api = {
         obs: next.obs + (next.obs ? " · " : "") + "Cancelado: " + reason,
       };
       mockTrips = mockTrips.map((t) => (t.id === id ? updated : t));
+      saveMockTrips();
       return updated;
     }
     return viajes.cancelTrip(id, reason);
@@ -286,6 +313,7 @@ export const api = {
     if (USE_VIAJES_MOCK) {
       await wait(150);
       mockTrips = mockTrips.filter((t) => t.id !== id);
+      saveMockTrips();
       return;
     }
     return viajes.deleteTrip(id);

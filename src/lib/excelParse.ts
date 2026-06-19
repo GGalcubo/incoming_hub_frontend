@@ -59,7 +59,7 @@ const COLS: Record<string, string[]> = {
   hora: ["hora"],
   cat: ["categoria"],
   pax: ["pasajeros"],
-  tel: ["telefono", "tel pasajero", "tel"],
+  tel: ["telefono", "telefonos", "tel pasajero", "tel"],
   tipo: ["tipo"],
   origen: ["origen"],
   destino: ["destino"],
@@ -114,8 +114,15 @@ function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
   if (passengers.length === 0) warnings.push("Sin pasajero");
   if (passengers.length > 4) warnings.push("Más de 4 pasajeros");
 
-  const phone = get("tel").trim();
-  if (phone && !PHONE_RE.test(phone)) warnings.push("Teléfono con formato dudoso");
+  // Teléfonos alineados por posición con los pasajeros (mismo orden, " | ").
+  const phones = get("tel").split("|").map((s) => s.trim());
+  const phonesPresentes = phones.filter(Boolean);
+  phonesPresentes.forEach((ph) => {
+    if (!PHONE_RE.test(ph)) warnings.push(`Teléfono con formato dudoso: ${ph}`);
+  });
+  if (phonesPresentes.length > passengers.length) {
+    warnings.push("Hay más teléfonos que pasajeros");
+  }
 
   // Tramos: Origen→Destino (tipo de la fila), luego →Destino2, →Destino3 (otro).
   const origen = normalizePlace(get("origen"));
@@ -150,7 +157,7 @@ function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
     time,
     cat,
     passengers,
-    phone,
+    phones,
     obs: get("obs").trim(),
     legs,
     warnings,

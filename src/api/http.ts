@@ -41,12 +41,27 @@ export function drfErrorMessage(body: unknown, fallback: string): string {
   return fallback;
 }
 
+// Mensaje cuando el servidor no responde (caído, sin red o CORS): fetch rechaza
+// con un TypeError genérico ("Failed to fetch") que no sirve para el usuario.
+export const NETWORK_ERROR_MESSAGE =
+  "No se pudo conectar con el servidor. Verificá tu conexión e intentá de nuevo.";
+
+// Envuelve fetch para traducir las fallas de red en un mensaje legible. Los
+// errores HTTP (4xx/5xx) sí devuelven una Response y se manejan más abajo.
+export async function safeFetch(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch {
+    throw new Error(NETWORK_ERROR_MESSAGE);
+  }
+}
+
 async function parseError(res: Response): Promise<never> {
   let body: unknown = null;
   try {
     body = await res.json();
   } catch {
-    /* respuesta sin cuerpo JSON */
+    /* respuesta sin cuerpo JSON (p. ej. un 500 que devuelve HTML) */
   }
   throw new Error(drfErrorMessage(body, `${res.status} ${res.statusText}`));
 }
@@ -54,7 +69,7 @@ async function parseError(res: Response): Promise<never> {
 // Llamada autenticada contra el backend de viajes. `path` arranca con "/".
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${VIAJES_BASE}${path}`, {
+  const res = await safeFetch(`${VIAJES_BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
