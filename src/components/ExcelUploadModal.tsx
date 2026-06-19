@@ -10,7 +10,7 @@ import styles from "./ExcelUploadModal.module.css";
 interface ExcelUploadModalProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (count: number) => void;
+  onConfirm: (count: number, dates: string[]) => void;
 }
 
 type Stage = "pick" | "validate" | "done";
@@ -80,7 +80,10 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setSubmitting(true);
     try {
       const res = await api.importExcelRows(selectedExcelRows);
-      onConfirm(res.count);
+      onConfirm(
+        res.count,
+        selectedExcelRows.map((r) => r.date),
+      );
       reset();
       onClose();
     } finally {

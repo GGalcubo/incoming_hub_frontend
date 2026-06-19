@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api/client";
 import { Topbar } from "./components/Topbar";
+import { ExcelUploadModal } from "./components/ExcelUploadModal";
 import { STATUSES, TODAY, TOMORROW } from "./data/seed";
+import { useModals } from "./context/ModalsContext";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
 import { Login } from "./pages/Login";
@@ -15,9 +17,13 @@ import styles from "./App.module.css";
 export function App() {
   const { user } = useUser();
   const { flash } = useToast();
+  const { excelOpen, closeExcel } = useModals();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   const [isOperator, setIsOperator] = useState(false);
+  // Señal para que la lista salte a la fecha de los viajes recién cargados.
+  // Objeto nuevo en cada import para forzar el efecto aunque la fecha repita.
+  const [dateFocus, setDateFocus] = useState<{ date: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -85,6 +91,17 @@ export function App() {
     return saved;
   };
 
+  // Tras cargar viajes desde el Excel: recargamos la lista para que aparezcan al
+  // instante y saltamos a la fecha más temprana de lo cargado (sin tener que
+  // cambiar el filtro a mano).
+  const onExcelImported = async (n: number, dates: string[]) => {
+    const list = await api.listTrips();
+    setTrips(list);
+    const earliest = dates.filter(Boolean).sort()[0];
+    if (earliest) setDateFocus({ date: earliest });
+    flash(`${n} viaje${n === 1 ? "" : "s"} creado${n === 1 ? "" : "s"}`, "success");
+  };
+
   const changeStatus = async (t: Trip, est: TripStatus): Promise<Trip> => {
     const updated = await api.setStatus(t.id, est);
     setTrips((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
@@ -122,6 +139,7 @@ export function App() {
               loading={loading}
               onChangeStatus={changeStatus}
               isOperator={isOperator}
+              dateFocus={dateFocus}
             />
           }
         />
@@ -142,6 +160,7 @@ export function App() {
         <Route path="/login" element={<Navigate to="/viajes" replace />} />
         <Route path="*" element={<Navigate to="/viajes" replace />} />
       </Routes>
+      <ExcelUploadModal open={excelOpen} onClose={closeExcel} onConfirm={onExcelImported} />
     </Shell>
   );
 }
@@ -155,11 +174,13 @@ function TripsListRoute({
   loading,
   onChangeStatus,
   isOperator,
+  dateFocus,
 }: {
   trips: Trip[];
   loading: boolean;
   onChangeStatus: (t: Trip, est: TripStatus) => Promise<Trip>;
   isOperator: boolean;
+  dateFocus: { date: string } | null;
 }) {
   const navigate = useNavigate();
   const { flash } = useToast();
@@ -181,6 +202,7 @@ function TripsListRoute({
         onExport={(msg) => flash(msg)}
         onChangeStatus={onChangeStatus}
         isOperator={isOperator}
+        dateFocus={dateFocus}
       />
     </>
   );
