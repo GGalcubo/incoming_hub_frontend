@@ -1,0 +1,68 @@
+import { describe, expect, it } from "vitest";
+import * as XLSX from "xlsx";
+import { parseExcelFile } from "./excelParse";
+import { normalizePlace } from "./places";
+
+const HEADERS = [
+  "Dia", "Mes", "Año", "Hora", "Categoria", "Pasajeros", "Telefono", "Tipo",
+  "Origen", "Destino", "Vuelo", "Observaciones", "Destino 2", "Destino 3",
+];
+
+// Construye un .xlsx en memoria con la misma estructura que la plantilla y lo
+// envuelve en un File-like (parseExcelFile solo usa arrayBuffer()).
+function buildFile(rows: (string | number)[][]): File {
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Viajes");
+  const data = XLSX.write(wb, { type: "array", bookType: "xlsx" });
+  return { name: "t.xlsx", arrayBuffer: async () => data } as unknown as File;
+}
+
+describe("parseExcelFile", () => {
+  it("mapea columnas, arma la fecha de 3 campos, el tipo y normaliza el alias", async () => {
+    const rows = await parseExcelFile(
+      buildFile([
+        [20, 6, 2026, "07:30", "Ejecutivo", "JUAN PABLO", "+54 11 5555-1234",
+         "Llegada (in)", "EZE", "725 Continental", "AR1234", "", "", ""],
+      ]),
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].date).toBe("2026-06-20");
+    expect(rows[0].time).toBe("07:30");
+    expect(rows[0].cat).toBe("Ejecutivo");
+    expect(rows[0].phone).toBe("+54 11 5555-1234");
+    expect(rows[0].legs[0].type).toBe("in"); // "Llegada (in)" → in
+    expect(rows[0].legs[0].origin).toBe("Aeropuerto Ezeiza (EZE)"); // alias EZE
+    expect(rows[0].errors).toHaveLength(0);
+  });
+
+  it("Destino 2 genera un segundo tramo encadenado (origen = destino anterior)", async () => {
+    const rows = await parseExcelFile(
+      buildFile([
+        [20, 6, 2026, "14:00", "Vito", "M. ROMAGNOLI", "", "Otro",
+         "Hotel Faena", "Hotel Alvear", "", "", "San Isidro", ""],
+      ]),
+    );
+    expect(rows[0].legs).toHaveLength(2);
+    expect(rows[0].legs[1].origin).toBe("Hotel Alvear");
+    expect(rows[0].legs[1].destination).toBe("San Isidro");
+  });
+
+  it("marca errores en filas incompletas", async () => {
+    const rows = await parseExcelFile(
+      buildFile([
+        [20, 6, 2026, "", "Ejecutivo", "X", "", "", "Recoleta", "Centro", "", "", "", ""],
+      ]),
+    );
+    expect(rows[0].errors.length).toBeGreaterThan(0); // falta hora + tipo
+  });
+});
+
+describe("normalizePlace", () => {
+  it("resuelve alias comunes a su nombre canónico", () => {
+    expect(normalizePlace("EZE")).toBe("Aeropuerto Ezeiza (EZE)");
+    expect(normalizePlace("aeroparque")).toBe("Aeroparque Jorge Newbery (AEP)");
+    // No pisa direcciones reales que no son alias exactos.
+    expect(normalizePlace("Av. Ezeiza 123")).toBe("Av. Ezeiza 123");
+  });
+});

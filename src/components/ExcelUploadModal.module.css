@@ -53,6 +53,34 @@
   text-decoration: none;
 }
 
+/* ---- stage: pick (procesando) ---- */
+.parsing {
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 36px;
+  text-align: center;
+  background: var(--bg-app);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2.5px solid var(--border-strong);
+  border-top-color: var(--brand-500);
+  animation: excelSpin 0.7s linear infinite;
+}
+
+@keyframes excelSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ---- stage: validate ---- */
 .validateWrap {
   display: flex;
@@ -163,6 +191,20 @@
   font-family: "JetBrains Mono";
   font-size: 12px;
   margin-left: 6px;
+}
+
+.legItem {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Dirección completa que devolvió Google (sin acortar), para confirmar qué
+   entendió a partir del texto del Excel. */
+.legResolved {
+  color: var(--fg-muted);
+  font-size: 11px;
+  line-height: 15px;
 }
 
 .msg {

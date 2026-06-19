@@ -23,14 +23,15 @@ const ROLE_LABELS: Record<RoleEnum, string> = {
 interface FormState {
   first_name: string;
   last_name: string;
-  username: string;
   email: string;
 }
 
-const EMPTY_FORM: FormState = { first_name: "", last_name: "", username: "", email: "" };
+const EMPTY_FORM: FormState = { first_name: "", last_name: "", email: "" };
 
 export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsModalProps) {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  // Datos de sistema (solo lectura): el backend no permite editarlos desde aquí.
+  const [username, setUsername] = useState("");
   const [role, setRole] = useState<RoleEnum | null>(null);
   // Cambio de contraseña: el backend no expone endpoint, son campos mockup.
   const [pass, setPass] = useState("");
@@ -44,7 +45,8 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
     setError(null);
     setPass("");
     setPassConfirm("");
-    setForm((f) => ({ ...EMPTY_FORM, username: user?.user ?? f.username }));
+    setForm(EMPTY_FORM);
+    setUsername(user?.user ?? "");
     setLoading(true);
     api
       .getMe()
@@ -52,9 +54,9 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
         setForm({
           first_name: me.first_name ?? "",
           last_name: me.last_name ?? "",
-          username: me.username ?? "",
           email: me.email ?? "",
         });
+        setUsername(me.username ?? "");
         setRole(me.role);
       })
       .catch((e: unknown) => setError(e instanceof Error ? e.message : "No se pudo cargar el perfil"))
@@ -75,7 +77,6 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
       await api.updateMe({
         first_name: form.first_name,
         last_name: form.last_name,
-        username: form.username,
         email: form.email,
       });
       onSave();
@@ -108,6 +109,18 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
     >
       <div className={styles.grid}>
         {error && <div className={styles.error}>{error}</div>}
+
+        <div className={`${styles.section} ${styles.sectionFirst}`}>Datos de sistema</div>
+        <div className={styles.row}>
+          <Field label="Usuario" hint="No editable.">
+            <Input value={username} disabled readOnly />
+          </Field>
+          <Field label="Rol" hint="Lo asigna un administrador.">
+            <Input value={roleLabel} disabled readOnly />
+          </Field>
+        </div>
+
+        <div className={styles.section}>Datos personales</div>
         <div className={styles.row}>
           <Field label="Nombre">
             <Input
@@ -126,14 +139,6 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
             />
           </Field>
         </div>
-        <Field label="Usuario">
-          <Input
-            value={form.username}
-            onChange={set("username")}
-            placeholder="nombre.usuario"
-            disabled={loading}
-          />
-        </Field>
         <Field label="Email">
           <Input
             type="email"
@@ -142,9 +147,6 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
             placeholder="tu@empresa.com"
             disabled={loading}
           />
-        </Field>
-        <Field label="Rol" hint="No editable. Lo asigna un administrador.">
-          <Input value={roleLabel} disabled readOnly />
         </Field>
 
         <div className={styles.section}>Cambiar contraseña</div>

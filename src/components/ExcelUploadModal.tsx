@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { api } from "../api/client";
-import type { ExcelRow } from "../types/domain";
+import type { ExcelRow, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
@@ -22,6 +22,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [parsing, setParsing] = useState(false);
 
   const reset = () => {
     setStage("pick");
@@ -30,18 +31,24 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     setSelected({});
     setSubmitting(false);
     setDragOver(false);
+    setParsing(false);
   };
 
   const handleFile = async (f: File) => {
     setFilename(f.name);
-    const parsed = await api.parseExcel(f);
-    setRows(parsed);
-    const sel: Record<number, boolean> = {};
-    parsed.forEach((r) => {
-      sel[r.row] = r.errors.length === 0;
-    });
-    setSelected(sel);
-    setStage("validate");
+    setParsing(true);
+    try {
+      const parsed = await api.parseExcel(f);
+      setRows(parsed);
+      const sel: Record<number, boolean> = {};
+      parsed.forEach((r) => {
+        sel[r.row] = r.errors.length === 0;
+      });
+      setSelected(sel);
+      setStage("validate");
+    } finally {
+      setParsing(false);
+    }
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,12 +74,12 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
   })();
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
-  const selectedRows = rows.filter((r) => selected[r.row]).map((r) => r.row);
+  const selectedExcelRows = rows.filter((r) => selected[r.row]);
 
   const sync = async () => {
     setSubmitting(true);
     try {
-      const res = await api.syncExcelRows(selectedRows);
+      const res = await api.importExcelRows(selectedExcelRows);
       onConfirm(res.count);
       reset();
       onClose();
@@ -103,8 +110,8 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         </Button>
         <Button kind="primary" disabled={selectedCount === 0 || submitting} onClick={sync}>
           {submitting
-            ? "Sincronizando…"
-            : `Sincronizar ${selectedCount} viaje${selectedCount === 1 ? "" : "s"} con Incoming`}
+            ? "Cargando…"
+            : `Cargar ${selectedCount} viaje${selectedCount === 1 ? "" : "s"}`}
         </Button>
       </>
     ) : null;
@@ -117,37 +124,45 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         reset();
       }}
       title="Cargar viajes por Excel"
-      width={1040}
+      width={1240}
       footer={footer}
     >
       {stage === "pick" && (
         <div className={styles.pickWrap}>
           <div className={styles.intro}>
-            Subí un archivo .xlsx. Vamos a validar fila por fila antes de sincronizar con Incoming.
+            Subí un archivo .xlsx. Vamos a validar fila por fila antes de cargar los viajes.
           </div>
-          <label
-            className={cx(styles.dropzone, dragOver && styles.dropzoneActive)}
-            onDragOver={(e) => {
-              e.preventDefault();
-              if (!dragOver) setDragOver(true);
-            }}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={(e) => {
-              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-              setDragOver(false);
-            }}
-            onDrop={onDrop}
-          >
-            <Icon name="upload" size={28} className={styles.dropIcon} />
-            <div className={styles.dropTitle}>
-              Arrastrá el archivo o hacé clic para seleccionar
+          {parsing ? (
+            <div className={styles.parsing}>
+              <span className={styles.spinner} />
+              <div className={styles.dropTitle}>Procesando y geolocalizando…</div>
+              <div className={styles.dropSub}>{filename}</div>
             </div>
-            <div className={styles.dropSub}>Formato .xlsx · máximo 200 filas</div>
-            <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
-          </label>
+          ) : (
+            <label
+              className={cx(styles.dropzone, dragOver && styles.dropzoneActive)}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!dragOver) setDragOver(true);
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={(e) => {
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setDragOver(false);
+              }}
+              onDrop={onDrop}
+            >
+              <Icon name="upload" size={28} className={styles.dropIcon} />
+              <div className={styles.dropTitle}>
+                Arrastrá el archivo o hacé clic para seleccionar
+              </div>
+              <div className={styles.dropSub}>Formato .xlsx · máximo 200 filas</div>
+              <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
+            </label>
+          )}
           <a href="/plantilla-viajes.xlsx" download className={styles.templateLink}>
             Descargar plantilla
           </a>
@@ -192,6 +207,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                   <th className={styles.th}>Viaje</th>
                   <th className={styles.th}>Fecha · Hora</th>
                   <th className={styles.th}>Categoría</th>
+                  <th className={styles.th}>Tipo</th>
                   <th className={styles.th}>Pasajeros</th>
                   <th className={styles.th}>Tramos</th>
                   <th className={styles.th}>Estado de validación</th>
@@ -210,7 +226,9 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                         }
                       />
                     </td>
-                    <td className={cx(styles.td, styles.mono, styles.cMuted)}>{r.row}</td>
+                    <td className={cx(styles.td, styles.mono, styles.cMuted)}>
+                      {formatRows(r.rows ?? [r.row])}
+                    </td>
                     <td className={cx(styles.td, styles.mono, styles.cSecondary)}>
                       {r.tripRef || <span className={styles.cDim}>—</span>}
                     </td>
@@ -219,6 +237,13 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     </td>
                     <td className={cx(styles.td, styles.cSecondary)}>
                       {r.cat || <span className={styles.cDim}>—</span>}
+                    </td>
+                    <td className={cx(styles.td, styles.cSecondary)}>
+                      {r.legs[0]?.type ? (
+                        TIPO_LABEL[r.legs[0].type]
+                      ) : (
+                        <span className={styles.cDim}>—</span>
+                      )}
                     </td>
                     <td className={cx(styles.tdWrap, styles.cSecondary)}>
                       {r.passengers.length === 0 ? (
@@ -234,9 +259,16 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                     <td className={cx(styles.tdWrap, styles.cSecondary)}>
                       <div className={styles.stack}>
                         {r.legs.map((l, i) => (
-                          <span key={i}>
-                            {l.origin} → {l.destination}
-                            {l.flight && <span className={styles.legFlight}>· {l.flight}</span>}
+                          <span key={i} className={styles.legItem}>
+                            <span>
+                              {l.origin} → {l.destination}
+                              {l.flight && <span className={styles.legFlight}>· {l.flight}</span>}
+                            </span>
+                            {(l.originResolved || l.destinationResolved) && (
+                              <span className={styles.legResolved}>
+                                {l.originResolved ?? l.origin} → {l.destinationResolved ?? l.destination}
+                              </span>
+                            )}
                           </span>
                         ))}
                       </div>
@@ -274,7 +306,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
           </div>
 
           <div className={styles.note}>
-            Solo se sincronizan los viajes seleccionados. Los que tienen errores no se pueden
+            Solo se cargan los viajes seleccionados. Los que tienen errores no se pueden
             seleccionar — corregí el archivo y volvé a subir.
           </div>
         </div>
@@ -282,6 +314,38 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     </Modal>
   );
 }
+
+// Concatena las filas de Excel de un viaje. Colapsa tramos consecutivos en un
+// rango ("4–6") y separa los salteados con coma ("4, 6, 8"), para que en
+// multi-tramo se vean todas las filas y no solo la primera.
+function formatRows(rows: number[]): string {
+  const sorted = [...new Set(rows)].sort((a, b) => a - b);
+  if (sorted.length === 0) return "";
+  const parts: string[] = [];
+  let start = sorted[0];
+  let prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    if (i < sorted.length && sorted[i] === prev + 1) {
+      prev = sorted[i];
+      continue;
+    }
+    parts.push(start === prev ? String(start) : `${start}–${prev}`);
+    if (i < sorted.length) {
+      start = sorted[i];
+      prev = sorted[i];
+    }
+  }
+  return parts.join(", ");
+}
+
+// El tipo de servicio es uno por VIAJE (no por tramo): se toma del primer
+// tramo, que es el que lo lleva. Mismos labels que el Select del wizard.
+const TIPO_LABEL: Record<LegType, string> = {
+  in: "Llegada (in)",
+  out: "Salida (out)",
+  otro: "Otro",
+  disposicion: "Hs disposición",
+};
 
 type PillTone = "success" | "warning" | "danger";
 

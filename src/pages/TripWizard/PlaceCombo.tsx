@@ -8,6 +8,7 @@ import {
   type GMapsAutocompleteService,
   type GMapsPlacePrediction,
 } from "../../lib/gmaps";
+import { normalizePlace } from "../../lib/places";
 import { shortenAddress } from "./geocode";
 import styles from "./PlaceCombo.module.css";
 
@@ -48,7 +49,7 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
   }, [usingGmaps]);
 
   const queryLocal = (q: string): PlaceSuggestion[] => {
-    const needle = q.toLowerCase();
+    const needle = normalizePlace(q).toLowerCase();
     return PLACES.filter((place) => place.toLowerCase().includes(needle))
       .slice(0, 6)
       .map((place) => ({ id: place, main: place, full: place }));
@@ -60,7 +61,9 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
     setLoading(true);
     svc.getPlacePredictions(
       {
-        input: q,
+        // Resuelve alias comunes (EZE → Aeropuerto Ezeiza) antes de consultar a
+        // Google, así devuelve la terminal real con su placeId.
+        input: normalizePlace(q),
         componentRestrictions: { country: "ar" },
         language: "es",
         sessionToken: sessionTokenRef.current,

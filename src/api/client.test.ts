@@ -47,8 +47,25 @@ describe("api (modo mock)", () => {
     await expect(api.cancelTrip("RX-INEXISTENTE", "x")).rejects.toThrow();
   });
 
-  it("syncExcelRows reporta la cantidad sincronizada", async () => {
-    const res = await api.syncExcelRows([1, 2, 3]);
-    expect(res.count).toBe(3);
+  it("importExcelRows crea los viajes seleccionados del Excel", async () => {
+    const before = await api.listTrips();
+    const res = await api.importExcelRows([
+      {
+        row: 2,
+        tripRef: "",
+        date: "2026-06-20",
+        time: "07:30",
+        cat: "Ejecutivo",
+        passengers: ["Juan Perez"],
+        phone: "+54 11 5555-1234",
+        legs: [{ origin: "Recoleta", destination: "Aeropuerto Ezeiza (EZE)", type: "out" }],
+        warnings: [],
+        errors: [],
+      },
+    ]);
+    expect(res.count).toBe(1);
+    expect(res.errors).toHaveLength(0);
+    const after = await api.listTrips();
+    expect(after.length).toBe(before.length + 1);
   });
 });

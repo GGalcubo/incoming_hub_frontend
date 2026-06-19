@@ -24,6 +24,14 @@
   box-shadow: 0 10px 25px rgba(22, 163, 74, 0.35), 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
+.error {
+  background: #dc2626;
+  color: #ffffff;
+  border: 1px solid #b91c1c;
+  font: 600 14px/20px Heming;
+  box-shadow: 0 10px 25px rgba(220, 38, 38, 0.35), 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
 .check {
   display: inline-flex;
   align-items: center;

@@ -2,7 +2,7 @@
 // esquema del backend (`Viaje` + catálogos). Toda la lógica de red de viajes
 // vive acá; client.ts solo decide entre este módulo y el mock.
 
-import type { LegType, Trip, TripCosts, TripStatus } from "../types/domain";
+import type { ExcelRow, LegType, Trip, TripCosts, TripStatus } from "../types/domain";
 import type {
   Agencia,
   CategoriaServicio,
@@ -358,6 +358,11 @@ export function buildViajePayload(
 ): ViajeWrite {
   const agencia = resolveAgencia(t, c);
   const firstLeg = t.legs[0];
+  // En creación, `passengers` trae la lista completa cargada en el wizard, así
+  // que el conteo real es la cantidad de pasajeros con nombre válido. En
+  // edición el backend solo devuelve el principal, por lo que `passengers.length`
+  // siempre sería 1: ahí respetamos `t.pax` (el conteo guardado en el backend).
+  const pasajeros = opts.includePasajeros ? buildPasajerosPayload(t) : [];
   const payload: ViajeWrite = {
     referencia_externa: t.ref ?? "",
     agencia,
@@ -365,7 +370,7 @@ export function buildViajePayload(
     fecha_servicio: t.date,
     hora_servicio: t.time,
     tipo_servicio: firstLeg ? LEG_TO_TIPO[firstLeg.type] : "IN",
-    cantidad_pasajeros: t.pax || t.passengers.length || 1,
+    cantidad_pasajeros: opts.includePasajeros ? pasajeros.length || 1 : t.pax || 1,
     cantidad_valijas: 0,
     observaciones: t.obs ?? "",
     observaciones_chofer: "",
@@ -376,7 +381,6 @@ export function buildViajePayload(
   if (opts.includePasajeros) {
     // En creación el backend da de alta los pasajeros y fija el principal a
     // partir de `es_principal`, así que no resolvemos `pasajero_principal`.
-    const pasajeros = buildPasajerosPayload(t);
     if (pasajeros.length) payload.pasajeros = pasajeros;
   } else {
     const principal = resolvePasajeroPrincipal(t, c, agencia);
@@ -401,6 +405,55 @@ export function buildTramoPayloads(t: Trip, viajeId: number): TramoWrite[] {
       destino_latitud: fmtCoord(l.destinationCoords?.lat) ?? null,
       destino_longitud: fmtCoord(l.destinationCoords?.lng) ?? null,
     }));
+}
+
+// ── Excel → Trip ────────────────────────────────────────────────────────────
+// Convierte una fila ya parseada y validada del Excel en un Trip de dominio,
+// listo para createTrip (mismo pipeline que el wizard). La agencia y el
+// solicitante salen de la identidad del usuario logueado: el Excel no los trae.
+export function excelRowToTrip(r: ExcelRow, agc: string, solicitante: string): Trip {
+  const passengers = r.passengers.length
+    ? r.passengers.map((nombre, i) => ({
+        ...splitName(nombre),
+        // El teléfono del Excel es uno solo: va al pasajero principal.
+        phone: i === 0 ? (r.phone ?? "") : "",
+      }))
+    : [{ firstName: "", lastName: "", phone: r.phone ?? "" }];
+
+  const legs = (r.legs.length
+    ? r.legs
+    : [{ origin: "", destination: "", type: "otro" as LegType }]
+  ).map((l) => ({
+    type: l.type ?? ("otro" as LegType),
+    origin: l.origin,
+    destination: l.destination,
+    flight: l.flight ?? "",
+    obs: "",
+    ...("originCoords" in l && l.originCoords ? { originCoords: l.originCoords } : {}),
+    ...("destinationCoords" in l && l.destinationCoords
+      ? { destinationCoords: l.destinationCoords }
+      : {}),
+  }));
+
+  return {
+    id: "RX-NEW",
+    date: r.date,
+    time: r.time,
+    pax: passengers.length,
+    cat: r.cat,
+    ori: legs[0]?.origin ?? "",
+    dst: legs[legs.length - 1]?.destination ?? "",
+    est: "PENDIENTE",
+    agc,
+    ref: "",
+    obs: r.obs ?? "",
+    unit: "",
+    passengers,
+    legs,
+    costs: { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 },
+    history: [],
+    solicitante,
+  };
 }
 
 // ── Upsert de catálogos al guardar ──────────────────────────────────────────
@@ -500,13 +553,28 @@ export async function deleteTrip(id: string): Promise<void> {
   await request<void>(`/viajes/${id}/`, { method: "DELETE" });
 }
 
-// Reemplaza los tramos del viaje por los del Trip editado (delete + recreate).
+// Sincroniza los tramos del viaje con los del Trip editado. Actualiza in-place
+// los que ya existen (PATCH), crea los nuevos (POST) y elimina los sobrantes
+// (DELETE). Evitamos el viejo enfoque de borrar-todo-y-recrear porque el backend
+// protege los tramos que tienen pasajeros asociados: ese DELETE fallaba y hacía
+// abortar todo el guardado, por lo que la edición de origen/destino no persistía.
 async function syncTramos(trip: Trip, viajeId: number, existing: Tramo[]): Promise<void> {
-  for (const tr of existing) {
-    await request<void>(`/tramos/${tr.id}/`, { method: "DELETE" });
-  }
   const payloads = buildTramoPayloads(trip, viajeId);
-  for (const body of payloads) {
-    await request<Tramo>("/tramos/", { method: "POST", body: JSON.stringify(body) });
+  const current = [...existing].sort((a, b) => a.numero_tramo - b.numero_tramo);
+  for (let i = 0; i < payloads.length; i++) {
+    const tramo = current[i];
+    const body = payloads[i];
+    if (tramo) {
+      await request<Tramo>(`/tramos/${tramo.id}/`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      });
+    } else {
+      await request<Tramo>("/tramos/", { method: "POST", body: JSON.stringify(body) });
+    }
+  }
+  // Elimina los tramos que sobran cuando el viaje pasó a tener menos destinos.
+  for (let i = payloads.length; i < current.length; i++) {
+    await request<void>(`/tramos/${current[i].id}/`, { method: "DELETE" });
   }
 }

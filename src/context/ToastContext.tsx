@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import type { ReactNode } from "react";
 import { Toast } from "../components/ui/Toast";
 
-type ToastKind = "default" | "success";
+type ToastKind = "default" | "success" | "error";
 
 interface ToastContextValue {
   flash: (msg: string, kind?: ToastKind) => void;

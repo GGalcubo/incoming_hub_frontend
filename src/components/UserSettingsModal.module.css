@@ -20,6 +20,13 @@
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* Primera sección del modal: sin separador superior. */
+.sectionFirst {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
 .error {
   padding: 9px 12px;
   border-radius: 8px;

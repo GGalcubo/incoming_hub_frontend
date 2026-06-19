@@ -1,6 +1,17 @@
+# Genera public/plantilla-viajes.xlsx (la plantilla descargable del modal de
+# carga por Excel). El formato sigue el ejemplo provisto por el cliente:
+#   - Fecha partida en Dia / Mes / Año (3 columnas numericas).
+#   - Una fila por VIAJE. Tramos adicionales del mismo viaje se cargan en las
+#     columnas "Destino 2" y "Destino 3" (no se repiten filas).
+#   - Columna "Tel Pasajero" para el telefono del pasajero principal.
+#   - Tipo y Categoria con desplegable (validacion de datos) desde la hoja LOV.
+#
+# NOTA: el parseo real del Excel ocurre en el backend (/trips/excel/parse).
+# Si se cambian columnas o los valores de Tipo/Categoria, el parser del backend
+# debe actualizarse en consecuencia.
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.comments import Comment
 from datetime import date, timedelta
 
@@ -9,61 +20,60 @@ ws = wb.active
 ws.title = "Viajes"
 
 headers = [
-    "Viaje",
-    "Fecha",
-    "Hora",
-    "Categoria",
-    "Pasajeros",
-    "Tipo",
-    "Origen",
-    "Destino",
-    "Vuelo",
-    "Observaciones",
+    "Dia",            # A
+    "Mes",            # B
+    "Año",            # C
+    "Hora",           # D
+    "Categoria",      # E
+    "Pasajeros",      # F
+    "Telefono",       # G
+    "Tipo",           # H
+    "Origen",         # I
+    "Destino",        # J
+    "Vuelo",          # K
+    "Observaciones",  # L
+    "Destino 2",      # M
+    "Destino 3",      # N
 ]
 ws.append(headers)
 
-tomorrow = (date.today() + timedelta(days=1)).isoformat()
+# Listas de valores (deben coincidir con la hoja LOV de abajo).
+TIPOS = ["Llegada (in)", "Salida (out)", "Hs Disposición", "Otro"]
+CATEGORIAS = ["Auto Std", "Ejecutivo", "MB", "Vito"]
 
-# Convencion:
-#   - "Viaje" agrupa filas que pertenecen al mismo viaje (V1, V2, ...).
-#   - La PRIMERA fila de cada Viaje lleva: Fecha, Hora, Categoria, Pasajeros.
-#   - Las filas siguientes con el mismo Viaje agregan tramos adicionales.
-#   - Pasajeros: varios separados con " | "  (ej: "R. Mendez | M. Rios").
-#   - Tipo: in (llegada con vuelo) / out (salida con vuelo) / otro / disposicion.
+t = date.today() + timedelta(days=1)
+D, M, Y = t.day, t.month, t.year
 
+# Filas de ejemplo. Una fila = un viaje. Columnas:
+# Dia, Mes, Año, Hora, Categoria, Pasajeros, Tel, Tipo, Origen, Destino,
+# Vuelo, Observaciones, Destino 2, Destino 3
 rows = [
-    # V1 - simple, 1 tramo, 1 pasajero
-    ["V1", tomorrow, "07:00", "Ejecutivo", "R. Mendez",
-     "out", "Recoleta", "Aeropuerto Ezeiza (EZE)", "AA995", ""],
+    # Llegada con vuelo, 1 pasajero
+    [D, M, Y, "07:30", "Ejecutivo", "JUAN PABLO VOJVODA", "+54 9 11 5555-1234",
+     "Llegada (in)", "Aeropuerto Ezeiza (EZE)", "725 Continental", "AR1234", "", "", ""],
 
-    # V2 - 1 tramo, 2 pasajeros (pipe-separados)
-    ["V2", tomorrow, "09:30", "Ejecutivo", "K. Nunez | M. Rios",
-     "out", "Palermo", "Aeroparque Jorge Newbery (AEP)", "", ""],
+    # Salida con vuelo, 2 pasajeros (separados con  |  )
+    [D, M, Y, "10:00", "Auto Std", "M. ROJO | N. FABBRI", "+54 9 11 5555-2256",
+     "Salida (out)", "Santos Dumont 3429", "Aeropuerto Ezeiza (EZE)", "AR1256", "", "", ""],
 
-    # V3 - 2 tramos, 3 pasajeros. La 2da fila solo lleva Viaje + datos del tramo.
-    ["V3", tomorrow, "11:15", "MiniVan", "S. Vega | A. Soto | J. Pereyra",
-     "otro", "Tigre", "Microcentro", "", "Reservar 3 valijas"],
-    ["V3", "", "", "", "",
-     "otro", "Microcentro", "Puerto Madero", "", ""],
+    # Salida con vuelo (interior), categoria MB
+    [D, M, Y, "11:15", "MB", "CHAQUEÑO PALAVECINO", "+54 9 387 555-1456",
+     "Salida (out)", "Balcarce 230, Salta", "Aeropuerto de Salta", "AR1456", "", "", ""],
 
-    # V4 - 3 tramos (in -> otro -> out), 1 pasajero, ejemplo realista de un dia completo
-    ["V4", tomorrow, "14:00", "Auto STD", "L. Bravo",
-     "in", "Aeroparque Jorge Newbery (AEP)", "Hotel Faena", "LA4302", ""],
-    ["V4", "", "", "", "",
-     "otro", "Hotel Faena", "San Isidro", "", ""],
-    ["V4", "", "", "", "",
-     "out", "San Isidro", "Aeropuerto Ezeiza (EZE)", "AA996", ""],
+    # Traslado de varios tramos: Origen -> Destino -> Destino 2 (categoria Vito)
+    [D, M, Y, "14:00", "Vito", "MARTÍN ROMAGNOLI", "+54 9 11 5555-4302",
+     "Otro", "Hotel Faena", "Hotel Alvear", "", "Pasa a buscar valijas", "San Isidro", ""],
 
-    # V5 - disposicion (sin vuelo, sin destino fijo realmente)
-    ["V5", tomorrow, "10:00", "Ejecutivo", "F. Acosta",
-     "disposicion", "Hotel Alvear", "Hotel Alvear", "", "4 hs disposicion"],
+    # Horas a disposicion (sin vuelo)
+    [D, M, Y, "10:00", "Ejecutivo", "F. ACOSTA", "+54 9 11 5555-7788",
+     "Hs Disposición", "Hotel Alvear", "Hotel Alvear", "", "4 hs a disposicion", "", ""],
 ]
 for r in rows:
     ws.append(r)
 
 # --- estilos ---
 HEADER_BG = "1F2937"
-GROUP_ALT_BG = "F3F4F6"
+ALT_BG = "F3F4F6"
 
 header_font = Font(name="Arial", bold=True, color="FFFFFF", size=11)
 header_fill = PatternFill("solid", start_color=HEADER_BG)
@@ -79,53 +89,32 @@ for col_idx, _ in enumerate(headers, 1):
     cell.border = border
 
 body_font = Font(name="Arial", size=11)
-mono_font = Font(name="Consolas", size=10, color="6B7280")
-
-# Color alterno por grupo de Viaje + estilos por celda
-prev_viaje = None
-alt = False
 for row_idx in range(2, ws.max_row + 1):
-    viaje = ws.cell(row=row_idx, column=1).value
-    if viaje and viaje != prev_viaje:
-        alt = not alt
-        prev_viaje = viaje
-    fill = PatternFill("solid", start_color=GROUP_ALT_BG) if alt else PatternFill(fill_type=None)
+    alt = (row_idx % 2) == 1
     for col_idx in range(1, len(headers) + 1):
         cell = ws.cell(row=row_idx, column=col_idx)
         cell.border = border
         cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        cell.font = body_font
         if alt:
-            cell.fill = fill
-        cell.font = mono_font if col_idx == 1 else body_font
+            cell.fill = PatternFill("solid", start_color=ALT_BG)
 
-# Comentario aclaratorio en el header "Viaje"
+# Comentarios aclaratorios en headers clave
 ws.cell(row=1, column=1).comment = Comment(
-    "Agrupa filas del mismo viaje (V1, V2...). "
-    "La primera fila de cada Viaje completa Fecha/Hora/Categoria/Pasajeros. "
-    "Las siguientes filas con el mismo Viaje se interpretan como tramos adicionales.",
-    "Plantilla",
-)
-ws.cell(row=1, column=5).comment = Comment(
-    "Multiples pasajeros separados por  |  (ej: R. Mendez | M. Rios). Maximo 4.",
-    "Plantilla",
-)
+    "Dia / Mes / Año: completar solo con numeros (ej: 19 / 6 / 2026).", "Plantilla")
 ws.cell(row=1, column=6).comment = Comment(
-    "in = llegada (con vuelo)\nout = salida (con vuelo)\notro = traslado\ndisposicion = horas a disposicion",
-    "Plantilla",
-)
+    "Varios pasajeros separados por  |  (ej: M. Rojo | N. Fabbri). Maximo 4.", "Plantilla")
+ws.cell(row=1, column=8).comment = Comment(
+    "Llegada (in) = arribo con vuelo\nSalida (out) = salida con vuelo\n"
+    "Hs Disposición = horas a disposicion\nOtro = traslado", "Plantilla")
+ws.cell(row=1, column=13).comment = Comment(
+    "Destino 2 / Destino 3: tramos adicionales del mismo viaje. "
+    "Dejar vacio si el viaje tiene un solo tramo.", "Plantilla")
 
 # Anchos
 widths = {
-    "A": 7,    # Viaje
-    "B": 12,   # Fecha
-    "C": 8,    # Hora
-    "D": 12,   # Categoria
-    "E": 34,   # Pasajeros
-    "F": 12,   # Tipo
-    "G": 32,   # Origen
-    "H": 32,   # Destino
-    "I": 10,   # Vuelo
-    "J": 30,   # Observaciones
+    "A": 6, "B": 6, "C": 7, "D": 8, "E": 12, "F": 28, "G": 18, "H": 16,
+    "I": 30, "J": 30, "K": 9, "L": 26, "M": 24, "N": 24,
 }
 for col, w in widths.items():
     ws.column_dimensions[col].width = w
@@ -133,10 +122,40 @@ for col, w in widths.items():
 ws.row_dimensions[1].height = 26
 ws.freeze_panes = "A2"
 
+# --- Hoja LOV (listas para los desplegables) ---
+lov = wb.create_sheet("LOV")
+lov["A1"] = "Tipo"
+lov["B1"] = "Categoria"
+lov["A1"].font = header_font
+lov["B1"].font = header_font
+lov["A1"].fill = header_fill
+lov["B1"].fill = header_fill
+for i, v in enumerate(TIPOS, start=2):
+    lov.cell(row=i, column=1, value=v)
+for i, v in enumerate(CATEGORIAS, start=2):
+    lov.cell(row=i, column=2, value=v)
+lov.column_dimensions["A"].width = 18
+lov.column_dimensions["B"].width = 14
+
+# Validacion de datos (desplegables) sobre toda la columna util
+dv_tipo = DataValidation(
+    type="list", formula1=f"=LOV!$A$2:$A${len(TIPOS) + 1}", allow_blank=True)
+dv_tipo.error = "Elegi un Tipo de la lista."
+dv_tipo.prompt = "Elegi: Llegada (in) / Salida (out) / Hs Disposición / Otro"
+ws.add_data_validation(dv_tipo)
+dv_tipo.add(f"H2:H200")
+
+dv_cat = DataValidation(
+    type="list", formula1=f"=LOV!$B$2:$B${len(CATEGORIAS) + 1}", allow_blank=True)
+dv_cat.error = "Elegi una Categoria de la lista."
+dv_cat.prompt = "Elegi: Auto Std / Ejecutivo / MB / Vito"
+ws.add_data_validation(dv_cat)
+dv_cat.add(f"E2:E200")
+
 # --- Hoja de instrucciones ---
 ws2 = wb.create_sheet("Instrucciones")
 ws2.column_dimensions["A"].width = 22
-ws2.column_dimensions["B"].width = 90
+ws2.column_dimensions["B"].width = 92
 
 bold = Font(name="Arial", size=11, bold=True)
 norm = Font(name="Arial", size=11)
@@ -147,14 +166,17 @@ ws2["A1"].font = title
 ws2.merge_cells("A1:B1")
 
 instrucciones = [
-    ("Hoja Viajes", "Una fila por TRAMO. Para varios tramos del mismo viaje, repeti el ID de Viaje."),
-    ("Viaje", "Identificador interno del viaje (V1, V2, ...). Agrupa tramos."),
-    ("Fecha / Hora", "Solo en la PRIMERA fila de cada Viaje. Formato Fecha YYYY-MM-DD, Hora HH:MM (24h)."),
-    ("Categoria", "Auto STD / Ejecutivo / MiniVan. Solo en la primera fila del Viaje."),
-    ("Pasajeros", "Solo en la primera fila. Separa varios pasajeros con  |  (pipe). Maximo 4."),
-    ("Tipo", "in = llegada con vuelo · out = salida con vuelo · otro = traslado · disposicion = horas a disposicion."),
-    ("Origen / Destino", "Direccion o lugar. En tramos siguientes, Origen suele coincidir con el Destino anterior."),
-    ("Vuelo", "Solo para tipo in / out (ej: AA995). Dejar vacio en otros casos."),
+    ("Hoja Viajes", "Una fila por VIAJE. Para tramos adicionales usa las columnas Destino 2 y Destino 3."),
+    ("Dia / Mes / Año", "Completar los tres campos solo con numeros (ej: 19 / 6 / 2026)."),
+    ("Hora", "Formato HH:MM en 24 horas (ej: 07:30)."),
+    ("Categoria", "Elegir del desplegable: Auto Std / Ejecutivo / MB / Vito."),
+    ("Pasajeros", "Nombre del pasajero. Varios separados con  |  (pipe). Maximo 4."),
+    ("Telefono", "Telefono valido del pasajero principal (ej: +54 9 11 5555-1234)."),
+    ("Tipo", "Llegada (in) = arribo con vuelo · Salida (out) = salida con vuelo · "
+             "Hs Disposición = horas a disposicion · Otro = traslado."),
+    ("Origen / Destino", "Direccion o lugar (el sistema usa Google Maps para geolocalizar la direccion)."),
+    ("Destino 2 / Destino 3", "Tramos adicionales del mismo viaje. Dejar vacio si hay un solo tramo."),
+    ("Vuelo", "Solo para tipo Llegada (in) / Salida (out), ej: AR1234. Dejar vacio en otros casos."),
     ("Observaciones", "Texto libre opcional."),
 ]
 

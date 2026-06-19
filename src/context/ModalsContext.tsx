@@ -32,7 +32,7 @@ export function ModalsProvider({ children }: { children: ReactNode }) {
       <ExcelUploadModal
         open={excelOpen}
         onClose={() => setExcelOpen(false)}
-        onConfirm={(n) => flash(`${n} viajes sincronizados con Central`)}
+        onConfirm={(n) => flash(`${n} viaje${n === 1 ? "" : "s"} creado${n === 1 ? "" : "s"}`)}
       />
       <UserSettingsModal
         open={settingsOpen}

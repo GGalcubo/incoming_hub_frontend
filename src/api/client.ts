@@ -1,9 +1,9 @@
 import type { MeProfile, MeWrite, Paginated, Persona } from "./backend";
 import type { PassengersAccess, PersonasQuery } from "./viajes";
-import { AGENCIES, CATEGORIES, EXCEL_SAMPLE, SEED_TRIPS } from "../data/seed";
+import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
-import { drfErrorMessage, getToken, request, setOnUnauthorized, VIAJES_BASE } from "./http";
+import { drfErrorMessage, request, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -18,13 +18,10 @@ export interface WizardIdentity {
   solicitantesByAgency: Record<string, string[]>;
 }
 
-const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
 const USE_AUTH_MOCK = !AUTH_URL;
 // Los viajes usan el backend real si hay base (VITE_API_URL o, por defecto, el de auth).
 const USE_VIAJES_MOCK = !VIAJES_BASE;
-// El parser de Excel tiene su propio endpoint; mientras no haya VITE_API_URL, mock.
-const USE_EXCEL_MOCK = !API_URL;
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -294,40 +291,37 @@ export const api = {
     return viajes.deleteTrip(id);
   },
 
-  async parseExcel(_file: File): Promise<ExcelRow[]> {
-    if (USE_EXCEL_MOCK) {
-      await wait(600);
-      return EXCEL_SAMPLE;
-    }
-    const token = getToken();
-    const fd = new FormData();
-    fd.append("file", _file);
-    const res = await fetch(`${API_URL}/trips/excel/parse`, {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      body: fd,
-    });
-    if (res.status === 401) throw new Error("Sesión expirada");
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return (await res.json()) as ExcelRow[];
+  async parseExcel(file: File): Promise<ExcelRow[]> {
+    // Se parsea y valida en el browser (SheetJS), reusando el mismo dominio que
+    // el wizard. Ya no hay endpoint de backend para esto. Import dinámico para
+    // que SheetJS (pesado) se cargue recién al abrir el modal de Excel.
+    const { parseExcelFile } = await import("../lib/excelParse");
+    const rows = await parseExcelFile(file);
+    // Geocodifica con Google (coords + dirección completa). Sin API key, deja el
+    // texto del Excel tal cual.
+    const { geocodeRows } = await import("../lib/geocode");
+    return geocodeRows(rows);
   },
 
-  async syncExcelRows(rows: number[]): Promise<{ count: number }> {
-    if (USE_EXCEL_MOCK) {
-      await wait(500);
-      return { count: rows.length };
+  // Crea los viajes seleccionados del Excel reusando createTrip (el mismo
+  // pipeline que el wizard: POST /viajes/ + /tramos/). La agencia y el
+  // solicitante salen de la identidad del usuario logueado.
+  async importExcelRows(
+    rows: ExcelRow[],
+  ): Promise<{ count: number; errors: { row: number; message: string }[] }> {
+    const identity = await this.getWizardIdentity();
+    const agc = identity.ownAgency ?? identity.agencies[0] ?? "";
+    const solicitante = identity.solicitante;
+    let count = 0;
+    const errors: { row: number; message: string }[] = [];
+    for (const r of rows) {
+      try {
+        await this.createTrip(viajes.excelRowToTrip(r, agc, solicitante));
+        count += 1;
+      } catch (e) {
+        errors.push({ row: r.row, message: e instanceof Error ? e.message : String(e) });
+      }
     }
-    const token = getToken();
-    const res = await fetch(`${API_URL}/trips/excel/sync`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ rows }),
-    });
-    if (res.status === 401) throw new Error("Sesión expirada");
-    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-    return (await res.json()) as { count: number };
+    return { count, errors };
   },
 };

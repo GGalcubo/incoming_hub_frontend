@@ -52,7 +52,19 @@ export function App() {
   }, [user]);
 
   const saveTrip = async (t: Trip, mode: "new" | "edit"): Promise<Trip> => {
-    const saved = mode === "new" ? await api.createTrip(t) : await api.updateTrip(t);
+    let saved: Trip;
+    try {
+      saved = mode === "new" ? await api.createTrip(t) : await api.updateTrip(t);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Error desconocido";
+      flash(
+        mode === "new"
+          ? `No se pudo guardar el viaje: ${detail}`
+          : `No se pudo modificar el viaje: ${detail}`,
+        "error",
+      );
+      throw err;
+    }
     setTrips((prev) =>
       mode === "new" ? [saved, ...prev] : prev.map((x) => (x.id === saved.id ? saved : x)),
     );

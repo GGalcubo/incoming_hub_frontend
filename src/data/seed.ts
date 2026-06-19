@@ -149,6 +149,7 @@ export const EXCEL_SAMPLE: ExcelRow[] = [
   },
   {
     row: 5,
+    rows: [5, 6],
     tripRef: "V3",
     date: TOMORROW,
     time: "11:15",
@@ -174,6 +175,7 @@ export const EXCEL_SAMPLE: ExcelRow[] = [
   },
   {
     row: 9,
+    rows: [9, 10, 11],
     tripRef: "V5",
     date: TOMORROW,
     time: "14:00",
