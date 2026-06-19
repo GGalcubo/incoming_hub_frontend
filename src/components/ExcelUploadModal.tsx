@@ -473,45 +473,55 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                 )}
                               </div>
                               <div className={styles.legGrid}>
-                                <Select
-                                  value={l.type ?? "otro"}
-                                  className={styles.cellInput}
-                                  onChange={(e) =>
-                                    updateLeg(r.row, i, {
-                                      type: e.target.value as LegType,
-                                      flight:
-                                        e.target.value === "otro" || e.target.value === "disposicion"
-                                          ? ""
-                                          : l.flight,
-                                    })
-                                  }
-                                >
-                                  {LEG_TYPE_OPTIONS.map((o) => (
-                                    <option key={o.value} value={o.value}>
-                                      {o.label}
-                                    </option>
-                                  ))}
-                                </Select>
-                                <Input
-                                  className={styles.cellInput}
-                                  value={l.flight ?? ""}
-                                  disabled={noFlight}
-                                  placeholder={noFlight ? "—" : "AA995, LA4302…"}
-                                  onChange={(e) => updateLeg(r.row, i, { flight: e.target.value })}
-                                />
+                                {/* Tipo y vuelo son a nivel VIAJE: van solo en el primer tramo.
+                                    Los tramos siguientes solo llevan destino (el origen es el
+                                    destino del tramo anterior). */}
+                                {i === 0 && (
+                                  <>
+                                    <Select
+                                      value={l.type ?? "otro"}
+                                      className={styles.cellInput}
+                                      onChange={(e) =>
+                                        updateLeg(r.row, i, {
+                                          type: e.target.value as LegType,
+                                          flight:
+                                            e.target.value === "otro" ||
+                                            e.target.value === "disposicion"
+                                              ? ""
+                                              : l.flight,
+                                        })
+                                      }
+                                    >
+                                      {LEG_TYPE_OPTIONS.map((o) => (
+                                        <option key={o.value} value={o.value}>
+                                          {o.label}
+                                        </option>
+                                      ))}
+                                    </Select>
+                                    <Input
+                                      className={styles.cellInput}
+                                      value={l.flight ?? ""}
+                                      disabled={noFlight}
+                                      placeholder={noFlight ? "—" : "AA995, LA4302…"}
+                                      onChange={(e) => updateLeg(r.row, i, { flight: e.target.value })}
+                                    />
+                                    <div className={styles.legPlace}>
+                                      <span className={styles.legLabel}>Origen</span>
+                                      <PlaceCombo
+                                        value={l.origin}
+                                        onChange={(v) => updateLeg(r.row, i, { origin: v })}
+                                        onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
+                                      />
+                                      {l.originResolved && (
+                                        <span className={styles.legResolved}>{l.originResolved}</span>
+                                      )}
+                                    </div>
+                                  </>
+                                )}
                                 <div className={styles.legPlace}>
-                                  <span className={styles.legLabel}>Origen</span>
-                                  <PlaceCombo
-                                    value={l.origin}
-                                    onChange={(v) => updateLeg(r.row, i, { origin: v })}
-                                    onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
-                                  />
-                                  {l.originResolved && (
-                                    <span className={styles.legResolved}>{l.originResolved}</span>
-                                  )}
-                                </div>
-                                <div className={styles.legPlace}>
-                                  <span className={styles.legLabel}>Destino</span>
+                                  <span className={styles.legLabel}>
+                                    {i === 0 ? "Destino" : `Destino (desde ${l.origin || "—"})`}
+                                  </span>
                                   <PlaceCombo
                                     value={l.destination}
                                     onChange={(v) => updateLeg(r.row, i, { destination: v })}
