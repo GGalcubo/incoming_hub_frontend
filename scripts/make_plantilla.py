@@ -175,8 +175,8 @@ instrucciones = [
     ("Hora", "Formato HH:MM en 24 horas (ej: 07:30)."),
     ("Categoria", "Elegir del desplegable: Auto Std / Ejecutivo / MB / Vito."),
     ("Pasajeros", "Nombre del pasajero. Varios separados con  |  (pipe). Maximo 4."),
-    ("Telefono", "Un telefono por pasajero, en el mismo orden que Pasajeros, separados con  |  "
-                 "(ej: +54 9 11 4490-7781 | +54 9 11 6033-2210)."),
+    ("Telefono", "OBLIGATORIO. Un telefono por pasajero, en el mismo orden que Pasajeros, "
+                 "separados con  |  (ej: +54 9 11 4490-7781 | +54 9 11 6033-2210)."),
     ("Tipo", "Llegada (in) = arribo con vuelo · Salida (out) = salida con vuelo · "
              "Hs Disposición = horas a disposicion · Otro = traslado."),
     ("Origen / Destino", "Direccion o lugar (el sistema usa Google Maps para geolocalizar la direccion)."),

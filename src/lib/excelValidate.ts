@@ -29,9 +29,9 @@ export function validateExcelRow(r: {
   (r.phones ?? []).filter(Boolean).forEach((ph) => {
     if (!PHONE_RE.test(ph)) warnings.push(`Teléfono con formato dudoso: ${ph}`);
   });
-  // El teléfono por pasajero es deseable (no bloqueante): se avisa si falta.
+  // El teléfono de cada pasajero es obligatorio (bloquea la carga si falta).
   if (r.passengers.some((p, i) => p.trim() && !(r.phones?.[i] ?? "").trim())) {
-    warnings.push("Falta teléfono de algún pasajero");
+    errors.push("Falta teléfono de algún pasajero");
   }
 
   if (r.legs.length === 0) {

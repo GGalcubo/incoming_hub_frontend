@@ -102,6 +102,11 @@ describe("validateExcelRow", () => {
     expect(sinPax.warnings).toContain("Sin pasajero");
     expect(validateExcelRow({ ...base, phones: ["123"] }).warnings.length).toBeGreaterThan(0);
   });
+
+  it("el teléfono del pasajero es obligatorio (bloquea)", () => {
+    const sinTel = validateExcelRow({ ...base, phones: [] });
+    expect(sinTel.errors).toContain("Falta teléfono de algún pasajero");
+  });
 });
 
 describe("normalizePlace", () => {
