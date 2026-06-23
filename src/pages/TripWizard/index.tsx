@@ -21,11 +21,19 @@ interface TripWizardProps {
   mode: Mode;
   trip?: Trip;
   onSave: (t: Trip) => void;
+  onSaveAndNew?: (t: Trip) => Promise<unknown>;
   onCancel: () => void;
   onCancelTrip?: (t: Trip) => void;
 }
 
-export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripWizardProps) {
+export function TripWizard({
+  mode,
+  trip,
+  onSave,
+  onSaveAndNew,
+  onCancel,
+  onCancelTrip,
+}: TripWizardProps) {
   const isMobile = useIsMobile();
   const stepsBase: StepDef[] = [
     { id: "viaje", label: "Viaje" },
@@ -43,6 +51,25 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
   const [cancelReason, setCancelReason] = useState("");
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [savingNew, setSavingNew] = useState(false);
+
+  const resetForm = () => {
+    setT(EMPTY_TRIP);
+    setStepIdx(0);
+    setErrs({});
+    setDirty(false);
+  };
+
+  const handleSaveAndNew = async () => {
+    if (!onSaveAndNew || savingNew) return;
+    setSavingNew(true);
+    try {
+      await onSaveAndNew(t);
+      resetForm();
+    } finally {
+      setSavingNew(false);
+    }
+  };
 
   const step = stepsBase[stepIdx];
   const set = (patch: Partial<Trip>) => {
@@ -193,16 +220,29 @@ export function TripWizard({ mode, trip, onSave, onCancel, onCancelTrip }: TripW
             </Button>
           )}
           {stepIdx === stepsBase.length - 1 ? (
-            <Button
-              kind="primary"
-              icon="check"
-              size={isMobile ? "sm" : "md"}
-              onClick={() =>
-                mode === "edit" ? (dirty ? setShowSaveConfirm(true) : onSave(t)) : onSave(t)
-              }
-            >
-              {mode === "edit" ? "Guardar" : "Guardar viaje"}
-            </Button>
+            <>
+              {mode === "new" && onSaveAndNew && (
+                <Button
+                  icon="plus"
+                  size={isMobile ? "sm" : "md"}
+                  disabled={savingNew}
+                  onClick={handleSaveAndNew}
+                >
+                  {isMobile ? "Crear otro" : "Guardar y crear otro"}
+                </Button>
+              )}
+              <Button
+                kind="primary"
+                icon="check"
+                size={isMobile ? "sm" : "md"}
+                disabled={savingNew}
+                onClick={() =>
+                  mode === "edit" ? (dirty ? setShowSaveConfirm(true) : onSave(t)) : onSave(t)
+                }
+              >
+                {mode === "edit" ? "Guardar" : "Guardar viaje"}
+              </Button>
+            </>
           ) : stepIdx < stepsBase.length - 1 ? (
             <Button kind="primary" size={isMobile ? "sm" : "md"} onClick={next}>
               Siguiente <Icon name="chevright" size={isMobile ? 12 : 14} />

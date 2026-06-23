@@ -219,6 +219,9 @@ function NewTripRoute({ onSave }: { onSave: (t: Trip, mode: "new" | "edit") => P
           await onSave(t, "new");
           navigate("/viajes");
         }}
+        onSaveAndNew={async (t) => {
+          await onSave(t, "new");
+        }}
         onCancel={() => navigate("/viajes")}
       />
     </>
