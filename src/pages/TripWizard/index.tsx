@@ -20,7 +20,7 @@ import styles from "./TripWizard.module.css";
 interface TripWizardProps {
   mode: Mode;
   trip?: Trip;
-  onSave: (t: Trip) => void;
+  onSave: (t: Trip) => void | Promise<unknown>;
   onSaveAndNew?: (t: Trip) => Promise<unknown>;
   onCancel: () => void;
   onCancelTrip?: (t: Trip) => void;
@@ -51,7 +51,9 @@ export function TripWizard({
   const [cancelReason, setCancelReason] = useState("");
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [savingNew, setSavingNew] = useState(false);
+  // Único flag de "guardando": bloquea TODOS los botones de guardar mientras la
+  // request está en vuelo, para que un doble click no cree el viaje duplicado.
+  const [saving, setSaving] = useState(false);
 
   const resetForm = () => {
     setT(EMPTY_TRIP);
@@ -60,14 +62,26 @@ export function TripWizard({
     setDirty(false);
   };
 
+  // Guarda y bloquea hasta que la request termina. Si falla, el botón se
+  // re-habilita; si tiene éxito, el padre navega a /viajes y desmonta el wizard.
+  const handleSave = async (tripToSave: Trip) => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(tripToSave);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSaveAndNew = async () => {
-    if (!onSaveAndNew || savingNew) return;
-    setSavingNew(true);
+    if (!onSaveAndNew || saving) return;
+    setSaving(true);
     try {
       await onSaveAndNew(t);
       resetForm();
     } finally {
-      setSavingNew(false);
+      setSaving(false);
     }
   };
 
@@ -225,7 +239,7 @@ export function TripWizard({
                 <Button
                   icon="plus"
                   size={isMobile ? "sm" : "md"}
-                  disabled={savingNew}
+                  disabled={saving}
                   onClick={handleSaveAndNew}
                 >
                   {isMobile ? "Crear otro" : "Guardar y crear otro"}
@@ -235,9 +249,13 @@ export function TripWizard({
                 kind="primary"
                 icon="check"
                 size={isMobile ? "sm" : "md"}
-                disabled={savingNew}
+                disabled={saving}
                 onClick={() =>
-                  mode === "edit" ? (dirty ? setShowSaveConfirm(true) : onSave(t)) : onSave(t)
+                  mode === "edit"
+                    ? dirty
+                      ? setShowSaveConfirm(true)
+                      : handleSave(t)
+                    : handleSave(t)
                 }
               >
                 {mode === "edit" ? "Guardar" : "Guardar viaje"}
@@ -302,9 +320,10 @@ export function TripWizard({
               <Button
                 kind="primary"
                 icon="check"
+                disabled={saving}
                 onClick={() => {
                   setShowSaveConfirm(false);
-                  onSave(t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" });
+                  handleSave(t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" });
                 }}
               >
                 Sí, continuar
