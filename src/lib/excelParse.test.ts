@@ -116,4 +116,19 @@ describe("normalizePlace", () => {
     // No pisa direcciones reales que no son alias exactos.
     expect(normalizePlace("Av. Ezeiza 123")).toBe("Av. Ezeiza 123");
   });
+
+  it("reconoce el aeropuerto aunque venga con texto extra (terminal, código)", () => {
+    expect(normalizePlace("EZE T5")).toBe("Aeropuerto Ezeiza (EZE)");
+    expect(normalizePlace("terminal EZE")).toBe("Aeropuerto Ezeiza (EZE)");
+    expect(normalizePlace("terminal ezeiza")).toBe("Aeropuerto Ezeiza (EZE)");
+    expect(normalizePlace("aeroparque terminal A")).toBe("Aeroparque Jorge Newbery (AEP)");
+    // Idempotente: el canónico vuelve a sí mismo.
+    expect(normalizePlace("Aeropuerto Ezeiza (EZE)")).toBe("Aeropuerto Ezeiza (EZE)");
+  });
+
+  it("no remapea direcciones de calle que mencionan el aeropuerto", () => {
+    expect(normalizePlace("Ezeiza 123")).toBe("Ezeiza 123"); // altura → es una calle
+    expect(normalizePlace("Calle Aeroparque 500")).toBe("Calle Aeroparque 500");
+    expect(normalizePlace("Aeropuerto de Salta")).toBe("Aeropuerto de Salta"); // otro aeropuerto
+  });
 });
