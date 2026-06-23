@@ -267,7 +267,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         reset();
       }}
       title="Cargar viajes por Excel"
-      width={1240}
+      width={1480}
       footer={footer}
     >
       {stage === "pick" && (
@@ -346,7 +346,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                       }}
                     />
                   </th>
-                  <th className={styles.th}>Fila</th>
+                  <th className={cx(styles.th, styles.thFila)}>Fila</th>
                   <th className={styles.th}>Fecha · Hora</th>
                   <th className={styles.th}>Categoría</th>
                   <th className={styles.th}>Pasajeros</th>
@@ -367,7 +367,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                         }
                       />
                     </td>
-                    <td className={cx(styles.td, styles.mono, styles.cMuted)}>
+                    <td className={cx(styles.td, styles.tdFila, styles.mono, styles.cMuted)}>
                       {formatRows(r.rows ?? [r.row])}
                     </td>
 

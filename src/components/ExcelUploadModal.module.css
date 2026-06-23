@@ -160,6 +160,19 @@
   width: 32px;
 }
 
+/* Columna "Fila": ancho cómodo para multi-tramo (varias filas concatenadas,
+   p. ej. "9–11, 14") sin ensanchar el resto de la tabla. */
+.thFila {
+  width: 90px;
+}
+
+.tdFila {
+  white-space: normal;
+  min-width: 72px;
+  max-width: 110px;
+  word-break: break-word;
+}
+
 .rowOk {
   background: var(--bg-surface);
 }
