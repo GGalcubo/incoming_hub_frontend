@@ -350,6 +350,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                   <th className={styles.th}>Fecha · Hora</th>
                   <th className={styles.th}>Categoría</th>
                   <th className={styles.th}>Pasajeros</th>
+                  <th className={cx(styles.th, styles.thTipo)}>Tipo · Vuelo</th>
                   <th className={styles.th}>Tramos</th>
                   <th className={styles.th}>Estado de validación</th>
                 </tr>
@@ -452,91 +453,97 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                       </div>
                     </td>
 
-                    {/* Tramos — tipo + vuelo + origen/destino con autocompletado de Google */}
-                    <td className={styles.tdTramos}>
-                      <div className={styles.stack}>
-                        {r.legs.map((l, i) => {
-                          const noFlight = l.type === "otro" || l.type === "disposicion";
+                    {/* Tipo · Vuelo — a nivel VIAJE (se guardan en el primer tramo) */}
+                    <td className={cx(styles.tdWrap, styles.tdTipo)}>
+                      {r.legs[0] &&
+                        (() => {
+                          const l0 = r.legs[0];
+                          const noFlight = l0.type === "otro" || l0.type === "disposicion";
                           return (
-                            <div key={i} className={styles.legCard}>
-                              <div className={styles.legHead}>
-                                <span className={styles.legNum}>Tramo {i + 1}</span>
-                                {r.legs.length > 1 && (
-                                  <button
-                                    type="button"
-                                    className={styles.iconBtn}
-                                    aria-label="Quitar tramo"
-                                    onClick={() => rmLeg(r.row, i)}
-                                  >
-                                    <Icon name="trash" size={13} />
-                                  </button>
-                                )}
-                              </div>
-                              <div className={styles.legGrid}>
-                                {/* Tipo y vuelo son a nivel VIAJE: van solo en el primer tramo.
-                                    Los tramos siguientes solo llevan destino (el origen es el
-                                    destino del tramo anterior). */}
-                                {i === 0 && (
-                                  <>
-                                    <Select
-                                      value={l.type ?? "otro"}
-                                      className={styles.cellInput}
-                                      onChange={(e) =>
-                                        updateLeg(r.row, i, {
-                                          type: e.target.value as LegType,
-                                          flight:
-                                            e.target.value === "otro" ||
-                                            e.target.value === "disposicion"
-                                              ? ""
-                                              : l.flight,
-                                        })
-                                      }
-                                    >
-                                      {LEG_TYPE_OPTIONS.map((o) => (
-                                        <option key={o.value} value={o.value}>
-                                          {o.label}
-                                        </option>
-                                      ))}
-                                    </Select>
-                                    <Input
-                                      className={styles.cellInput}
-                                      value={l.flight ?? ""}
-                                      disabled={noFlight}
-                                      placeholder={noFlight ? "—" : "AA995, LA4302…"}
-                                      onChange={(e) => updateLeg(r.row, i, { flight: e.target.value })}
-                                    />
-                                    <div className={styles.legPlace}>
-                                      <span className={styles.legLabel}>Origen</span>
-                                      <PlaceCombo
-                                        value={l.origin}
-                                        onChange={(v) => updateLeg(r.row, i, { origin: v })}
-                                        onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
-                                      />
-                                      {l.originResolved && (
-                                        <span className={styles.legResolved}>{l.originResolved}</span>
-                                      )}
-                                    </div>
-                                  </>
-                                )}
-                                <div className={styles.legPlace}>
-                                  <span className={styles.legLabel}>
-                                    {i === 0 ? "Destino" : `Destino (desde ${l.origin || "—"})`}
-                                  </span>
-                                  <PlaceCombo
-                                    value={l.destination}
-                                    onChange={(v) => updateLeg(r.row, i, { destination: v })}
-                                    onPick={(desc) => updateLeg(r.row, i, { destination: desc })}
-                                  />
-                                  {l.destinationResolved && (
-                                    <span className={styles.legResolved}>
-                                      {l.destinationResolved}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
+                            <div className={styles.stack}>
+                              <Select
+                                value={l0.type ?? "otro"}
+                                className={styles.cellInput}
+                                onChange={(e) =>
+                                  updateLeg(r.row, 0, {
+                                    type: e.target.value as LegType,
+                                    flight:
+                                      e.target.value === "otro" || e.target.value === "disposicion"
+                                        ? ""
+                                        : l0.flight,
+                                  })
+                                }
+                              >
+                                {LEG_TYPE_OPTIONS.map((o) => (
+                                  <option key={o.value} value={o.value}>
+                                    {o.label}
+                                  </option>
+                                ))}
+                              </Select>
+                              <Input
+                                className={styles.cellInput}
+                                value={l0.flight ?? ""}
+                                disabled={noFlight}
+                                placeholder={noFlight ? "—" : "AA995, LA4302…"}
+                                onChange={(e) => updateLeg(r.row, 0, { flight: e.target.value })}
+                              />
                             </div>
                           );
-                        })}
+                        })()}
+                    </td>
+
+                    {/* Tramos — origen/destino con autocompletado de Google */}
+                    <td className={styles.tdTramos}>
+                      <div className={styles.stack}>
+                        {r.legs.map((l, i) => (
+                          <div key={i} className={styles.legCard}>
+                            <div className={styles.legHead}>
+                              <span className={styles.legNum}>Tramo {i + 1}</span>
+                              {r.legs.length > 1 && (
+                                <button
+                                  type="button"
+                                  className={styles.iconBtn}
+                                  aria-label="Quitar tramo"
+                                  onClick={() => rmLeg(r.row, i)}
+                                >
+                                  <Icon name="trash" size={13} />
+                                </button>
+                              )}
+                            </div>
+                            <div className={styles.legGrid}>
+                              {/* El origen solo va en el primer tramo; los siguientes heredan
+                                  el destino del anterior y solo muestran su destino. */}
+                              {i === 0 && (
+                                <div className={styles.legPlace}>
+                                  <span className={styles.legLabel}>Origen</span>
+                                  <PlaceCombo
+                                    value={l.origin}
+                                    onChange={(v) => updateLeg(r.row, i, { origin: v })}
+                                    onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
+                                  />
+                                  {l.originResolved && (
+                                    <span className={styles.legResolved}>{l.originResolved}</span>
+                                  )}
+                                </div>
+                              )}
+                              <div className={styles.legPlace}>
+                                <span className={styles.legLabel}>
+                                  {i === 0 ? "Destino" : `Destino (desde ${l.origin || "—"})`}
+                                </span>
+                                <PlaceCombo
+                                  value={l.destination}
+                                  onChange={(v) => updateLeg(r.row, i, { destination: v })}
+                                  onPick={(desc) => updateLeg(r.row, i, { destination: desc })}
+                                />
+                                {l.destinationResolved && (
+                                  <span className={styles.legResolved}>
+                                    {l.destinationResolved}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                         <button
                           type="button"
                           className={styles.addInline}

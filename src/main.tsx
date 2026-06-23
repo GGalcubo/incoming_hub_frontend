@@ -17,6 +17,19 @@ const queryClient = new QueryClient({
   },
 });
 
+// Tras un deploy nuevo, una pestaña que ya estaba abierta tiene el index.html
+// viejo y al abrir un módulo lazy (ej. el Excel) pide un chunk con hash viejo que
+// Vercel ya borró → falla la importación dinámica. Vite emite "vite:preloadError";
+// recargamos para traer el index.html + chunks nuevos. El guard por tiempo evita
+// un loop de recargas si el chunk realmente no está disponible.
+window.addEventListener("vite:preloadError", () => {
+  const KEY = "vite-preload-reload-ts";
+  const last = Number(sessionStorage.getItem(KEY) || 0);
+  if (Date.now() - last < 10_000) return; // ya recargamos recién: no insistir
+  sessionStorage.setItem(KEY, String(Date.now()));
+  window.location.reload();
+});
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <ErrorBoundary>

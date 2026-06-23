@@ -173,6 +173,15 @@
   word-break: break-word;
 }
 
+/* Columna "Tipo · Vuelo": a nivel viaje, separada de los tramos. */
+.thTipo {
+  width: 150px;
+}
+
+.tdTipo {
+  min-width: 140px;
+}
+
 .rowOk {
   background: var(--bg-surface);
 }
