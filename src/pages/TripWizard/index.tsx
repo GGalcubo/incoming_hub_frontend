@@ -110,7 +110,7 @@ export function TripWizard({
     // pierde nada si el usuario abandona antes de llegar al final. Si el guardado
     // falla no avanzamos para que el usuario lo reintente.
     if (mode === "edit" && onStepSave && dirty && !saving) {
-      const tripToSave = t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" };
+      const tripToSave: Trip = t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" };
       setSaving(true);
       try {
         await onStepSave(tripToSave);
