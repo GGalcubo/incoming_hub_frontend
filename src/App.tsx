@@ -267,6 +267,9 @@ function EditTripRoute({
           await onSave(t, "edit");
           navigate("/viajes");
         }}
+        onStepSave={async (t) => {
+          await onSave(t, "edit");
+        }}
         onCancel={() => navigate("/viajes")}
         onCancelTrip={async (t) => {
           await onCancelTrip(t);

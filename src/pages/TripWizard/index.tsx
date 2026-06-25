@@ -22,6 +22,9 @@ interface TripWizardProps {
   trip?: Trip;
   onSave: (t: Trip) => void | Promise<unknown>;
   onSaveAndNew?: (t: Trip) => Promise<unknown>;
+  // Guarda los cambios sin navegar fuera del wizard. Se usa para persistir al
+  // avanzar de pantalla con "Siguiente" en modo edición.
+  onStepSave?: (t: Trip) => Promise<unknown>;
   onCancel: () => void;
   onCancelTrip?: (t: Trip) => void;
 }
@@ -31,6 +34,7 @@ export function TripWizard({
   trip,
   onSave,
   onSaveAndNew,
+  onStepSave,
   onCancel,
   onCancelTrip,
 }: TripWizardProps) {
@@ -98,8 +102,27 @@ export function TripWizard({
     return Object.keys(e).length === 0;
   };
 
-  const next = () => {
-    if (validateStep()) setStepIdx((i) => Math.min(i + 1, stepsBase.length - 1));
+  const advance = () => setStepIdx((i) => Math.min(i + 1, stepsBase.length - 1));
+
+  const next = async () => {
+    if (!validateStep()) return;
+    // En modo edición persistimos los cambios al avanzar de pantalla, así no se
+    // pierde nada si el usuario abandona antes de llegar al final. Si el guardado
+    // falla no avanzamos para que el usuario lo reintente.
+    if (mode === "edit" && onStepSave && dirty && !saving) {
+      const tripToSave = t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" };
+      setSaving(true);
+      try {
+        await onStepSave(tripToSave);
+        setT(tripToSave);
+        setDirty(false);
+      } catch {
+        return;
+      } finally {
+        setSaving(false);
+      }
+    }
+    advance();
   };
   const back = () => setStepIdx((i) => Math.max(i - 1, 0));
 
@@ -262,7 +285,12 @@ export function TripWizard({
               </Button>
             </>
           ) : stepIdx < stepsBase.length - 1 ? (
-            <Button kind="primary" size={isMobile ? "sm" : "md"} onClick={next}>
+            <Button
+              kind="primary"
+              size={isMobile ? "sm" : "md"}
+              disabled={saving}
+              onClick={next}
+            >
               Siguiente <Icon name="chevright" size={isMobile ? 12 : 14} />
             </Button>
           ) : null}

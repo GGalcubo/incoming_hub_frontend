@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Field, Input } from "../../../components/ui/Field";
 import { Icon } from "../../../components/ui/Icon";
@@ -6,13 +7,23 @@ import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
 export function StepPasajeros({ t, set, errs }: StepProps) {
+  // Keys estables por fila para que React no reutilice inputs/foco entre
+  // pasajeros al agregar o quitar (un índice como key reordena al borrar).
+  const counter = useRef(0);
+  const keys = useRef<string[]>(t.passengers.map(() => String(counter.current++)));
+
   const updatePax = (i: number, patch: Partial<Passenger>) =>
     set({ passengers: t.passengers.map((px, j) => (j === i ? { ...px, ...patch } : px)) });
   const addPax = () => {
-    if (t.passengers.length < 4)
+    if (t.passengers.length < 4) {
+      keys.current.push(String(counter.current++));
       set({ passengers: [...t.passengers, { firstName: "", lastName: "", phone: "" }] });
+    }
   };
-  const rmPax = (i: number) => set({ passengers: t.passengers.filter((_, j) => j !== i) });
+  const rmPax = (i: number) => {
+    keys.current.splice(i, 1);
+    set({ passengers: t.passengers.filter((_, j) => j !== i) });
+  };
 
   return (
     <>
@@ -31,7 +42,7 @@ export function StepPasajeros({ t, set, errs }: StepProps) {
       </div>
 
       {t.passengers.map((px, i) => (
-        <div key={i} className={styles.itemCard}>
+        <div key={keys.current[i] ?? i} className={styles.itemCard}>
           <div className={styles.cardHeaderRow}>
             <div className={styles.itemCardTitle}>Pasajero {i + 1}</div>
             {t.passengers.length > 1 && (

@@ -247,7 +247,7 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
   const categoria = c.categorias.find((x) => x.id === v.categoria_servicio);
   const solicitante = c.solicitantes.find((s) => s.id === v.solicitante);
 
-  const tramos = [...v.tramos].sort((a, b) => a.numero_tramo - b.numero_tramo);
+  const tramos = [...(v.tramos ?? [])].sort((a, b) => a.numero_tramo - b.numero_tramo);
   const legs = tramos.map((tr, i) => {
     const originCoords = coordsOf(tr.origen_latitud, tr.origen_longitud);
     const destinationCoords = coordsOf(tr.destino_latitud, tr.destino_longitud);
