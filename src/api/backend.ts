@@ -152,6 +152,24 @@ export interface PasajeroWrite {
   es_principal?: boolean;
 }
 
+// Tramo anidado en la creación del viaje (POST /viajes/). A diferencia del Tramo
+// standalone, solo lleva COORDENADAS (lat/lng): el backend resuelve
+// localidad/provincia por reverse geocoding. Origen y destino van en el MISMO
+// objeto (un tramo = un trayecto completo). El orden de la lista define el
+// numero_tramo; el primero es el principal. Reglas (400 si se violan): la lat y
+// la long de un extremo van siempre juntas; cada tramo necesita al menos un
+// extremo (origen o destino) con sus dos coordenadas.
+export interface TramoInput {
+  origen_latitud?: string | null;
+  origen_longitud?: string | null;
+  origen_es_aeropuerto?: boolean;
+  origen_iata?: string;
+  destino_latitud?: string | null;
+  destino_longitud?: string | null;
+  destino_es_aeropuerto?: boolean;
+  destino_iata?: string;
+}
+
 // Cuerpo escribible de un viaje (POST/PUT/PATCH). Solo campos editables.
 export interface ViajeWrite {
   referencia_externa?: string;
@@ -166,6 +184,8 @@ export interface ViajeWrite {
   // Alta de pasajeros en la misma llamada de creación del viaje. El backend los
   // crea como Personas y asigna el `pasajero_principal`.
   pasajeros?: PasajeroWrite[];
+  // Alta de tramos en la misma llamada de creación (coordenadas, ver TramoInput).
+  tramos?: TramoInput[];
   cantidad_pasajeros?: number;
   cantidad_valijas?: number;
   observaciones?: string;
@@ -173,6 +193,19 @@ export interface ViajeWrite {
   datos_vuelo?: string;
   puede_modificar?: boolean;
   horas_minimas_cancelacion?: number;
+}
+
+// Cuerpo escribible de un pasajero de viaje vía /pasajeros-viaje/ (POST asocia,
+// PATCH edita, DELETE desasocia). Aplana los datos de la Persona sobre el
+// vínculo: al crear, la Persona se crea con la agencia del viaje. Para POST,
+// `viaje` y `nombre` son obligatorios; para PATCH se manda solo lo que cambia.
+export interface ViajePersonaWrite {
+  viaje: number;
+  nombre: string;
+  telefono?: string;
+  dni?: string | null;
+  email?: string | null;
+  es_principal?: boolean;
 }
 
 // ── Perfil de usuario (/auth/me/) ────────────────────────────────────────────
@@ -199,16 +232,10 @@ export interface MeWrite {
   phone?: string;
 }
 
-// Cuerpo escribible de un tramo.
-export interface TramoWrite {
+// Cuerpo escribible de un tramo standalone (POST/PATCH /tramos/, usado al
+// modificar un viaje ya creado). Solo coordenadas (igual que TramoInput): el
+// backend resuelve la localidad. En POST `viaje` es obligatorio y NO se manda
+// `numero_tramo` (lo asigna el backend, agregando el tramo al final).
+export interface TramoWrite extends TramoInput {
   viaje: number;
-  numero_tramo: number;
-  origen_direccion: string;
-  origen_lugar_nombre?: string;
-  origen_latitud?: string | null;
-  origen_longitud?: string | null;
-  destino_direccion: string;
-  destino_lugar_nombre?: string;
-  destino_latitud?: string | null;
-  destino_longitud?: string | null;
 }

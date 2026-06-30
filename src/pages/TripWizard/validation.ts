@@ -4,8 +4,16 @@ import type { StepId } from "./types";
 const PHONE_RE = /^[+\d\s-]{8,20}$/;
 
 /** Valida un paso del wizard y devuelve un mapa de errores por campo
- *  (vacío si el paso es válido). Función pura: fácil de testear. */
-export function validateTripStep(stepId: StepId, t: Trip): Record<string, string> {
+ *  (vacío si el paso es válido). Función pura: fácil de testear.
+ *  `requireCoords` exige que cada destino esté geocodificado (elegido del
+ *  autocompletado de Google Maps): el backend crea los tramos solo con
+ *  coordenadas, así que un texto libre sin coords haría fallar el guardado.
+ *  Se activa solo cuando hay Maps disponible (si no, no hay forma de geocodificar). */
+export function validateTripStep(
+  stepId: StepId,
+  t: Trip,
+  opts: { requireCoords?: boolean } = {},
+): Record<string, string> {
   const e: Record<string, string> = {};
 
   if (stepId === "viaje") {
@@ -26,9 +34,16 @@ export function validateTripStep(stepId: StepId, t: Trip): Record<string, string
   }
 
   if (stepId === "tramos") {
+    const COORD_MSG = "Elegí una opción del listado para fijar la ubicación en el mapa";
     t.legs.forEach((leg, i) => {
       if (!leg.origin) e[`leg-${i}-origin`] = "Origen requerido";
+      // El origen solo se edita en el primer destino; en los siguientes se
+      // propaga desde el destino anterior (sus coords se validan ahí).
+      else if (opts.requireCoords && i === 0 && !leg.originCoords)
+        e[`leg-${i}-origin`] = COORD_MSG;
       if (!leg.destination) e[`leg-${i}-destination`] = "Destino requerido";
+      else if (opts.requireCoords && !leg.destinationCoords)
+        e[`leg-${i}-destination`] = COORD_MSG;
     });
   }
 

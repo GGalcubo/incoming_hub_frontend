@@ -78,6 +78,67 @@ describe("validateTripStep — paso tramos", () => {
     });
     expect(validateTripStep("tramos", trip)).toEqual({});
   });
+
+  it("sin requireCoords no exige geocodificar (texto libre válido)", () => {
+    const trip = tripWith({
+      legs: [{ type: "in", origin: "Ezeiza", destination: "Centro", flight: "", obs: "" }],
+    });
+    expect(validateTripStep("tramos", trip, { requireCoords: true })["leg-0-origin"]).toBeDefined();
+    expect(validateTripStep("tramos", trip, {})).toEqual({});
+  });
+
+  it("con requireCoords exige coords en origen y destino", () => {
+    const trip = tripWith({
+      legs: [{ type: "in", origin: "Ezeiza", destination: "Centro", flight: "", obs: "" }],
+    });
+    const errs = validateTripStep("tramos", trip, { requireCoords: true });
+    expect(errs["leg-0-origin"]).toBeDefined();
+    expect(errs["leg-0-destination"]).toBeDefined();
+  });
+
+  it("con requireCoords pasa cuando los destinos están geocodificados", () => {
+    const trip = tripWith({
+      legs: [
+        {
+          type: "in",
+          origin: "Ezeiza",
+          destination: "Centro",
+          flight: "",
+          obs: "",
+          originCoords: { lat: -34.81, lng: -58.53 },
+          destinationCoords: { lat: -34.6, lng: -58.38 },
+        },
+      ],
+    });
+    expect(validateTripStep("tramos", trip, { requireCoords: true })).toEqual({});
+  });
+
+  it("con requireCoords no exige coords de origen en destinos posteriores", () => {
+    // El origen del 2º tramo se propaga del destino del 1º; solo se validan las
+    // coords del destino de cada tramo y del origen del primero.
+    const trip = tripWith({
+      legs: [
+        {
+          type: "in",
+          origin: "Ezeiza",
+          destination: "Centro",
+          flight: "",
+          obs: "",
+          originCoords: { lat: -34.81, lng: -58.53 },
+          destinationCoords: { lat: -34.6, lng: -58.38 },
+        },
+        {
+          type: "otro",
+          origin: "Centro",
+          destination: "Hotel",
+          flight: "",
+          obs: "",
+          destinationCoords: { lat: -34.59, lng: -58.39 },
+        },
+      ],
+    });
+    expect(validateTripStep("tramos", trip, { requireCoords: true })).toEqual({});
+  });
 });
 
 describe("validateTripStep — pasos sin validación", () => {

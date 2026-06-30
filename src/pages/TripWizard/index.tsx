@@ -6,6 +6,7 @@ import { Modal } from "../../components/ui/Modal";
 import { StatusPicker } from "../../components/ui/StatusPicker";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { cx } from "../../lib/cx";
+import { hasGoogleMapsKey } from "../../lib/gmaps";
 import type { Trip } from "../../types/domain";
 import { StepCostos } from "./steps/StepCostos";
 import { StepHistorial } from "./steps/StepHistorial";
@@ -97,7 +98,9 @@ export function TripWizard({
   const wide = step.id === "resumen" || step.id === "historial" || step.id === "tramos";
 
   const validateStep = () => {
-    const e = validateTripStep(step.id, t);
+    // Con Google Maps disponible exigimos que cada destino esté geocodificado:
+    // el backend crea los tramos solo con coordenadas (ver buildTramosInput).
+    const e = validateTripStep(step.id, t, { requireCoords: hasGoogleMapsKey() });
     setErrs(e);
     return Object.keys(e).length === 0;
   };

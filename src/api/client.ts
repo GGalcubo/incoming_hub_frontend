@@ -332,8 +332,8 @@ export const api = {
   },
 
   // Crea los viajes seleccionados del Excel reusando createTrip (el mismo
-  // pipeline que el wizard: POST /viajes/ + /tramos/). La agencia y el
-  // solicitante salen de la identidad del usuario logueado.
+  // pipeline que el wizard: un único POST /viajes/ con pasajeros y tramos
+  // anidados). La agencia y el solicitante salen de la identidad del usuario.
   async importExcelRows(
     rows: ExcelRow[],
   ): Promise<{ count: number; errors: { row: number; message: string }[] }> {
