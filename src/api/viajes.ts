@@ -239,8 +239,22 @@ function num(s: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function placeOf(direccion: string, lugar: string): string {
-  return lugar || direccion || "";
+// Texto visible de un extremo del tramo. Los tramos creados por el wizard van
+// solo con coordenadas, así que direccion/lugar_nombre suelen volver vacíos:
+// caemos a la localidad que resolvió el backend y, como último recurso, a las
+// coordenadas (así el campo nunca queda vacío y el tramo no se pierde al editar).
+function placeOf(
+  direccion: string,
+  lugar: string,
+  localidad?: string,
+  coords?: { lat: number; lng: number },
+): string {
+  return (
+    lugar ||
+    direccion ||
+    localidad ||
+    (coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : "")
+  );
 }
 
 // ── Viaje → Trip ──────────────────────────────────────────────────────────────
@@ -255,8 +269,18 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     const destinationCoords = coordsOf(tr.destino_latitud, tr.destino_longitud);
     return {
       type: i === 0 ? TIPO_TO_LEG[v.tipo_servicio] : ("otro" as LegType),
-      origin: placeOf(tr.origen_direccion, tr.origen_lugar_nombre),
-      destination: placeOf(tr.destino_direccion, tr.destino_lugar_nombre),
+      origin: placeOf(
+        tr.origen_direccion,
+        tr.origen_lugar_nombre,
+        tr.localidad_origen_central,
+        originCoords,
+      ),
+      destination: placeOf(
+        tr.destino_direccion,
+        tr.destino_lugar_nombre,
+        tr.localidad_destino_central,
+        destinationCoords,
+      ),
       flight: i === 0 ? v.datos_vuelo : "",
       obs: "",
       ...(originCoords ? { originCoords } : {}),
@@ -386,21 +410,21 @@ function buildTramoInput(l: Leg): TramoInput {
 }
 
 // Tramos a enviar: un objeto por destino con datos (origen o destino). El orden
-// define el numero_tramo; el primero es el principal.
+// define el numero_tramo; el primero es el principal. Un tramo cuenta si tiene
+// texto O coordenadas: en edición el texto puede venir vacío del backend y
+// descartar esos tramos disparaba un DELETE de todo (incluido el principal).
 function buildTramosInput(t: Trip): TramoInput[] {
-  return t.legs.filter((l) => l.origin || l.destination).map(buildTramoInput);
+  return t.legs
+    .filter((l) => l.origin || l.destination || l.originCoords || l.destinationCoords)
+    .map(buildTramoInput);
 }
 
-export function buildViajePayload(
-  t: Trip,
-  c: Catalogs,
-  opts: { includeEstado: boolean; includePasajeros?: boolean },
-): ViajeWrite {
+// Cuerpo del POST de creación. Los pasajeros van embebidos: el backend los da de
+// alta como Personas y fija el principal según `es_principal`. La modificación NO
+// pasa por acá: usa diffViajePatch + syncTramos + syncPasajeros (PATCH por pestaña).
+export function buildViajePayload(t: Trip, c: Catalogs): ViajeWrite {
   const agencia = resolveAgencia(t, c);
   const firstLeg = t.legs[0];
-  // En edición el wizard carga la lista completa de pasajeros (viajeToTrip mapea
-  // todos los `pasajeros` del backend), así que el conteo real siempre es la
-  // cantidad de pasajeros con nombre válido (tanto en alta como en modificación).
   const pasajeros = buildPasajerosPayload(t);
   const payload: ViajeWrite = {
     referencia_externa: t.ref ?? "",
@@ -417,11 +441,7 @@ export function buildViajePayload(
     puede_modificar: true,
     horas_minimas_cancelacion: 24,
   };
-  // En creación el backend da de alta los pasajeros y fija el principal a partir
-  // de `es_principal`. En edición los pasajeros se sincronizan aparte vía
-  // /pasajeros-viaje/ (ver syncPasajeros), no embebidos en el PATCH del viaje.
-  if (opts.includePasajeros && pasajeros.length) payload.pasajeros = pasajeros;
-  if (opts.includeEstado) payload.estado = statusToEstado(t.est);
+  if (pasajeros.length) payload.pasajeros = pasajeros;
   return payload;
 }
 
@@ -492,10 +512,7 @@ export async function createTrip(trip: Trip): Promise<Trip> {
   const catalogs = await loadCatalogs();
   // Pasajeros y tramos viajan dentro del mismo POST: el backend crea las Personas
   // (fijando el principal) y los tramos en una sola llamada.
-  const payload = buildViajePayload(trip, catalogs, {
-    includeEstado: false,
-    includePasajeros: true,
-  });
+  const payload = buildViajePayload(trip, catalogs);
   const tramos = buildTramosInput(trip);
   if (tramos.length) payload.tramos = tramos;
   const created = await request<Viaje>("/viajes/", {
@@ -508,21 +525,65 @@ export async function createTrip(trip: Trip): Promise<Trip> {
   return getTrip(String(created.id));
 }
 
+// Campos del viaje que el wizard edita, comparados contra el estado actual del
+// servidor. El PATCH de modificación lleva SOLO lo que cambió (contrato nuevo:
+// cada pestaña tiene su PATCH); mandar el payload completo pisaba campos que el
+// wizard no toca (valijas, obs. del chofer, horas de cancelación).
+function diffViajePatch(t: Trip, c: Catalogs, current: Viaje): Partial<ViajeWrite> {
+  const firstLeg = t.legs[0];
+  const out: Partial<ViajeWrite> = {};
+
+  const ref = t.ref ?? "";
+  if (ref !== (current.referencia_externa ?? "")) out.referencia_externa = ref;
+
+  const agencia = resolveAgencia(t, c);
+  if (agencia !== current.agencia) out.agencia = agencia;
+
+  const categoria = resolveCategoria(t, c);
+  if (categoria !== current.categoria_servicio) out.categoria_servicio = categoria;
+
+  const estado = statusToEstado(t.est);
+  if (estado !== current.estado) out.estado = estado;
+
+  if (t.date !== current.fecha_servicio) out.fecha_servicio = t.date;
+
+  // El backend devuelve "HH:MM:SS"; el wizard maneja "HH:MM".
+  if (t.time !== (current.hora_servicio ?? "").slice(0, 5)) out.hora_servicio = t.time;
+
+  const tipo = firstLeg ? LEG_TO_TIPO[firstLeg.type] : "IN";
+  if (tipo !== current.tipo_servicio) out.tipo_servicio = tipo;
+
+  const cantidad = buildPasajerosPayload(t).length || t.pax || 1;
+  if (cantidad !== current.cantidad_pasajeros) out.cantidad_pasajeros = cantidad;
+
+  const obs = t.obs ?? "";
+  if (obs !== (current.observaciones ?? "")) out.observaciones = obs;
+
+  const vuelo = firstLeg?.flight ?? "";
+  if (vuelo !== (current.datos_vuelo ?? "")) out.datos_vuelo = vuelo;
+
+  return out;
+}
+
 export async function updateTrip(trip: Trip): Promise<Trip> {
   const catalogs = await loadCatalogs();
-  // En la modificación viaje, tramos y pasajeros van separados: PATCH del viaje
-  // (solo sus campos) + sync de tramos (/tramos/) + sync de pasajeros
-  // (/pasajeros-viaje/). El backend ya no acepta el principal embebido acá.
-  const payload = buildViajePayload(trip, catalogs, { includeEstado: true });
-  const updated = await request<Viaje>(`/viajes/${trip.id}/`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
-  await syncTramos(trip, updated.id, updated.tramos);
-  await syncPasajeros(trip, updated.id, updated.pasajeros ?? []);
+  // Modificación por pestaña: PATCH del viaje solo con los campos que cambiaron
+  // (se omite si no cambió ninguno), tramos vía /tramos/ y pasajeros vía
+  // /pasajeros-viaje/. Partimos del estado actual del servidor para diffear:
+  // así editar una pestaña no genera requests (ni DELETEs) sobre las otras.
+  const current = await request<Viaje>(`/viajes/${trip.id}/`);
+  const changes = diffViajePatch(trip, catalogs, current);
+  if (Object.keys(changes).length) {
+    await request<Viaje>(`/viajes/${trip.id}/`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
+  }
+  await syncTramos(trip, current.id, current.tramos);
+  await syncPasajeros(trip, current.id, current.pasajeros ?? []);
   // Pudo haberse creado/editado/quitado alguna Persona: refrescamos el cache.
   invalidateCatalogs();
-  return getTrip(String(updated.id));
+  return getTrip(String(trip.id));
 }
 
 export async function setStatus(id: string, est: TripStatus): Promise<Trip> {
@@ -560,12 +621,28 @@ export async function deleteTrip(id: string): Promise<void> {
 // el backend) y elimina los sobrantes (DELETE). Evitamos el viejo enfoque de
 // borrar-todo-y-recrear porque el backend protege el tramo principal y el último:
 // ese DELETE fallaba y hacía abortar todo el guardado.
+// true si el body trae alguna coordenada distinta a la que ya tiene el tramo.
+// Compara numéricamente ("-34.60370" ≡ "-34.6037000"). Un extremo ausente en el
+// body (sin coords en el wizard) no cuenta como cambio: se conserva el del server.
+function tramoChanged(body: TramoInput, tr: Tramo): boolean {
+  const pairs: [string | null | undefined, string | null][] = [
+    [body.origen_latitud, tr.origen_latitud],
+    [body.origen_longitud, tr.origen_longitud],
+    [body.destino_latitud, tr.destino_latitud],
+    [body.destino_longitud, tr.destino_longitud],
+  ];
+  return pairs.some(
+    ([next, prev]) => next != null && (prev == null || Number(next) !== Number(prev)),
+  );
+}
+
 async function syncTramos(trip: Trip, viajeId: number, existing: Tramo[]): Promise<void> {
   const bodies = buildTramosInput(trip);
   const current = [...existing].sort((a, b) => a.numero_tramo - b.numero_tramo);
   for (let i = 0; i < bodies.length; i++) {
     const tramo = current[i];
     if (tramo) {
+      if (!tramoChanged(bodies[i], tramo)) continue;
       await request<Tramo>(`/tramos/${tramo.id}/`, {
         method: "PATCH",
         body: JSON.stringify(bodies[i]),
