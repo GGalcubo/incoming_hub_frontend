@@ -20,10 +20,19 @@ interface PlaceSuggestion {
   placeId?: string;
 }
 
+// Datos del lugar elegido en el autocomplete: la descripción completa que se
+// muestra en el input y sus partes (nombre + dirección) ya desglosadas por
+// Google, para persistirlas por separado.
+export interface PlacePick {
+  description: string;
+  name: string;
+  address: string;
+}
+
 interface PlaceComboProps {
   value: string;
   onChange: (v: string) => void;
-  onPick?: (description: string, placeId: string) => void;
+  onPick?: (pick: PlacePick, placeId: string) => void;
 }
 
 export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
@@ -130,7 +139,11 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
               key={s.id}
               onMouseDown={() => {
                 onChange(s.full);
-                if (s.placeId && onPick) onPick(s.full, s.placeId);
+                if (s.placeId && onPick)
+                  onPick(
+                    { description: s.full, name: s.main, address: s.secondary ?? "" },
+                    s.placeId,
+                  );
                 setSuggestions([]);
                 setOpen(false);
               }}

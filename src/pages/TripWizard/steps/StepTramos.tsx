@@ -11,13 +11,19 @@ import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
 export function StepTramos({ t, set, errs }: StepProps) {
+  // El destino de un tramo es el origen del siguiente: al cambiarlo, arrastramos
+  // también el texto desglosado (nombre + dirección) para que la cadena quede
+  // consistente y el backend reciba lo mismo en ambos extremos del empalme.
   const updateLeg = (i: number, patch: Partial<Leg>) => {
     const next = t.legs.map((l, j) => (j === i ? { ...l, ...patch } : l));
     if ("destination" in patch && i + 1 < next.length) {
+      const cur = next[i];
       next[i + 1] = {
         ...next[i + 1],
-        origin: patch.destination ?? "",
-        originCoords: patch.destinationCoords ?? next[i].destinationCoords,
+        origin: cur.destination,
+        originCoords: cur.destinationCoords,
+        originName: cur.destinationName,
+        originAddress: cur.destinationAddress,
       };
     }
     set({ legs: next });
@@ -31,6 +37,8 @@ export function StepTramos({ t, set, errs }: StepProps) {
           type: "otro",
           origin: last?.destination ?? "",
           originCoords: last?.destinationCoords,
+          originName: last?.destinationName,
+          originAddress: last?.destinationAddress,
           destination: "",
           flight: "",
           obs: "",
@@ -47,6 +55,8 @@ export function StepTramos({ t, set, errs }: StepProps) {
           ...next[i],
           origin: prev.destination,
           originCoords: prev.destinationCoords,
+          originName: prev.destinationName,
+          originAddress: prev.destinationAddress,
         };
       }
     }
@@ -55,8 +65,22 @@ export function StepTramos({ t, set, errs }: StepProps) {
   // El punto 0 del recorrido es el origen del primer tramo; el punto k (>=1)
   // es el destino del tramo k-1 (que updateLeg propaga como origen del k).
   const setPoint = (index: number, text: string, coords: LatLng) => {
-    if (index === 0) updateLeg(0, { origin: text, originCoords: coords });
-    else updateLeg(index - 1, { destination: text, destinationCoords: coords });
+    // Al marcar en el mapa no hay desglose nombre/dirección: limpiamos el que
+    // hubiera quedado de una elección previa del autocomplete.
+    if (index === 0)
+      updateLeg(0, {
+        origin: text,
+        originCoords: coords,
+        originName: undefined,
+        originAddress: undefined,
+      });
+    else
+      updateLeg(index - 1, {
+        destination: text,
+        destinationCoords: coords,
+        destinationName: undefined,
+        destinationAddress: undefined,
+      });
   };
 
   const showMap = hasGoogleMapsKey();
@@ -160,13 +184,20 @@ export function StepTramos({ t, set, errs }: StepProps) {
                       <PlaceCombo
                         value={leg.origin}
                         onChange={(v) =>
-                          updateLeg(i, { origin: v, originCoords: undefined })
+                          updateLeg(i, {
+                            origin: v,
+                            originCoords: undefined,
+                            originName: undefined,
+                            originAddress: undefined,
+                          })
                         }
-                        onPick={(desc, placeId) =>
+                        onPick={(pick, placeId) =>
                           geocodePlaceId(placeId, (coords) => {
                             if (coords)
                               updateLeg(i, {
-                                origin: desc,
+                                origin: pick.description,
+                                originName: pick.name,
+                                originAddress: pick.address,
                                 originCoords: coords,
                               });
                           })
@@ -187,13 +218,17 @@ export function StepTramos({ t, set, errs }: StepProps) {
                       updateLeg(i, {
                         destination: v,
                         destinationCoords: undefined,
+                        destinationName: undefined,
+                        destinationAddress: undefined,
                       })
                     }
-                    onPick={(desc, placeId) =>
+                    onPick={(pick, placeId) =>
                       geocodePlaceId(placeId, (coords) => {
                         if (coords)
                           updateLeg(i, {
-                            destination: desc,
+                            destination: pick.description,
+                            destinationName: pick.name,
+                            destinationAddress: pick.address,
                             destinationCoords: coords,
                           });
                       })

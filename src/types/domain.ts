@@ -32,6 +32,15 @@ export interface Leg {
   originCoords?: LatLng;
   destinationCoords?: LatLng;
   hours?: number;
+  // Texto del lugar tal como lo desglosa el autocomplete de Google: nombre del
+  // lugar (main_text) y dirección (secondary_text), por separado. `origin`/
+  // `destination` guardan la descripción completa que se muestra en el input;
+  // estos guardan las partes para mandarlas al backend como lugar_nombre/
+  // direccion. Vacíos cuando el punto se marcó a mano o en el mapa.
+  originName?: string;
+  originAddress?: string;
+  destinationName?: string;
+  destinationAddress?: string;
 }
 
 export interface TripCosts {

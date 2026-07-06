@@ -239,19 +239,28 @@ function num(s: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Texto visible de un extremo del tramo. Los tramos creados por el wizard van
-// solo con coordenadas, así que direccion/lugar_nombre suelen volver vacíos:
-// caemos a la localidad que resolvió el backend y, como último recurso, a las
-// coordenadas (así el campo nunca queda vacío y el tramo no se pierde al editar).
+// Texto visible de un extremo del tramo. Combina nombre del lugar + dirección
+// ("Obelisco, Av. 9 de Julio") cuando el backend los devuelve por separado, sin
+// repetir si uno ya contiene al otro. Si faltan (tramos viejos guardados solo con
+// coordenadas), cae a la localidad que resolvió el backend y, como último
+// recurso, a las coordenadas (así el campo nunca queda vacío y el tramo no se
+// pierde al editar).
 function placeOf(
   direccion: string,
   lugar: string,
   localidad?: string,
   coords?: { lat: number; lng: number },
 ): string {
+  const name = lugar?.trim() ?? "";
+  const addr = direccion?.trim() ?? "";
+  let combined = "";
+  if (name && addr) {
+    combined = addr.includes(name) ? addr : name.includes(addr) ? name : `${name}, ${addr}`;
+  } else {
+    combined = name || addr;
+  }
   return (
-    lugar ||
-    direccion ||
+    combined ||
     localidad ||
     (coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : "")
   );
@@ -283,6 +292,12 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
       ),
       flight: i === 0 ? v.datos_vuelo : "",
       obs: "",
+      // Guardamos el desglose que devuelve el backend para poder reenviarlo tal
+      // cual si el usuario edita el viaje sin volver a tocar este extremo.
+      ...(tr.origen_lugar_nombre ? { originName: tr.origen_lugar_nombre } : {}),
+      ...(tr.origen_direccion ? { originAddress: tr.origen_direccion } : {}),
+      ...(tr.destino_lugar_nombre ? { destinationName: tr.destino_lugar_nombre } : {}),
+      ...(tr.destino_direccion ? { destinationAddress: tr.destino_direccion } : {}),
       ...(originCoords ? { originCoords } : {}),
       ...(destinationCoords ? { destinationCoords } : {}),
     };
@@ -388,24 +403,35 @@ function buildPasajerosPayload(t: Trip): PasajeroWrite[] {
   }));
 }
 
-// Un destino del wizard (Leg) → tramo coords-only del backend. Origen y destino
-// van en el mismo objeto; cada par lat/lng se incluye solo si está completo (el
-// backend rechaza una coordenada suelta). Las direcciones de texto NO se envían:
-// el backend resuelve la localidad por las coordenadas.
+// Un destino del wizard (Leg) → tramo del backend. Origen y destino van en el
+// mismo objeto; cada par lat/lng se incluye solo si está completo (el backend
+// rechaza una coordenada suelta). Además de las coordenadas se manda el texto del
+// lugar elegido en el autocomplete, desglosado: el nombre del lugar como
+// lugar_nombre y la dirección como direccion. Si el punto se marcó a mano o en el
+// mapa (sin desglose), cae al texto visible del campo en ambos. Así, al modificar
+// el viaje, se recupera nombre y dirección en vez de las coordenadas crudas.
 function buildTramoInput(l: Leg): TramoInput {
   const t: TramoInput = {};
   const oLat = fmtCoord(l.originCoords?.lat);
   const oLng = fmtCoord(l.originCoords?.lng);
   const dLat = fmtCoord(l.destinationCoords?.lat);
   const dLng = fmtCoord(l.destinationCoords?.lng);
+  const oName = l.originName?.trim() || l.origin?.trim();
+  const oAddr = l.originAddress?.trim() || l.origin?.trim();
+  const dName = l.destinationName?.trim() || l.destination?.trim();
+  const dAddr = l.destinationAddress?.trim() || l.destination?.trim();
   if (oLat && oLng) {
     t.origen_latitud = oLat;
     t.origen_longitud = oLng;
   }
+  if (oName) t.origen_lugar_nombre = oName;
+  if (oAddr) t.origen_direccion = oAddr;
   if (dLat && dLng) {
     t.destino_latitud = dLat;
     t.destino_longitud = dLng;
   }
+  if (dName) t.destino_lugar_nombre = dName;
+  if (dAddr) t.destino_direccion = dAddr;
   return t;
 }
 
@@ -631,9 +657,22 @@ function tramoChanged(body: TramoInput, tr: Tramo): boolean {
     [body.destino_latitud, tr.destino_latitud],
     [body.destino_longitud, tr.destino_longitud],
   ];
-  return pairs.some(
+  const coordsChanged = pairs.some(
     ([next, prev]) => next != null && (prev == null || Number(next) !== Number(prev)),
   );
+  // También cuenta como cambio el texto del lugar: si el usuario editó la
+  // dirección (aunque no toque las coordenadas), hay que persistirla. Un campo
+  // ausente en el body no cuenta: se conserva el del server.
+  const texts: [string | undefined, string | null][] = [
+    [body.origen_lugar_nombre, tr.origen_lugar_nombre],
+    [body.origen_direccion, tr.origen_direccion],
+    [body.destino_lugar_nombre, tr.destino_lugar_nombre],
+    [body.destino_direccion, tr.destino_direccion],
+  ];
+  const textChanged = texts.some(
+    ([next, prev]) => next != null && next !== (prev ?? ""),
+  );
+  return coordsChanged || textChanged;
 }
 
 async function syncTramos(trip: Trip, viajeId: number, existing: Tramo[]): Promise<void> {

@@ -152,20 +152,25 @@ export interface PasajeroWrite {
   es_principal?: boolean;
 }
 
-// Tramo anidado en la creación del viaje (POST /viajes/). A diferencia del Tramo
-// standalone, solo lleva COORDENADAS (lat/lng): el backend resuelve
-// localidad/provincia por reverse geocoding. Origen y destino van en el MISMO
-// objeto (un tramo = un trayecto completo). El orden de la lista define el
-// numero_tramo; el primero es el principal. Reglas (400 si se violan): la lat y
-// la long de un extremo van siempre juntas; cada tramo necesita al menos un
-// extremo (origen o destino) con sus dos coordenadas.
+// Tramo anidado en la creación del viaje (POST /viajes/). Lleva las COORDENADAS
+// (lat/lng) y el TEXTO del lugar elegido en el autocomplete (lugar_nombre +
+// direccion), para que al reabrir el viaje se muestre la dirección y no las
+// coordenadas crudas. Origen y destino van en el MISMO objeto (un tramo = un
+// trayecto completo). El orden de la lista define el numero_tramo; el primero es
+// el principal. Reglas (400 si se violan): la lat y la long de un extremo van
+// siempre juntas; cada tramo necesita al menos un extremo (origen o destino) con
+// sus dos coordenadas.
 export interface TramoInput {
   origen_latitud?: string | null;
   origen_longitud?: string | null;
+  origen_lugar_nombre?: string;
+  origen_direccion?: string;
   origen_es_aeropuerto?: boolean;
   origen_iata?: string;
   destino_latitud?: string | null;
   destino_longitud?: string | null;
+  destino_lugar_nombre?: string;
+  destino_direccion?: string;
   destino_es_aeropuerto?: boolean;
   destino_iata?: string;
 }

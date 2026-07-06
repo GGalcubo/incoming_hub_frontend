@@ -519,7 +519,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                   <PlaceCombo
                                     value={l.origin}
                                     onChange={(v) => updateLeg(r.row, i, { origin: v })}
-                                    onPick={(desc) => updateLeg(r.row, i, { origin: desc })}
+                                    onPick={(pick) => updateLeg(r.row, i, { origin: pick.description })}
                                   />
                                   {l.originResolved && (
                                     <span className={styles.legResolved}>{l.originResolved}</span>
@@ -533,7 +533,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                                 <PlaceCombo
                                   value={l.destination}
                                   onChange={(v) => updateLeg(r.row, i, { destination: v })}
-                                  onPick={(desc) => updateLeg(r.row, i, { destination: desc })}
+                                  onPick={(pick) => updateLeg(r.row, i, { destination: pick.description })}
                                 />
                                 {l.destinationResolved && (
                                   <span className={styles.legResolved}>
