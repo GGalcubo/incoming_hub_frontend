@@ -1,0 +1,117 @@
+import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { Button } from "../../components/ui/Button";
+import { Field, Input } from "../../components/ui/Field";
+import { useToast } from "../../context/ToastContext";
+import type { UseMe } from "../../hooks/useMe";
+import type { TarifaExtras } from "../../types/tarifas";
+import styles from "./Tarifas.module.css";
+
+// Cada fila del form: una unidad (espera/hora/km) con su valor proveedor y cliente.
+interface ExtraRow {
+  label: string;
+  unit: string;
+  provKey: keyof TarifaExtras;
+  cliKey: keyof TarifaExtras;
+}
+
+const ROWS: ExtraRow[] = [
+  { label: "Espera", unit: "u$s por minuto", provKey: "esperaProveedor", cliKey: "esperaCliente" },
+  {
+    label: "Hora de disponibilidad",
+    unit: "u$s por hora",
+    provKey: "horaDispoProveedor",
+    cliKey: "horaDispoCliente",
+  },
+  { label: "Km adicional", unit: "u$s por km", provKey: "kmProveedor", cliKey: "kmCliente" },
+];
+
+export function TarifasExtras({ me }: { me: UseMe }) {
+  const { flash } = useToast();
+  const qc = useQueryClient();
+  const { isAdmin, isProvider, isAgency } = me;
+  const canEdit = isAdmin || isProvider;
+  const showCliente = !isProvider; // el proveedor no ve el costo al cliente
+  const showProveedor = !isAgency;
+
+  const { data } = useQuery({ queryKey: ["tarifasExtras"], queryFn: () => api.getTarifasExtras() });
+  const [form, setForm] = useState<TarifaExtras | null>(null);
+
+  useEffect(() => {
+    if (data) setForm(data);
+  }, [data]);
+
+  const saveMut = useMutation({
+    mutationFn: (patch: Partial<TarifaExtras>) => api.updateTarifasExtras(patch),
+    onSuccess: (saved) => {
+      qc.setQueryData(["tarifasExtras"], saved);
+      setForm(saved);
+      flash("Extras actualizados", "success");
+    },
+    onError: (e) => flash(e instanceof Error ? e.message : "No se pudo guardar", "error"),
+  });
+
+  if (!form) return <div className={styles.empty}>Cargando extras…</div>;
+
+  const set = (key: keyof TarifaExtras, value: number) =>
+    setForm((f) => (f ? { ...f, [key]: value } : f));
+
+  return (
+    <div className={styles.formCard}>
+      <p className={styles.hint} style={{ marginBottom: 12 }}>
+        Solo existe un set de extras. {showProveedor && showCliente
+          ? "Definí el valor que cobra el proveedor y el que se factura al cliente."
+          : showProveedor
+            ? "Definí el valor que cobra el proveedor."
+            : "Valores facturados al cliente."}
+      </p>
+
+      {ROWS.map((r) => (
+        <div key={r.label} className={styles.extrasGroup}>
+          <div>
+            <div className={styles.extrasLabel}>{r.label}</div>
+            <div className={styles.extrasUnit}>{r.unit}</div>
+          </div>
+          {showProveedor && (
+            <Field label="Proveedor">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                disabled={!canEdit}
+                value={(form[r.provKey] as number) || ""}
+                onChange={(e) => set(r.provKey, Number(e.target.value))}
+              />
+            </Field>
+          )}
+          {showCliente && (
+            <Field label="Cliente">
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                disabled={!isAdmin}
+                value={(form[r.cliKey] as number) || ""}
+                onChange={(e) => set(r.cliKey, Number(e.target.value))}
+              />
+            </Field>
+          )}
+        </div>
+      ))}
+
+      {canEdit && (
+        <div className={styles.formActions}>
+          <Button
+            kind="primary"
+            icon="check"
+            disabled={saveMut.isPending}
+            onClick={() => saveMut.mutate(form)}
+          >
+            Guardar cambios
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}

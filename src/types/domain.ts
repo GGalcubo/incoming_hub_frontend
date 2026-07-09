@@ -50,6 +50,23 @@ export interface TripCosts {
   peajes: number;
   estacionamiento: number;
   otros: number;
+  // Moneda de los montos. Las tarifas nuevas trabajan en USD ("Los costos son en
+  // dólares"); los viajes viejos sincronizados desde Central quedan sin moneda
+  // (se muestran como estaban).
+  moneda?: string;
+  // Costo del proveedor para el tramo base (u$s). Se guarda aparte de `viaje`
+  // (que es el precio al cliente) para no exponerlo nunca al cliente.
+  tarifaProveedor?: number;
+}
+
+// Metadata del paso "Tarifa" (solo frontend: no se envía al backend). Guarda la
+// ruta y modalidad elegidas para poder reconstruir la selección al reabrir.
+export interface TripTarifa {
+  origen?: string;
+  destino?: string;
+  categoria?: string; // código de VehicleCategoria (STD/EJE/VVIP/VAN)
+  modalidad?: "traslado" | "horas";
+  horas?: number;
 }
 
 export interface HistoryEntry {
@@ -77,6 +94,7 @@ export interface Trip {
   costs: TripCosts;
   history: HistoryEntry[];
   solicitante?: string;
+  tarifa?: TripTarifa;
 }
 
 export interface StatusMeta {

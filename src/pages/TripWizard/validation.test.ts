@@ -12,7 +12,8 @@ describe("validateTripStep — paso viaje", () => {
     const errs = validateTripStep("viaje", EMPTY_TRIP);
     expect(errs.solicitante).toBeDefined();
     expect(errs.time).toBeDefined();
-    expect(errs.cat).toBeDefined();
+    // La categoría ya no se valida acá: se eligió mover al paso "tarifa".
+    expect(errs.cat).toBeUndefined();
     // EMPTY_TRIP ya trae fecha (TODAY), así que no debe marcarse
     expect(errs.date).toBeUndefined();
   });
@@ -35,6 +36,24 @@ describe("validateTripStep — paso viaje", () => {
 
   it("marca la agencia faltante", () => {
     expect(validateTripStep("viaje", EMPTY_TRIP).agc).toBeDefined();
+  });
+});
+
+describe("validateTripStep — paso tarifa", () => {
+  it("exige elegir una categoría", () => {
+    expect(validateTripStep("tarifa", EMPTY_TRIP).cat).toBeDefined();
+  });
+
+  it("no marca error con una categoría elegida en modo traslado", () => {
+    const trip = tripWith({ cat: "STANDARD", tarifa: { modalidad: "traslado" } });
+    expect(validateTripStep("tarifa", trip)).toEqual({});
+  });
+
+  it("en modo horas exige la cantidad de horas", () => {
+    const trip = tripWith({ cat: "VAN", tarifa: { modalidad: "horas" } });
+    expect(validateTripStep("tarifa", trip).horas).toBeDefined();
+    const ok = tripWith({ cat: "VAN", tarifa: { modalidad: "horas", horas: 3 } });
+    expect(validateTripStep("tarifa", ok)).toEqual({});
   });
 });
 

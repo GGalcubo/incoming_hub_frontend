@@ -1,32 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { Field, Input, Select } from "../../../components/ui/Field";
-import { AGENCIES, CATEGORIES } from "../../../data/seed";
+import { AGENCIES } from "../../../data/seed";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
 export function StepViaje({ t, set, errs }: StepProps) {
-  const [categories, setCategories] = useState<string[]>(CATEGORIES);
   const [agencies, setAgencies] = useState<string[]>(AGENCIES);
   // El solicitante es el usuario logueado; el admin puede elegir otro de la agencia.
   const [loggedUser, setLoggedUser] = useState<string>(t.solicitante ?? "");
   const [isAdmin, setIsAdmin] = useState(false);
   const [solByAgency, setSolByAgency] = useState<Record<string, string[]>>({});
-
-  useEffect(() => {
-    let active = true;
-    api
-      .listCategorias()
-      .then((cats) => {
-        if (active && cats.length) setCategories(cats);
-      })
-      .catch(() => {
-        /* sin backend: se mantiene el catálogo por defecto */
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -67,10 +51,8 @@ export function StepViaje({ t, set, errs }: StepProps) {
     set({ agc, solicitante: next });
   };
 
-  // Si el viaje en edición trae valores que no están en el catálogo, los
+  // Si el viaje en edición trae una agencia que no está en el catálogo, la
   // incluimos para que la selección no se pierda.
-  const catOptions =
-    t.cat && !categories.includes(t.cat) ? [t.cat, ...categories] : categories;
   const agcOptions =
     t.agc && !agencies.includes(t.agc) ? [t.agc, ...agencies] : agencies;
 
@@ -121,7 +103,7 @@ export function StepViaje({ t, set, errs }: StepProps) {
         <Field label="Fecha" required error={errs.date}>
           <Input type="date" value={t.date} onChange={(e) => set({ date: e.target.value })} />
         </Field>
-        <Field label="Hora" required error={errs.time}>
+        <Field label="Hora" required error={errs.time} span={2}>
           <Input
             type="time"
             lang="es-ES"
@@ -129,14 +111,6 @@ export function StepViaje({ t, set, errs }: StepProps) {
             value={t.time}
             onChange={(e) => set({ time: e.target.value })}
           />
-        </Field>
-        <Field label="Categoría de servicio" required error={errs.cat} span={2}>
-          <Select value={t.cat} onChange={(e) => set({ cat: e.target.value })}>
-            <option value="">—</option>
-            {catOptions.map((c) => (
-              <option key={c}>{c}</option>
-            ))}
-          </Select>
         </Field>
       </div>
     </>

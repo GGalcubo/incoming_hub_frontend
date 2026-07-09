@@ -21,7 +21,7 @@ export function validateTripStep(
     if (!t.solicitante) e.solicitante = "Ingresá el solicitante";
     if (!t.date) e.date = "La fecha es obligatoria";
     if (!t.time) e.time = "La hora es obligatoria";
-    if (!t.cat) e.cat = "La categoría es obligatoria";
+    // La categoría ya no se elige acá: se selecciona en el paso "Tarifa".
   }
 
   if (stepId === "pasajeros") {
@@ -31,6 +31,15 @@ export function validateTripStep(
       if (!px.phone) e[`pax-${i}-phone`] = "Ingresá el teléfono";
       else if (!PHONE_RE.test(px.phone)) e[`pax-${i}-phone`] = "Teléfono inválido";
     });
+  }
+
+  if (stepId === "tarifa") {
+    // Hay que elegir una categoría (card). El precio puede ser 0 en modo horas
+    // hasta que se cargue la cantidad de horas.
+    if (!t.cat) e.cat = "Elegí una categoría";
+    if (t.tarifa?.modalidad === "horas" && !(t.tarifa.horas && t.tarifa.horas > 0)) {
+      e.horas = "Ingresá las horas a disposición";
+    }
   }
 
   if (stepId === "tramos") {

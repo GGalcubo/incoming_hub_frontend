@@ -214,7 +214,9 @@ export interface ViajePersonaWrite {
 }
 
 // ── Perfil de usuario (/auth/me/) ────────────────────────────────────────────
-export type RoleEnum = "admin" | "agency_staff" | "agency_operator";
+// `proveedor` es el rol nuevo (deck "Nuevo Rol: Proveedor"): carga/edita tarifas
+// y modifica los costos de los viajes que tiene asignados.
+export type RoleEnum = "admin" | "agency_staff" | "agency_operator" | "proveedor";
 
 // Lectura del usuario autenticado (GET /auth/me/).
 export interface MeProfile {

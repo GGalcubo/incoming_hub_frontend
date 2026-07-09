@@ -1,9 +1,16 @@
-import type { MeProfile, MeWrite, Paginated, Persona } from "./backend";
+import type { MeProfile, MeWrite, Paginated, Persona, RoleEnum } from "./backend";
 import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
+import type {
+  CategoriaTarifada,
+  TarifaBase,
+  TarifaBaseInput,
+  TarifaExtras,
+} from "../types/tarifas";
 import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
+import * as tarifas from "./tarifas";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -52,6 +59,17 @@ let mockTrips: Trip[] = loadMockTrips();
 
 const MOCK_ME_KEY = "proxy:mockMe";
 
+// Sin backend de auth, derivamos el rol del username para poder probar cada rol:
+// "prov…" → proveedor, "agen…"/"cliente…"/"oper…" → operador de agencia, resto → admin.
+function mockRoleFromUsername(username: string): RoleEnum {
+  const u = username.trim().toLowerCase();
+  if (u.startsWith("prov")) return "proveedor";
+  if (u.startsWith("agen") || u.startsWith("cliente") || u.startsWith("oper")) {
+    return "agency_operator";
+  }
+  return "admin";
+}
+
 function loadMockMe(): MeProfile {
   let username = "usuario";
   try {
@@ -66,7 +84,7 @@ function loadMockMe(): MeProfile {
     email: "",
     first_name: "",
     last_name: "",
-    role: "admin",
+    role: mockRoleFromUsername(username),
     phone: "",
   };
   try {
@@ -351,5 +369,34 @@ export const api = {
       }
     }
     return { count, errors };
+  },
+
+  // ── Tarifas ────────────────────────────────────────────────────────────────
+  // El backend aún no expone tarifas: siempre van contra el mock (localStorage).
+  // Cuando publique los endpoints, se cambia el cuerpo de api/tarifas.ts y esto
+  // sigue igual.
+  listTarifasBase(): Promise<TarifaBase[]> {
+    return tarifas.listTarifasBase();
+  },
+  createTarifaBase(input: TarifaBaseInput): Promise<TarifaBase> {
+    return tarifas.createTarifaBase(input);
+  },
+  updateTarifaBase(t: TarifaBase): Promise<TarifaBase> {
+    return tarifas.updateTarifaBase(t);
+  },
+  deleteTarifaBase(id: string): Promise<void> {
+    return tarifas.deleteTarifaBase(id);
+  },
+  getTarifasExtras(): Promise<TarifaExtras> {
+    return tarifas.getTarifasExtras();
+  },
+  updateTarifasExtras(patch: Partial<TarifaExtras>): Promise<TarifaExtras> {
+    return tarifas.updateTarifasExtras(patch);
+  },
+  listTarifaLugares(): Promise<string[]> {
+    return tarifas.listLugares();
+  },
+  getCategoriasTarifadas(origen: string, destino: string): Promise<CategoriaTarifada[]> {
+    return tarifas.getCategoriasTarifadas(origen, destino);
   },
 };

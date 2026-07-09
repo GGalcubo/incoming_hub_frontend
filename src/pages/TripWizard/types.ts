@@ -3,7 +3,14 @@ import type { Trip } from "../../types/domain";
 
 export type Mode = "new" | "edit";
 
-export type StepId = "viaje" | "pasajeros" | "tramos" | "costos" | "resumen" | "historial";
+export type StepId =
+  | "viaje"
+  | "pasajeros"
+  | "tramos"
+  | "tarifa"
+  | "costos"
+  | "resumen"
+  | "historial";
 
 export interface StepDef {
   id: StepId;

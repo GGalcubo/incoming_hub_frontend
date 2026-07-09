@@ -3,7 +3,9 @@ import type { ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useModals } from "../context/ModalsContext";
 import { useUser } from "../context/UserContext";
+import { useMe } from "../hooks/useMe";
 import { cx } from "../lib/cx";
+import type { RoleEnum } from "../api/backend";
 import type { User } from "../types/domain";
 import { Icon } from "./ui/Icon";
 import styles from "./Topbar.module.css";
@@ -19,6 +21,8 @@ interface NavItem {
   icon: string;
   to: string;
   match: (path: string) => boolean;
+  // Roles que ven el ítem; undefined = todos.
+  roles?: RoleEnum[];
 }
 
 const NAV: NavItem[] = [
@@ -33,16 +37,36 @@ const NAV: NavItem[] = [
     icon: "users",
     to: "/pasajeros",
     match: (p) => p.startsWith("/pasajeros"),
+    roles: ["admin", "agency_staff", "agency_operator"],
+  },
+  {
+    label: "Tarifas",
+    icon: "tag",
+    to: "/tarifas",
+    match: (p) => p.startsWith("/tarifas"),
+    roles: ["admin", "proveedor", "agency_staff", "agency_operator"],
   },
 ];
+
+const ROLE_LABEL: Record<RoleEnum, string> = {
+  admin: "Administrador",
+  agency_staff: "Agencia",
+  agency_operator: "Operador",
+  proveedor: "Proveedor",
+};
 
 export function Topbar({ title, subtitle, actions }: TopbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useUser();
   const { openExcel, openSettings } = useModals();
+  const { role, isProvider } = useMe();
   const showGlobal = Boolean(user);
   const showPageRow = Boolean(title || subtitle || actions);
+  // El proveedor no crea viajes ni carga por Excel: solo consulta los asignados y
+  // gestiona sus tarifas/costos.
+  const canCreateTrips = !isProvider;
+  const navItems = NAV.filter((item) => !item.roles || (role != null && item.roles.includes(role)));
 
   return (
     <div className={styles.topbar}>
@@ -57,7 +81,7 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
           </button>
 
           <nav className={styles.nav}>
-            {NAV.map((item) => (
+            {navItems.map((item) => (
               <NavButton
                 key={item.to}
                 active={item.match(location.pathname)}
@@ -66,19 +90,28 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
                 onClick={() => navigate(item.to)}
               />
             ))}
-            <NavButton active={false} icon="upload" label="Cargar Excel" onClick={openExcel} />
-            <NavButton
-              active={location.pathname === "/viajes/nuevo"}
-              icon="plus"
-              label="Nuevo viaje"
-              primary
-              onClick={() => navigate("/viajes/nuevo")}
-            />
+            {canCreateTrips && (
+              <>
+                <NavButton active={false} icon="upload" label="Cargar Excel" onClick={openExcel} />
+                <NavButton
+                  active={location.pathname === "/viajes/nuevo"}
+                  icon="plus"
+                  label="Nuevo viaje"
+                  primary
+                  onClick={() => navigate("/viajes/nuevo")}
+                />
+              </>
+            )}
           </nav>
 
           <div className={styles.spacer} />
 
-          <UserMenu user={user!} onLogout={logout} onOpenSettings={openSettings} />
+          <UserMenu
+            user={user!}
+            roleLabel={role ? ROLE_LABEL[role] : "Operador"}
+            onLogout={logout}
+            onOpenSettings={openSettings}
+          />
         </div>
       )}
 
@@ -117,11 +150,12 @@ function NavButton({ active, icon, label, onClick, primary }: NavButtonProps) {
 
 interface UserMenuProps {
   user: User;
+  roleLabel: string;
   onLogout?: () => void;
   onOpenSettings?: () => void;
 }
 
-function UserMenu({ user, onLogout, onOpenSettings }: UserMenuProps) {
+function UserMenu({ user, roleLabel, onLogout, onOpenSettings }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const initial = (user.user || "?")[0].toUpperCase();
@@ -159,7 +193,7 @@ function UserMenu({ user, onLogout, onOpenSettings }: UserMenuProps) {
         <div className={styles.menu}>
           <div className={styles.menuHeader}>
             <div className={styles.menuName}>{user.user}</div>
-            <div className={styles.menuRole}>Operador</div>
+            <div className={styles.menuRole}>{roleLabel}</div>
           </div>
           <MenuItem
             icon="edit"

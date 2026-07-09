@@ -9,6 +9,7 @@ import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
+import { TarifasPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
 import type { Trip, TripStatus } from "./types/domain";
@@ -157,6 +158,7 @@ export function App() {
             </>
           }
         />
+        <Route path="/tarifas" element={<TarifasPage />} />
         <Route path="/login" element={<Navigate to="/viajes" replace />} />
         <Route path="*" element={<Navigate to="/viajes" replace />} />
       </Routes>

@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<RoleEnum, string> = {
   admin: "Administrador",
   agency_staff: "Staff de agencia",
   agency_operator: "Operador de agencia",
+  proveedor: "Proveedor",
 };
 
 interface FormState {

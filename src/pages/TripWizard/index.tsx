@@ -12,6 +12,7 @@ import { StepCostos } from "./steps/StepCostos";
 import { StepHistorial } from "./steps/StepHistorial";
 import { StepPasajeros } from "./steps/StepPasajeros";
 import { StepResumen } from "./steps/StepResumen";
+import { StepTarifa } from "./steps/StepTarifa";
 import { StepTramos } from "./steps/StepTramos";
 import { StepViaje } from "./steps/StepViaje";
 import { EMPTY_TRIP, type Mode, type StepDef } from "./types";
@@ -44,6 +45,7 @@ export function TripWizard({
     { id: "viaje", label: "Viaje" },
     { id: "pasajeros", label: "Pasajeros" },
     { id: "tramos", label: "Destinos" },
+    { id: "tarifa", label: "Tarifa" },
     ...(mode === "edit" ? [{ id: "costos" as const, label: "Costos" }] : []),
     { id: "resumen", label: "Resumen" },
     ...(mode === "edit" ? [{ id: "historial" as const, label: "Historial" }] : []),
@@ -95,7 +97,11 @@ export function TripWizard({
     setDirty(true);
     setT((prev) => ({ ...prev, ...patch }));
   };
-  const wide = step.id === "resumen" || step.id === "historial" || step.id === "tramos";
+  const wide =
+    step.id === "resumen" ||
+    step.id === "historial" ||
+    step.id === "tramos" ||
+    step.id === "tarifa";
 
   const validateStep = () => {
     // Con Google Maps disponible exigimos que cada destino esté geocodificado:
@@ -243,7 +249,8 @@ export function TripWizard({
           {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} />}
           {step.id === "pasajeros" && <StepPasajeros t={t} set={set} errs={errs} />}
           {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} />}
-          {step.id === "costos" && <StepCostos t={t} />}
+          {step.id === "tarifa" && <StepTarifa t={t} set={set} errs={errs} />}
+          {step.id === "costos" && <StepCostos t={t} set={set} />}
           {step.id === "resumen" && <StepResumen t={t} />}
           {step.id === "historial" && <StepHistorial t={t} />}
         </div>

@@ -1,0 +1,357 @@
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { Button } from "../../components/ui/Button";
+import { Field, Input, Select } from "../../components/ui/Field";
+import { Icon } from "../../components/ui/Icon";
+import { Modal } from "../../components/ui/Modal";
+import { useToast } from "../../context/ToastContext";
+import { VEHICLE_CATEGORIAS } from "../../data/tarifasSeed";
+import type { UseMe } from "../../hooks/useMe";
+import { cx } from "../../lib/cx";
+import type { TarifaBase, TarifaBaseInput } from "../../types/tarifas";
+import styles from "./Tarifas.module.css";
+
+const CAT_NOMBRE = new Map(VEHICLE_CATEGORIAS.map((c) => [c.codigo, c.nombre]));
+
+const emptyDraft = (): TarifaBaseInput => ({
+  origen: "",
+  destino: "",
+  categoria: VEHICLE_CATEGORIAS[0]?.codigo ?? "",
+  tarifaProveedor: 0,
+  tarifaCliente: 0,
+  activo: true,
+});
+
+export function TarifasBase({ me }: { me: UseMe }) {
+  const { flash } = useToast();
+  const qc = useQueryClient();
+  const { isAdmin, isProvider, isAgency } = me;
+  // Proveedor y admin editan; el cliente (agencia) solo consulta.
+  const canEdit = isAdmin || isProvider;
+  // "Los proveedores no deben ver el costo final al cliente".
+  const showCliente = !isProvider;
+  const showProveedor = !isAgency;
+
+  const [origenFilter, setOrigenFilter] = useState("");
+  const [destinoFilter, setDestinoFilter] = useState("");
+  const [editing, setEditing] = useState<TarifaBase | null>(null);
+  const [draft, setDraft] = useState<TarifaBaseInput | null>(null);
+  const [toDelete, setToDelete] = useState<TarifaBase | null>(null);
+
+  const { data: tarifas = [], isLoading } = useQuery({
+    queryKey: ["tarifasBase"],
+    queryFn: () => api.listTarifasBase(),
+  });
+  const { data: lugares = [] } = useQuery({
+    queryKey: ["tarifaLugares"],
+    queryFn: () => api.listTarifaLugares(),
+  });
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["tarifasBase"] });
+
+  const saveMut = useMutation({
+    mutationFn: (input: { draft: TarifaBaseInput; id?: string }) =>
+      input.id
+        ? api.updateTarifaBase({ ...input.draft, id: input.id })
+        : api.createTarifaBase(input.draft),
+    onSuccess: (_r, vars) => {
+      invalidate();
+      flash(vars.id ? "Tarifa actualizada" : "Tarifa creada", "success");
+      closeModal();
+    },
+    onError: (e) => flash(e instanceof Error ? e.message : "No se pudo guardar", "error"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => api.deleteTarifaBase(id),
+    onSuccess: () => {
+      invalidate();
+      flash("Tarifa eliminada", "success");
+      setToDelete(null);
+    },
+    onError: (e) => flash(e instanceof Error ? e.message : "No se pudo eliminar", "error"),
+  });
+
+  const rows = useMemo(
+    () =>
+      tarifas.filter(
+        (t) =>
+          (!origenFilter || t.origen === origenFilter) &&
+          (!destinoFilter || t.destino === destinoFilter),
+      ),
+    [tarifas, origenFilter, destinoFilter],
+  );
+
+  const openNew = () => {
+    setEditing(null);
+    setDraft(emptyDraft());
+  };
+  const openEdit = (t: TarifaBase) => {
+    setEditing(t);
+    const { id: _id, ...rest } = t;
+    void _id;
+    setDraft(rest);
+  };
+  const closeModal = () => {
+    setDraft(null);
+    setEditing(null);
+  };
+
+  // Columnas dinámicas según lo que el rol puede ver.
+  const cols = [
+    "minmax(80px, 1fr)", // origen
+    "minmax(80px, 1fr)", // destino
+    "minmax(110px, 1.2fr)", // categoría
+    ...(showProveedor ? ["minmax(90px, 0.9fr)"] : []),
+    ...(showCliente ? ["minmax(90px, 0.9fr)"] : []),
+    "88px", // estado
+    ...(canEdit ? ["96px"] : []),
+  ].join(" ");
+
+  return (
+    <>
+      <div className={styles.toolbar}>
+        <Field label="Origen" className={styles.filterField}>
+          <Select value={origenFilter} onChange={(e) => setOrigenFilter(e.target.value)}>
+            <option value="">Todos</option>
+            {lugares.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Destino" className={styles.filterField}>
+          <Select value={destinoFilter} onChange={(e) => setDestinoFilter(e.target.value)}>
+            <option value="">Todos</option>
+            {lugares.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </Select>
+        </Field>
+        <div className={styles.spacer} />
+        {canEdit && (
+          <Button kind="primary" icon="plus" onClick={openNew}>
+            Nueva tarifa
+          </Button>
+        )}
+      </div>
+
+      <div className={styles.tableWrap}>
+        <div className={styles.headRow} style={{ gridTemplateColumns: cols }}>
+          <div className={styles.th}>Origen</div>
+          <div className={styles.th}>Destino</div>
+          <div className={styles.th}>Categoría</div>
+          {showProveedor && <div className={cx(styles.th, styles.num)}>Proveedor</div>}
+          {showCliente && <div className={cx(styles.th, styles.num)}>Cliente</div>}
+          <div className={styles.th}>Estado</div>
+          {canEdit && <div className={cx(styles.th, styles.num)}>Acciones</div>}
+        </div>
+
+        {isLoading ? (
+          <div className={styles.empty}>Cargando tarifas…</div>
+        ) : rows.length === 0 ? (
+          <div className={styles.empty}>No hay tarifas para el filtro seleccionado.</div>
+        ) : (
+          rows.map((t) => (
+            <div
+              key={t.id}
+              className={cx(styles.row, !t.activo && styles.rowInactive)}
+              style={{ gridTemplateColumns: cols }}
+            >
+              <div className={styles.td}>{t.origen}</div>
+              <div className={styles.td}>{t.destino}</div>
+              <div className={styles.td}>{CAT_NOMBRE.get(t.categoria) ?? t.categoria}</div>
+              {showProveedor && (
+                <div className={cx(styles.td, styles.num)}>u$s {t.tarifaProveedor}</div>
+              )}
+              {showCliente && (
+                <div className={cx(styles.td, styles.num)}>u$s {t.tarifaCliente}</div>
+              )}
+              <div className={styles.td}>
+                <span className={cx(styles.badge, t.activo ? styles.badgeOn : styles.badgeOff)}>
+                  {t.activo ? "Activa" : "Inactiva"}
+                </span>
+              </div>
+              {canEdit && (
+                <div className={styles.tdActions}>
+                  <button
+                    className={styles.iconBtn}
+                    title="Editar"
+                    onClick={() => openEdit(t)}
+                  >
+                    <Icon name="edit" size={15} />
+                  </button>
+                  <button
+                    className={cx(styles.iconBtn, styles.iconBtnDanger)}
+                    title="Eliminar"
+                    onClick={() => setToDelete(t)}
+                  >
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {draft && (
+        <TarifaModal
+          draft={draft}
+          setDraft={setDraft}
+          lugares={lugares}
+          showCliente={showCliente}
+          showProveedor={showProveedor}
+          saving={saveMut.isPending}
+          title={editing ? "Editar tarifa" : "Nueva tarifa"}
+          onClose={closeModal}
+          onSave={() => saveMut.mutate({ draft, id: editing?.id })}
+        />
+      )}
+
+      {toDelete && (
+        <Modal
+          open
+          onClose={() => setToDelete(null)}
+          title="Eliminar tarifa"
+          width={440}
+          footer={
+            <>
+              <Button onClick={() => setToDelete(null)}>Cancelar</Button>
+              <Button
+                kind="dangerSolid"
+                icon="trash"
+                disabled={deleteMut.isPending}
+                onClick={() => deleteMut.mutate(toDelete.id)}
+              >
+                Eliminar
+              </Button>
+            </>
+          }
+        >
+          <div className={styles.hint}>
+            Se eliminará la tarifa {toDelete.origen} → {toDelete.destino} (
+            {CAT_NOMBRE.get(toDelete.categoria) ?? toDelete.categoria}). Esta acción no se puede
+            deshacer.
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+function TarifaModal({
+  draft,
+  setDraft,
+  lugares,
+  showCliente,
+  showProveedor,
+  saving,
+  title,
+  onClose,
+  onSave,
+}: {
+  draft: TarifaBaseInput;
+  setDraft: (d: TarifaBaseInput) => void;
+  lugares: string[];
+  showCliente: boolean;
+  showProveedor: boolean;
+  saving: boolean;
+  title: string;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  const set = (patch: Partial<TarifaBaseInput>) => setDraft({ ...draft, ...patch });
+  const numOk = (v: number) => v > 0;
+  const valid =
+    !!draft.origen &&
+    !!draft.destino &&
+    draft.origen !== draft.destino &&
+    !!draft.categoria &&
+    (!showProveedor || numOk(draft.tarifaProveedor)) &&
+    (!showCliente || numOk(draft.tarifaCliente));
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={title}
+      width={520}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button kind="primary" icon="check" disabled={!valid || saving} onClick={onSave}>
+            Guardar
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 16px" }}>
+        <Field label="Origen" required>
+          <Select value={draft.origen} onChange={(e) => set({ origen: e.target.value })}>
+            <option value="">—</option>
+            {lugares.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field
+          label="Destino"
+          required
+          error={
+            draft.origen && draft.origen === draft.destino
+              ? "Origen y destino no pueden coincidir."
+              : undefined
+          }
+        >
+          <Select value={draft.destino} onChange={(e) => set({ destino: e.target.value })}>
+            <option value="">—</option>
+            {lugares.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Categoría de vehículo" required span={2}>
+          <Select value={draft.categoria} onChange={(e) => set({ categoria: e.target.value })}>
+            {VEHICLE_CATEGORIAS.map((c) => (
+              <option key={c.codigo} value={c.codigo}>
+                {c.nombre} · {c.vehiculo}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        {showProveedor && (
+          <Field label="Tarifa proveedor (u$s)" required>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={draft.tarifaProveedor || ""}
+              onChange={(e) => set({ tarifaProveedor: Number(e.target.value) })}
+            />
+          </Field>
+        )}
+        {showCliente && (
+          <Field label="Tarifa cliente (u$s)" required>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={draft.tarifaCliente || ""}
+              onChange={(e) => set({ tarifaCliente: Number(e.target.value) })}
+            />
+          </Field>
+        )}
+        <Field label="Estado" span={2}>
+          <Select
+            value={draft.activo ? "1" : "0"}
+            onChange={(e) => set({ activo: e.target.value === "1" })}
+          >
+            <option value="1">Activa</option>
+            <option value="0">Inactiva</option>
+          </Select>
+        </Field>
+      </div>
+    </Modal>
+  );
+}
