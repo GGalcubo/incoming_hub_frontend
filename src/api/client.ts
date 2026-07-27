@@ -5,14 +5,19 @@ import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
 import type {
   CategoriaTarifada,
+  Cliente,
   Proveedor,
   TarifaBase,
   TarifaBaseInput,
+  TarifaCliente,
+  TarifaClienteExtras,
+  TarifaClienteInput,
   TarifaExtras,
 } from "../types/tarifas";
 import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as proveedores from "./proveedores";
 import * as tarifas from "./tarifas";
+import * as tarifasCliente from "./tarifasCliente";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -451,5 +456,60 @@ export const api = {
     proveedorId?: string,
   ): Promise<CategoriaTarifada[]> {
     return tarifas.getCategoriasTarifadas(origen, destino, proveedorId);
+  },
+
+  // ── Tarifas de cliente ─────────────────────────────────────────────────────
+  // Mismo esquema que las de proveedor, del otro lado del mostrador. El catálogo
+  // de clientes son las agencias que ya expone el backend: las tomamos de
+  // passengersAccess(), que además resuelve la agencia propia del usuario.
+
+  // Catálogo de clientes (agencias) visibles para el usuario logueado.
+  async listClientes(): Promise<Cliente[]> {
+    const { agencies } = await this.passengersAccess();
+    return agencies.map((a) => ({ id: a.nombre, nombre: a.nombre }));
+  },
+
+  // Scope del tarifario de cliente: null = admin (ve y edita todos); un id = la
+  // agencia propia (solo consulta la suya). El proveedor NO tiene acceso: no
+  // puede ver lo que se le factura al cliente.
+  async clienteScope(): Promise<string | null> {
+    const me = await this.getMe();
+    if (me.role === "proveedor") throw new Error("Sin acceso al tarifario de clientes.");
+    if (me.role === "admin") return null;
+    const { agencies, ownAgencyId } = await this.passengersAccess();
+    // Si no se pudo resolver la agencia del usuario, queda con un scope vacío:
+    // no ve tarifas de nadie (mejor que caer al de admin y verlas todas).
+    return agencies.find((a) => a.id === ownAgencyId)?.nombre ?? "";
+  },
+
+  async listTarifasCliente(): Promise<TarifaCliente[]> {
+    const scope = await this.clienteScope();
+    // El admin ve todos los tarifarios: le pasamos el catálogo para que los
+    // clientes que todavía no tienen tarifas arranquen con las de referencia.
+    const clientes = scope === null ? (await this.listClientes()).map((c) => c.id) : [];
+    return tarifasCliente.listTarifasCliente(scope, clientes);
+  },
+  async createTarifaCliente(input: TarifaClienteInput): Promise<TarifaCliente> {
+    return tarifasCliente.createTarifaCliente(input, await this.clienteScope());
+  },
+  async updateTarifaCliente(t: TarifaCliente): Promise<TarifaCliente> {
+    return tarifasCliente.updateTarifaCliente(t, await this.clienteScope());
+  },
+  async deleteTarifaCliente(id: string): Promise<void> {
+    return tarifasCliente.deleteTarifaCliente(id, await this.clienteScope());
+  },
+  async getTarifasClienteExtras(clienteId: string): Promise<TarifaClienteExtras> {
+    // Un cliente solo puede pedir los suyos; el admin, los de cualquiera.
+    const scope = await this.clienteScope();
+    if (scope !== null && scope !== clienteId) {
+      throw new Error("Solo podés consultar tu propio tarifario.");
+    }
+    return tarifasCliente.getTarifasClienteExtras(clienteId);
+  },
+  async updateTarifasClienteExtras(
+    patch: Partial<TarifaClienteExtras>,
+    clienteId: string,
+  ): Promise<TarifaClienteExtras> {
+    return tarifasCliente.updateTarifasClienteExtras(patch, clienteId, await this.clienteScope());
   },
 };

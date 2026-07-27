@@ -3,24 +3,31 @@ import { Topbar } from "../../components/Topbar";
 import { useMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
 import { TarifasBase } from "./TarifasBase";
+import { TarifasClienteBase } from "./TarifasClienteBase";
+import { TarifasClienteExtras } from "./TarifasClienteExtras";
 import { TarifasExtras } from "./TarifasExtras";
 import styles from "./Tarifas.module.css";
 
 type Tab = "base" | "extras";
 
-export function TarifasPage() {
-  const me = useMe();
+// Layout compartido por los dos tarifarios (proveedor y cliente): mismo header,
+// mismas dos solapas. Lo único que cambia es qué tablas se renderizan.
+function TarifasLayout({
+  title,
+  subtitle,
+  base,
+  extras,
+}: {
+  title: string;
+  subtitle: string;
+  base: React.ReactNode;
+  extras: React.ReactNode;
+}) {
   const [tab, setTab] = useState<Tab>("base");
-
-  const subtitle = me.isProvider
-    ? "Gestioná tus tarifas base y de extras."
-    : me.isAgency
-      ? "Consultá las tarifas vigentes."
-      : "Tarifas base por destino y extras.";
 
   return (
     <>
-      <Topbar title="Tarifas" subtitle={subtitle} />
+      <Topbar title={title} subtitle={subtitle} />
       <div className={styles.page}>
         <div className={styles.tabs}>
           <button
@@ -37,8 +44,47 @@ export function TarifasPage() {
           </button>
         </div>
 
-        {tab === "base" ? <TarifasBase me={me} /> : <TarifasExtras me={me} />}
+        {tab === "base" ? base : extras}
       </div>
     </>
+  );
+}
+
+// Tarifario de PROVEEDOR: lo que cuesta cada traslado según quién lo presta.
+export function TarifasProveedorPage() {
+  const me = useMe();
+
+  const subtitle = me.isProvider
+    ? "Gestioná tus tarifas base y de extras."
+    : me.isAgency
+      ? "Consultá las tarifas vigentes."
+      : "Tarifas base por destino y extras, por proveedor.";
+
+  return (
+    <TarifasLayout
+      title="Tarifas Proveedor"
+      subtitle={subtitle}
+      base={<TarifasBase me={me} />}
+      extras={<TarifasExtras me={me} />}
+    />
+  );
+}
+
+// Tarifario de CLIENTE: lo que se le factura a cada agencia. El proveedor no
+// llega acá (la ruta lo redirige): nunca ve el costo al cliente.
+export function TarifasClientePage() {
+  const me = useMe();
+
+  const subtitle = me.isAdmin
+    ? "Tarifas base por destino y extras, por cliente."
+    : "Consultá las tarifas vigentes de tu agencia.";
+
+  return (
+    <TarifasLayout
+      title="Tarifas Cliente"
+      subtitle={subtitle}
+      base={<TarifasClienteBase me={me} />}
+      extras={<TarifasClienteExtras me={me} />}
+    />
   );
 }

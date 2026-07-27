@@ -10,7 +10,7 @@ import { useUser } from "./context/UserContext";
 import { useMe } from "./hooks/useMe";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
-import { TarifasPage } from "./pages/Tarifas";
+import { TarifasClientePage, TarifasProveedorPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
 import type { Trip, TripStatus } from "./types/domain";
@@ -150,7 +150,15 @@ export function App() {
             </>
           }
         />
-        <Route path="/tarifas" element={<TarifasPage />} />
+        <Route path="/tarifas/proveedor" element={<TarifasProveedorPage />} />
+        {/* El proveedor no ve el tarifario de clientes: nunca el costo al cliente. */}
+        <Route
+          path="/tarifas/cliente"
+          element={
+            isProvider ? <Navigate to="/tarifas/proveedor" replace /> : <TarifasClientePage />
+          }
+        />
+        <Route path="/tarifas" element={<Navigate to="/tarifas/proveedor" replace />} />
         <Route path="/login" element={<Navigate to="/viajes" replace />} />
         <Route path="*" element={<Navigate to="/viajes" replace />} />
       </Routes>

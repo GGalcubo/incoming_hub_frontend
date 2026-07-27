@@ -23,6 +23,15 @@ export interface Proveedor {
   nombre: string;
 }
 
+// Un cliente: la agencia a la que se le factura. A diferencia del proveedor, no
+// sale de un seed propio: son las agencias que ya expone el backend (/agencies/).
+// El `id` es el NOMBRE de la agencia porque es la única clave con la que el resto
+// del front la referencia (`Trip.agc`) y es estable contra el mock y el backend.
+export interface Cliente {
+  id: string;
+  nombre: string;
+}
+
 // Una tarifa base: precio de un traslado punto-a-punto para una categoría de
 // vehículo. `tarifaProveedor` es lo que cobra el proveedor; `tarifaCliente` es lo
 // que se le factura al cliente (NUNCA visible para el rol proveedor).
@@ -52,6 +61,33 @@ export interface TarifaExtras {
   horaDispoCliente: number;
   kmProveedor: number; // USD por km adicional
   kmCliente: number;
+}
+
+// ── Tarifario de CLIENTE ─────────────────────────────────────────────────────
+// Espejo del tarifario de proveedor, pero del otro lado del mostrador: lo que se
+// le factura a cada cliente (agencia). Un solo monto por fila, porque el costo
+// del proveedor no pertenece a este tarifario.
+
+export interface TarifaCliente {
+  id: string;
+  // Dueño de la tarifa: cada cliente tiene su propio tarifario.
+  clienteId: string; // Cliente.id (nombre de la agencia)
+  origen: string;
+  destino: string;
+  categoria: string; // VehicleCategoria.codigo
+  tarifa: number; // USD facturados al cliente
+  activo: boolean;
+}
+
+export type TarifaClienteInput = Omit<TarifaCliente, "id">;
+
+// Extras del tarifario de cliente. Igual que con el proveedor, solo puede existir
+// un set por cliente (clave `clienteId`).
+export interface TarifaClienteExtras {
+  clienteId: string;
+  espera: number; // USD por minuto
+  horaDispo: number; // USD por hora de disponibilidad
+  km: number; // USD por km adicional
 }
 
 // Una categoría con su precio ya resuelto para una ruta concreta (lo que consume

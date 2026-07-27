@@ -1,4 +1,11 @@
-import type { Proveedor, TarifaBase, TarifaExtras, VehicleCategoria } from "../types/tarifas";
+import type {
+  Proveedor,
+  TarifaBase,
+  TarifaCliente,
+  TarifaClienteExtras,
+  TarifaExtras,
+  VehicleCategoria,
+} from "../types/tarifas";
 
 // Catálogo de proveedores (mock: el backend todavía no expone /proveedores/).
 // El `id` es también el USERNAME con el que ese proveedor inicia sesión: el mock
@@ -88,4 +95,30 @@ export function seedTarifasBaseFor(proveedorId: string): TarifaBase[] {
     id: `${t.id}-${proveedorId}`,
     proveedorId,
   }));
+}
+
+// ── Seeds del tarifario de CLIENTE ───────────────────────────────────────────
+// No inventamos precios nuevos: el tarifario de arranque de cada cliente sale de
+// la columna `tarifaCliente` de las tarifas base, así los números que ya muestra
+// la app siguen siendo los mismos. Los ids llevan el cliente como sufijo para no
+// colisionar entre tarifarios.
+export function seedTarifasClienteFor(clienteId: string): TarifaCliente[] {
+  return SEED_TARIFAS_BASE.map((t, i) => ({
+    id: `TC-${String(i + 1).padStart(3, "0")}-${clienteId}`,
+    clienteId,
+    origen: t.origen,
+    destino: t.destino,
+    categoria: t.categoria,
+    tarifa: t.tarifaCliente,
+    activo: true,
+  }));
+}
+
+export function seedClienteExtrasFor(clienteId: string): TarifaClienteExtras {
+  return {
+    clienteId,
+    espera: SEED_TARIFAS_EXTRAS.esperaCliente,
+    horaDispo: SEED_TARIFAS_EXTRAS.horaDispoCliente,
+    km: SEED_TARIFAS_EXTRAS.kmCliente,
+  };
 }

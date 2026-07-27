@@ -191,6 +191,12 @@
   border-bottom: none;
 }
 
+/* Extras del tarifario de cliente: una sola columna de monto (no hay costo de
+   proveedor de este lado). */
+.extrasGroupSingle {
+  grid-template-columns: 1.4fr 1fr;
+}
+
 .extrasLabel {
   font: 500 13px/18px Heming;
   color: var(--fg-secondary);

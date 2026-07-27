@@ -40,11 +40,21 @@ const NAV: NavItem[] = [
     roles: ["admin", "agency_staff", "agency_operator"],
   },
   {
-    label: "Tarifas",
+    label: "Tarifas Proveedor",
     icon: "tag",
-    to: "/tarifas",
-    match: (p) => p.startsWith("/tarifas"),
+    to: "/tarifas/proveedor",
+    // /tarifas sin sufijo redirige acá: lo tomamos como activo para que el ítem
+    // no quede apagado durante la redirección.
+    match: (p) => p === "/tarifas" || p.startsWith("/tarifas/proveedor"),
     roles: ["admin", "proveedor", "agency_staff", "agency_operator"],
+  },
+  {
+    // El proveedor no ve lo que se le factura al cliente.
+    label: "Tarifas Cliente",
+    icon: "tag",
+    to: "/tarifas/cliente",
+    match: (p) => p.startsWith("/tarifas/cliente"),
+    roles: ["admin", "agency_staff", "agency_operator"],
   },
 ];
 
