@@ -46,10 +46,18 @@ export interface Leg {
 export interface TripCosts {
   total: number;
   viaje: number;
+  // Monto de espera al CLIENTE. No se carga a mano: sale de `esperaMin` por el
+  // valor/minuto de la tarifa de extras (esperaCliente).
   espera: number;
   peajes: number;
   estacionamiento: number;
   otros: number;
+  // Minutos de espera cargados por el proveedor. La unidad mínima es 15 min, así
+  // que siempre es múltiplo de 15 (15, 30, 45, 60, 75, 90, …).
+  esperaMin?: number;
+  // Monto de espera al PROVEEDOR (esperaMin × esperaProveedor). Se guarda aparte
+  // de `espera` (el del cliente) para no exponerle nunca el precio de venta.
+  esperaProveedor?: number;
   // Moneda de los montos. Las tarifas nuevas trabajan en USD ("Los costos son en
   // dólares"); los viajes viejos sincronizados desde Central quedan sin moneda
   // (se muestran como estaban).
