@@ -415,6 +415,17 @@
   color: var(--fg-secondary);
 }
 
+/* Dato secundario dentro de un valor del resumen (ruta y modalidad de la tarifa) */
+.summaryMeta {
+  font: 400 13px/18px Heming;
+  color: var(--fg-muted);
+}
+
+/* El comentario del viaje es texto libre: respeta los saltos de línea */
+.summaryNote {
+  white-space: pre-wrap;
+}
+
 .stack {
   display: flex;
   flex-direction: column;

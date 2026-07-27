@@ -22,6 +22,20 @@ export function StepResumen({ t }: { t: Trip }) {
       <span className={styles.summaryValue}>{v}</span>
     </div>
   );
+
+  // Detalle de la categoría elegida en el paso Tarifa: ruta tarifada y modalidad
+  // (en "horas a disposición" el precio depende de las horas, así que se muestran).
+  const tar = t.tarifa;
+  const catMeta = [
+    tar?.origen && tar?.destino ? `${tar.origen} → ${tar.destino}` : "",
+    tar?.modalidad === "horas"
+      ? `${tar.horas ?? 1} hs a disposición`
+      : tar?.categoria
+        ? "Traslado"
+        : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
     <>
       <h3 className={styles.h2}>Resumen del viaje</h3>
@@ -30,7 +44,15 @@ export function StepResumen({ t }: { t: Trip }) {
         <Item l="Agencia" v={t.agc || "—"} />
         <Item l="Solicitante" v={t.solicitante || "—"} />
         <Item l="Fecha y hora" v={`${t.date} · ${t.time || "—"}`} />
-        <Item l="Categoría" v={t.cat} />
+        <Item
+          l="Categoría"
+          v={
+            <div className={styles.stack}>
+              <span>{t.cat || "—"}</span>
+              {catMeta && <span className={styles.summaryMeta}>{catMeta}</span>}
+            </div>
+          }
+        />
         <Item
           l="Destinos"
           v={
@@ -76,6 +98,10 @@ export function StepResumen({ t }: { t: Trip }) {
               })}
             </div>
           }
+        />
+        <Item
+          l="Observaciones"
+          v={<span className={styles.summaryNote}>{t.obs?.trim() || "—"}</span>}
         />
       </div>
     </>

@@ -126,9 +126,15 @@ let base: TarifaBase[] = loadBase();
 // ── Validaciones (reglas del deck) ───────────────────────────────────────────
 const norm = (s: string) => s.trim().toLowerCase();
 
-function assertMontos(input: TarifaBaseInput) {
-  if (!(input.tarifaProveedor > 0) || !(input.tarifaCliente > 0)) {
-    throw new Error("Los montos deben ser mayores a 0.");
+// El proveedor no ve ni carga el valor al cliente, así que solo se le exige el
+// suyo: la tarifa cliente queda en 0 ("a definir") hasta que la complete el admin.
+// Con `scope === null` (admin) se exigen las dos.
+function assertMontos(input: TarifaBaseInput, scope: string | null) {
+  if (!(input.tarifaProveedor > 0)) {
+    throw new Error("La tarifa de proveedor debe ser mayor a 0.");
+  }
+  if (scope === null && !(input.tarifaCliente > 0)) {
+    throw new Error("La tarifa de cliente debe ser mayor a 0.");
   }
 }
 
@@ -186,7 +192,7 @@ export async function createTarifaBase(
   const owned: TarifaBaseInput = { ...input, proveedorId: scope ?? input.proveedorId };
   assertProveedor(owned.proveedorId);
   assertPropia(owned.proveedorId, scope);
-  assertMontos(owned);
+  assertMontos(owned, scope);
   assertNoDuplicado(owned);
   const id = `T-${String(Date.now()).slice(-6)}`;
   const created: TarifaBase = { ...owned, id };
@@ -201,10 +207,16 @@ export async function updateTarifaBase(t: TarifaBase, scope: string | null): Pro
   if (!actual) throw new Error("La tarifa ya no existe.");
   // No se puede cambiar de dueño ni tocar la de otro.
   assertPropia(actual.proveedorId, scope);
-  const next: TarifaBase = { ...t, proveedorId: scope ?? t.proveedorId };
+  const next: TarifaBase = {
+    ...t,
+    proveedorId: scope ?? t.proveedorId,
+    // El proveedor no ve la tarifa cliente: se conserva la guardada pase lo que
+    // pase, así una edición suya nunca la pisa.
+    tarifaCliente: scope === null ? t.tarifaCliente : actual.tarifaCliente,
+  };
   assertProveedor(next.proveedorId);
   assertPropia(next.proveedorId, scope);
-  assertMontos(next);
+  assertMontos(next, scope);
   assertNoDuplicado(next, next.id);
   base = base.map((x) => (x.id === next.id ? next : x));
   saveBase(base);
@@ -279,12 +291,15 @@ export async function getCategoriasTarifadas(
           norm(t.destino) === norm(destino) &&
           norm(t.categoria) === norm(c.codigo),
       );
+      // Un monto en 0 es "sin cargar" (el proveedor no completa el valor
+      // cliente): vale lo mismo que no tener tarifa.
+      const monto = (n: number | undefined) => (n && n > 0 ? n : null);
       return {
         ...c,
         origen,
         destino,
-        tarifaProveedor: match?.tarifaProveedor ?? null,
-        tarifaCliente: match?.tarifaCliente ?? null,
+        tarifaProveedor: monto(match?.tarifaProveedor),
+        tarifaCliente: monto(match?.tarifaCliente),
       };
     });
 }
