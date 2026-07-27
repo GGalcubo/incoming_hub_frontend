@@ -45,11 +45,12 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   const destino = t.tarifa?.destino ?? "";
   const modalidad = t.tarifa?.modalidad ?? "traslado";
   const horas = t.tarifa?.horas ?? 1;
-  // El precio sale del tarifario del proveedor que presta el servicio. El
-  // proveedor logueado solo ve viajes suyos, así que es siempre el propio.
+  // El precio sale del tarifario del proveedor que presta el servicio; mientras
+  // no haya uno asignado, del general (lo resuelve la API). El proveedor logueado
+  // solo ve viajes suyos, así que es siempre el propio.
   const proveedorViaje = t.proveedorId ?? proveedorId ?? "";
-  // Solo el admin asigna proveedor: la agencia no lo elige y el proveedor no
-  // puede pasarle el viaje a otro.
+  // Solo el admin asigna proveedor. La agencia crea el viaje sin saber quién lo
+  // va a prestar: no ve el campo. El proveedor lo ve pero no lo cambia.
   const canSetProveedor = !isProvider && !isAgency;
 
   // Catálogos: lugares y proveedores. Al entrar, si no hay ruta elegida, la
@@ -78,10 +79,6 @@ export function StepTarifa({ t, set, errs }: StepProps) {
 
   // Extras (valor de la hora a disposición) del proveedor del viaje.
   useEffect(() => {
-    if (!proveedorViaje) {
-      setExtras(null);
-      return;
-    }
     let active = true;
     api
       .getTarifasExtras(proveedorViaje)
@@ -98,7 +95,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
 
   // Categorías tarifadas de la ruta elegida, dentro del tarifario del proveedor.
   useEffect(() => {
-    if (!origen || !destino || !proveedorViaje) {
+    if (!origen || !destino) {
       setCats([]);
       return;
     }
@@ -202,33 +199,33 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         las horas por el valor de hora. Montos en dólares (u$s).
       </p>
 
-      <Field
-        label="Proveedor"
-        required
-        className={styles.proveedorField}
-        hint={
-          canSetProveedor
-            ? "Define de qué tarifario salen los precios y quién puede cargar los costos."
-            : undefined
-        }
-        error={errs.proveedor}
-      >
-        {canSetProveedor ? (
-          <Select value={proveedorViaje} onChange={(e) => onProveedor(e.target.value)}>
-            <option value="">—</option>
-            {proveedores.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nombre}
-              </option>
-            ))}
-          </Select>
-        ) : (
-          <Input
-            readOnly
-            value={proveedores.find((p) => p.id === proveedorViaje)?.nombre ?? "Sin asignar"}
-          />
-        )}
-      </Field>
+      {!isAgency && (
+        <Field
+          label="Proveedor"
+          className={styles.proveedorField}
+          hint={
+            canSetProveedor
+              ? "Quién presta el servicio: define su tarifario y quién carga los costos. Sin asignar se usa el tarifario general."
+              : undefined
+          }
+        >
+          {canSetProveedor ? (
+            <Select value={proveedorViaje} onChange={(e) => onProveedor(e.target.value)}>
+              <option value="">Sin asignar (tarifario general)</option>
+              {proveedores.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </Select>
+          ) : (
+            <Input
+              readOnly
+              value={proveedores.find((p) => p.id === proveedorViaje)?.nombre ?? "Sin asignar"}
+            />
+          )}
+        </Field>
+      )}
 
       <div className={styles.tarifaRouteRow}>
         <Field label="Origen" required error={errs.cat && !origen ? "Elegí un origen" : undefined}>
@@ -294,11 +291,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         </div>
       )}
 
-      {!proveedorViaje ? (
-        <div className={styles.catNoPrice}>
-          Elegí el proveedor para ver su tarifario.
-        </div>
-      ) : !origen || !destino ? (
+      {!origen || !destino ? (
         <div className={styles.catNoPrice}>Elegí origen y destino para ver las tarifas.</div>
       ) : loading ? (
         <div className={styles.catNoPrice}>Cargando tarifas…</div>

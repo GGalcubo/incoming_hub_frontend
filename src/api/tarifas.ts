@@ -10,6 +10,7 @@
 // aplicarse del lado del servidor (acá es solo defensa de UI).
 
 import {
+  DEFAULT_PROVEEDOR_ID,
   seedExtrasFor,
   seedTarifasBaseFor,
   SEED_TARIFAS_BASE,
@@ -126,15 +127,9 @@ let base: TarifaBase[] = loadBase();
 // ── Validaciones (reglas del deck) ───────────────────────────────────────────
 const norm = (s: string) => s.trim().toLowerCase();
 
-// El proveedor no ve ni carga el valor al cliente, así que solo se le exige el
-// suyo: la tarifa cliente queda en 0 ("a definir") hasta que la complete el admin.
-// Con `scope === null` (admin) se exigen las dos.
-function assertMontos(input: TarifaBaseInput, scope: string | null) {
-  if (!(input.tarifaProveedor > 0)) {
-    throw new Error("La tarifa de proveedor debe ser mayor a 0.");
-  }
-  if (scope === null && !(input.tarifaCliente > 0)) {
-    throw new Error("La tarifa de cliente debe ser mayor a 0.");
+function assertMontos(input: TarifaBaseInput) {
+  if (!(input.tarifaProveedor > 0) || !(input.tarifaCliente > 0)) {
+    throw new Error("Los montos deben ser mayores a 0.");
   }
 }
 
@@ -166,6 +161,11 @@ function assertProveedor(proveedorId: string) {
   if (!proveedorId) throw new Error("Elegí el proveedor de la tarifa.");
 }
 
+// Tarifario del que se leen los precios. Mientras el viaje no tenga proveedor
+// asignado se usa el general (el del proveedor por defecto): la agencia crea el
+// viaje sin saber quién lo va a prestar y tiene que ver el precio igual.
+const tarifarioDe = (proveedorId?: string) => proveedorId || DEFAULT_PROVEEDOR_ID;
+
 // ── Catálogos ─────────────────────────────────────────────────────────────────
 export async function listLugares(): Promise<string[]> {
   await wait(60);
@@ -192,7 +192,7 @@ export async function createTarifaBase(
   const owned: TarifaBaseInput = { ...input, proveedorId: scope ?? input.proveedorId };
   assertProveedor(owned.proveedorId);
   assertPropia(owned.proveedorId, scope);
-  assertMontos(owned, scope);
+  assertMontos(owned);
   assertNoDuplicado(owned);
   const id = `T-${String(Date.now()).slice(-6)}`;
   const created: TarifaBase = { ...owned, id };
@@ -207,16 +207,10 @@ export async function updateTarifaBase(t: TarifaBase, scope: string | null): Pro
   if (!actual) throw new Error("La tarifa ya no existe.");
   // No se puede cambiar de dueño ni tocar la de otro.
   assertPropia(actual.proveedorId, scope);
-  const next: TarifaBase = {
-    ...t,
-    proveedorId: scope ?? t.proveedorId,
-    // El proveedor no ve la tarifa cliente: se conserva la guardada pase lo que
-    // pase, así una edición suya nunca la pisa.
-    tarifaCliente: scope === null ? t.tarifaCliente : actual.tarifaCliente,
-  };
+  const next: TarifaBase = { ...t, proveedorId: scope ?? t.proveedorId };
   assertProveedor(next.proveedorId);
   assertPropia(next.proveedorId, scope);
-  assertMontos(next, scope);
+  assertMontos(next);
   assertNoDuplicado(next, next.id);
   base = base.map((x) => (x.id === next.id ? next : x));
   saveBase(base);
@@ -233,10 +227,11 @@ export async function deleteTarifaBase(id: string, scope: string | null): Promis
 }
 
 // ── Tarifas de extras (un set por proveedor) ─────────────────────────────────
-export async function getTarifasExtras(proveedorId: string): Promise<TarifaExtras> {
+export async function getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
   await wait(120);
-  ensureSeed(proveedorId);
-  return loadExtrasStore()[proveedorId] ?? seedExtrasFor(proveedorId);
+  const id = tarifarioDe(proveedorId);
+  ensureSeed(id);
+  return loadExtrasStore()[id] ?? seedExtrasFor(id);
 }
 
 export async function updateTarifasExtras(
@@ -269,16 +264,18 @@ export async function updateTarifasExtras(
 
 // ── Categorías tarifadas por ruta (consume el paso "Tarifa" del wizard) ──────
 // Cruza las 4 categorías de vehículo con las tarifas base ACTIVAS de la ruta,
-// dentro del tarifario del proveedor asignado al viaje. Devuelve precio null
-// cuando no hay tarifa activa para esa combinación (así el wizard puede mostrar
-// la card deshabilitada en vez de omitirla).
+// dentro del tarifario del proveedor asignado al viaje (o del general, si todavía
+// no tiene). Devuelve precio null cuando no hay tarifa activa para esa
+// combinación (así el wizard puede mostrar la card deshabilitada en vez de
+// omitirla).
 export async function getCategoriasTarifadas(
   origen: string,
   destino: string,
-  proveedorId: string,
+  proveedorId?: string,
 ): Promise<CategoriaTarifada[]> {
   await wait(120);
-  ensureSeed(proveedorId);
+  const id = tarifarioDe(proveedorId);
+  ensureSeed(id);
   const rows = loadBase();
   return [...VEHICLE_CATEGORIAS]
     .sort((a, b) => a.orden - b.orden)
@@ -286,20 +283,17 @@ export async function getCategoriasTarifadas(
       const match = rows.find(
         (t) =>
           t.activo &&
-          t.proveedorId === proveedorId &&
+          t.proveedorId === id &&
           norm(t.origen) === norm(origen) &&
           norm(t.destino) === norm(destino) &&
           norm(t.categoria) === norm(c.codigo),
       );
-      // Un monto en 0 es "sin cargar" (el proveedor no completa el valor
-      // cliente): vale lo mismo que no tener tarifa.
-      const monto = (n: number | undefined) => (n && n > 0 ? n : null);
       return {
         ...c,
         origen,
         destino,
-        tarifaProveedor: monto(match?.tarifaProveedor),
-        tarifaCliente: monto(match?.tarifaCliente),
+        tarifaProveedor: match?.tarifaProveedor ?? null,
+        tarifaCliente: match?.tarifaCliente ?? null,
       };
     });
 }

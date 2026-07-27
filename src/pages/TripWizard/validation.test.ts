@@ -44,10 +44,10 @@ describe("validateTripStep — paso tarifa", () => {
     expect(validateTripStep("tarifa", EMPTY_TRIP).cat).toBeDefined();
   });
 
-  it("exige el proveedor del viaje (define el tarifario)", () => {
-    expect(validateTripStep("tarifa", EMPTY_TRIP).proveedor).toBeDefined();
-    const conProveedor = tripWith({ cat: "STANDARD", proveedorId: "prov-norte" });
-    expect(validateTripStep("tarifa", conProveedor).proveedor).toBeUndefined();
+  it("no exige el proveedor: sin asignar se usa el tarifario general", () => {
+    const trip = tripWith({ cat: "STANDARD", tarifa: { modalidad: "traslado" } });
+    expect(validateTripStep("tarifa", trip).proveedor).toBeUndefined();
+    expect(validateTripStep("tarifa", trip)).toEqual({});
   });
 
   it("no marca error con una categoría elegida en modo traslado", () => {

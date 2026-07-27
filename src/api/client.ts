@@ -432,7 +432,8 @@ export const api = {
     return tarifas.deleteTarifaBase(id, await this.tarifaScope());
   },
   // Extras de un proveedor concreto (el del viaje, o el que eligió el admin).
-  getTarifasExtras(proveedorId: string): Promise<TarifaExtras> {
+  // Sin proveedor caen al tarifario general.
+  getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
     return tarifas.getTarifasExtras(proveedorId);
   },
   async updateTarifasExtras(
@@ -447,7 +448,7 @@ export const api = {
   getCategoriasTarifadas(
     origen: string,
     destino: string,
-    proveedorId: string,
+    proveedorId?: string,
   ): Promise<CategoriaTarifada[]> {
     return tarifas.getCategoriasTarifadas(origen, destino, proveedorId);
   },

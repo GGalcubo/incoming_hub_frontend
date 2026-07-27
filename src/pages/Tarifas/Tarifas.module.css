@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: 16px;
   padding: 20px 24px 40px;
-  max-width: 1280px;
+  max-width: 1100px;
 }
 
 @media (max-width: 768px) {
@@ -61,12 +61,10 @@
 }
 
 /* ---- tabla ---- */
-/* La tabla pivoteada tiene 4 columnas de categoría además de la ruta: en
-   pantallas chicas scrollea en horizontal en vez de comprimir los montos. */
 .tableWrap {
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  overflow-x: auto;
+  overflow: hidden;
 }
 
 .headRow,
@@ -75,7 +73,6 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  min-width: 720px;
 }
 
 .headRow {
@@ -91,6 +88,10 @@
 
 .row:last-child {
   border-bottom: none;
+}
+
+.rowInactive {
+  opacity: 0.5;
 }
 
 .th {
@@ -121,74 +122,6 @@
   justify-content: flex-end;
 }
 
-/* ---- celda de categoría (tabla pivoteada) ---- */
-.cell {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 1px;
-  min-width: 0;
-  padding: 6px 0;
-}
-
-/* Valor principal: el precio al cliente, o el costo propio para el proveedor. */
-.cellMain {
-  font: 400 14px/18px Heming;
-  color: var(--fg-secondary);
-  font-feature-settings: "tnum" 1;
-}
-
-/* Costo del proveedor cuando el rol ve los dos valores. */
-.cellSub {
-  font: 400 11px/14px Heming;
-  color: var(--fg-muted);
-  font-feature-settings: "tnum" 1;
-}
-
-/* Sin tarifa cargada para esa categoría. */
-.cellVacia {
-  font: 400 14px/18px Heming;
-  color: var(--fg-muted);
-}
-
-.cellInactiva {
-  opacity: 0.45;
-}
-
-/* ---- grilla de categorías del modal ---- */
-.catHead {
-  display: grid;
-  gap: 10px 14px;
-  align-items: end;
-  margin-top: 18px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.catRow {
-  display: grid;
-  gap: 10px 14px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px dashed var(--border-subtle);
-}
-
-.catRow:last-of-type {
-  border-bottom: none;
-  margin-bottom: 8px;
-}
-
-.catName {
-  font: 500 13px/18px Heming;
-  color: var(--fg-secondary);
-}
-
-.catVeh {
-  font: 400 11px/14px Heming;
-  color: var(--fg-muted);
-}
-
 .iconBtn {
   background: transparent;
   border: 1px solid var(--border-subtle);
@@ -209,6 +142,25 @@
 .iconBtnDanger:hover {
   color: var(--danger-fg);
   border-color: var(--danger-border);
+}
+
+.badge {
+  display: inline-block;
+  font: 600 11px/14px Heming;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 9999px;
+}
+
+.badgeOn {
+  background: var(--status-confirmado-bg);
+  color: var(--status-confirmado-fg);
+}
+
+.badgeOff {
+  background: var(--status-finalizado-bg);
+  color: var(--status-finalizado-fg);
 }
 
 .empty {

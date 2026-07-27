@@ -46,13 +46,10 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   const extrasSum = esperaMonto + c.peajes + c.estacionamiento + c.otros;
   const totalShown = base + extrasSum;
 
-  // Tarifa de extras del proveedor del viaje (valor por minuto de espera). Sin
-  // ella no se puede calcular.
+  // Tarifa de extras del proveedor del viaje (valor por minuto de espera); si
+  // todavía no tiene proveedor, las del tarifario general. Sin ella no se puede
+  // calcular.
   useEffect(() => {
-    if (!t.proveedorId) {
-      setExtras(null);
-      return;
-    }
     let active = true;
     api
       .getTarifasExtras(t.proveedorId)
