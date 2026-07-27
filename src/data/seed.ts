@@ -1,4 +1,5 @@
 import type { ExcelRow, Passenger, StatusMeta, Trip } from "../types/domain";
+import { DEFAULT_PROVEEDOR_ID, PROVEEDORES } from "./tarifasSeed";
 
 export const AGENCIES = [
   "Travel BA",
@@ -63,6 +64,15 @@ const PAX_POOL: Passenger[] = [
   { firstName: "Andrés", lastName: "Funes", phone: "+54 11 6701-2240", email: "a.funes@example.com" },
 ];
 
+// Proveedor asignado a cada viaje del seed (mock): la mayoría al proveedor demo,
+// algunos a un segundo proveedor y un par sin asignar, para poder probar que cada
+// proveedor ve y edita solo los costos de los viajes suyos.
+const seedProveedor = (i: number): string | undefined => {
+  if (i % 5 === 0) return undefined;
+  if (i % 3 === 0) return PROVEEDORES[1].id;
+  return DEFAULT_PROVEEDOR_ID;
+};
+
 const mk = (
   i: number,
   date: string,
@@ -89,6 +99,7 @@ const mk = (
   ref,
   obs,
   unit,
+  proveedorId: seedProveedor(i),
   passengers: [
     PAX_POOL[(i - 1) % PAX_POOL.length],
     ...(pax > 1 ? [PAX_POOL[i % PAX_POOL.length]] : []),

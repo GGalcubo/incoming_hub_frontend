@@ -21,12 +21,15 @@ const ESPERA_UNIDAD = 15;
 const ESPERA_OPCIONES = [15, 30, 45, 60, 75, 90];
 
 export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) => void }) {
-  const { isProvider, isAgency } = useMe();
+  const { isProvider, isAgency, proveedorId } = useMe();
   const [extras, setExtras] = useState<TarifaExtras | null>(null);
   const c = t.costs;
   const sym = c.moneda === "USD" ? "u$s" : "$";
-  // Proveedor y admin editan costos; el cliente (agencia) es solo lectura.
-  const canEdit = !isAgency;
+  // El proveedor solo carga los costos de SUS viajes (los que tiene asignados).
+  const esPropio = !isProvider || t.proveedorId === proveedorId;
+  // Proveedor (dueño del viaje) y admin editan costos; el cliente (agencia) es
+  // solo lectura.
+  const canEdit = !isAgency && esPropio;
   // "Los proveedores no deben ver el costo final al cliente": para el proveedor la
   // base es SU costo (tarifaProveedor); para el resto, el precio al cliente (viaje).
   const base = isProvider ? c.tarifaProveedor ?? 0 : c.viaje;
@@ -43,11 +46,16 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   const extrasSum = esperaMonto + c.peajes + c.estacionamiento + c.otros;
   const totalShown = base + extrasSum;
 
-  // Tarifa de extras (valor por minuto de espera). Sin ella no se puede calcular.
+  // Tarifa de extras del proveedor del viaje (valor por minuto de espera). Sin
+  // ella no se puede calcular.
   useEffect(() => {
+    if (!t.proveedorId) {
+      setExtras(null);
+      return;
+    }
     let active = true;
     api
-      .getTarifasExtras()
+      .getTarifasExtras(t.proveedorId)
       .then((e) => {
         if (active) setExtras(e);
       })
@@ -57,7 +65,7 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
     return () => {
       active = false;
     };
-  }, []);
+  }, [t.proveedorId]);
 
   const fmt = (n: number) =>
     `${sym} ${n.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
@@ -110,7 +118,9 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
       <p className={styles.p}>
         {canEdit
           ? "Cargá los minutos de espera y los extras del viaje. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
-          : "Valores del viaje. Ante una diferencia, contactá al administrador."}
+          : !esPropio
+            ? "Este viaje está asignado a otro proveedor: solo podés cargar los costos de los viajes propios."
+            : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
 
       <div className={styles.costTable}>

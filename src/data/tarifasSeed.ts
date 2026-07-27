@@ -1,4 +1,16 @@
-import type { TarifaBase, TarifaExtras, VehicleCategoria } from "../types/tarifas";
+import type { Proveedor, TarifaBase, TarifaExtras, VehicleCategoria } from "../types/tarifas";
+
+// Catálogo de proveedores (mock: el backend todavía no expone /proveedores/).
+// El `id` es también el USERNAME con el que ese proveedor inicia sesión: el mock
+// de auth deriva el rol del username y todo el scoping usa ese mismo id.
+export const PROVEEDORES: Proveedor[] = [
+  { id: "proveedor", nombre: "Proveedor Demo" },
+  { id: "prov-norte", nombre: "Traslados Norte" },
+  { id: "prov-sur", nombre: "Traslados Sur" },
+];
+
+// Proveedor al que pertenecen las tarifas y los viajes del seed.
+export const DEFAULT_PROVEEDOR_ID = PROVEEDORES[0].id;
 
 // Lugares disponibles para el origen/destino de una tarifa. Por ahora, según lo
 // que definió el negocio, arrancamos con los aeropuertos y "Centro" (AEP/EZE al
@@ -25,6 +37,7 @@ function tarifa(
 ): TarifaBase {
   return {
     id: `T-${String(n).padStart(3, "0")}`,
+    proveedorId: DEFAULT_PROVEEDOR_ID,
     origen,
     destino,
     categoria,
@@ -51,9 +64,10 @@ export const SEED_TARIFAS_BASE: TarifaBase[] = [
   tarifa(12, "AEP", "EZE", "VAN", 95, 135),
 ];
 
-// Único set de extras del proveedor (mock).
+// Set de extras de arranque. Hay uno por proveedor: `seedExtrasFor` devuelve una
+// copia con el dueño correcto para provisionar a un proveedor nuevo.
 export const SEED_TARIFAS_EXTRAS: TarifaExtras = {
-  proveedorId: "self",
+  proveedorId: DEFAULT_PROVEEDOR_ID,
   esperaProveedor: 0.3, // USD/min
   esperaCliente: 0.5,
   horaDispoProveedor: 18, // USD/hora
@@ -61,3 +75,17 @@ export const SEED_TARIFAS_EXTRAS: TarifaExtras = {
   kmProveedor: 0.8, // USD/km
   kmCliente: 1.2,
 };
+
+export function seedExtrasFor(proveedorId: string): TarifaExtras {
+  return { ...SEED_TARIFAS_EXTRAS, proveedorId };
+}
+
+// Copia del tarifario base para un proveedor nuevo (ids prefijados para que no
+// colisionen con los del proveedor original).
+export function seedTarifasBaseFor(proveedorId: string): TarifaBase[] {
+  return SEED_TARIFAS_BASE.map((t) => ({
+    ...t,
+    id: `${t.id}-${proveedorId}`,
+    proveedorId,
+  }));
+}

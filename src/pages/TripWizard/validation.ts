@@ -34,6 +34,8 @@ export function validateTripStep(
   }
 
   if (stepId === "tarifa") {
+    // Sin proveedor no hay tarifario del que sacar el precio.
+    if (!t.proveedorId) e.proveedor = "Elegí el proveedor del viaje";
     // Hay que elegir una categoría (card). El precio puede ser 0 en modo horas
     // hasta que se cargue la cantidad de horas.
     if (!t.cat) e.cat = "Elegí una categoría";

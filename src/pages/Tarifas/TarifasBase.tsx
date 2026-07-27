@@ -9,12 +9,13 @@ import { useToast } from "../../context/ToastContext";
 import { VEHICLE_CATEGORIAS } from "../../data/tarifasSeed";
 import type { UseMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
-import type { TarifaBase, TarifaBaseInput } from "../../types/tarifas";
+import type { Proveedor, TarifaBase, TarifaBaseInput } from "../../types/tarifas";
 import styles from "./Tarifas.module.css";
 
 const CAT_NOMBRE = new Map(VEHICLE_CATEGORIAS.map((c) => [c.codigo, c.nombre]));
 
-const emptyDraft = (): TarifaBaseInput => ({
+const emptyDraft = (proveedorId: string): TarifaBaseInput => ({
+  proveedorId,
   origen: "",
   destino: "",
   categoria: VEHICLE_CATEGORIAS[0]?.codigo ?? "",
@@ -26,29 +27,40 @@ const emptyDraft = (): TarifaBaseInput => ({
 export function TarifasBase({ me }: { me: UseMe }) {
   const { flash } = useToast();
   const qc = useQueryClient();
-  const { isAdmin, isProvider, isAgency } = me;
+  const { isAdmin, isProvider, isAgency, proveedorId } = me;
   // Proveedor y admin editan; el cliente (agencia) solo consulta.
   const canEdit = isAdmin || isProvider;
   // "Los proveedores no deben ver el costo final al cliente".
   const showCliente = !isProvider;
   const showProveedor = !isAgency;
+  // El proveedor ve solo su tarifario (el filtro lo aplica la API): la columna
+  // "Proveedor" sobra. Para admin/agencia es la que distingue una fila de otra.
+  const showDueno = !isProvider;
 
   const [origenFilter, setOrigenFilter] = useState("");
   const [destinoFilter, setDestinoFilter] = useState("");
+  const [duenoFilter, setDuenoFilter] = useState("");
   const [editing, setEditing] = useState<TarifaBase | null>(null);
   const [draft, setDraft] = useState<TarifaBaseInput | null>(null);
   const [toDelete, setToDelete] = useState<TarifaBase | null>(null);
 
   const { data: tarifas = [], isLoading } = useQuery({
-    queryKey: ["tarifasBase"],
+    queryKey: ["tarifasBase", proveedorId],
     queryFn: () => api.listTarifasBase(),
   });
   const { data: lugares = [] } = useQuery({
     queryKey: ["tarifaLugares"],
     queryFn: () => api.listTarifaLugares(),
   });
+  const { data: proveedores = [] } = useQuery({
+    queryKey: ["proveedores"],
+    queryFn: () => api.listProveedores(),
+  });
+  const nombreDe = (id: string) => proveedores.find((p) => p.id === id)?.nombre ?? id;
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["tarifasBase"] });
+  // El proveedor logueado no elige dueño: la API fuerza el suyo igual.
+  const draftOwner = proveedorId ?? "";
 
   const saveMut = useMutation({
     mutationFn: (input: { draft: TarifaBaseInput; id?: string }) =>
@@ -78,14 +90,16 @@ export function TarifasBase({ me }: { me: UseMe }) {
       tarifas.filter(
         (t) =>
           (!origenFilter || t.origen === origenFilter) &&
-          (!destinoFilter || t.destino === destinoFilter),
+          (!destinoFilter || t.destino === destinoFilter) &&
+          (!duenoFilter || t.proveedorId === duenoFilter),
       ),
-    [tarifas, origenFilter, destinoFilter],
+    [tarifas, origenFilter, destinoFilter, duenoFilter],
   );
 
   const openNew = () => {
     setEditing(null);
-    setDraft(emptyDraft());
+    // Si el admin está filtrando por un proveedor, la nueva tarifa arranca con ese.
+    setDraft(emptyDraft(draftOwner || duenoFilter));
   };
   const openEdit = (t: TarifaBase) => {
     setEditing(t);
@@ -100,6 +114,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
 
   // Columnas dinámicas según lo que el rol puede ver.
   const cols = [
+    ...(showDueno ? ["minmax(120px, 1.2fr)"] : []), // proveedor dueño
     "minmax(80px, 1fr)", // origen
     "minmax(80px, 1fr)", // destino
     "minmax(110px, 1.2fr)", // categoría
@@ -128,6 +143,18 @@ export function TarifasBase({ me }: { me: UseMe }) {
             ))}
           </Select>
         </Field>
+        {showDueno && (
+          <Field label="Proveedor" className={styles.filterField}>
+            <Select value={duenoFilter} onChange={(e) => setDuenoFilter(e.target.value)}>
+              <option value="">Todos</option>
+              {proveedores.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <div className={styles.spacer} />
         {canEdit && (
           <Button kind="primary" icon="plus" onClick={openNew}>
@@ -138,6 +165,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
 
       <div className={styles.tableWrap}>
         <div className={styles.headRow} style={{ gridTemplateColumns: cols }}>
+          {showDueno && <div className={styles.th}>Proveedor</div>}
           <div className={styles.th}>Origen</div>
           <div className={styles.th}>Destino</div>
           <div className={styles.th}>Categoría</div>
@@ -158,6 +186,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
               className={cx(styles.row, !t.activo && styles.rowInactive)}
               style={{ gridTemplateColumns: cols }}
             >
+              {showDueno && <div className={styles.td}>{nombreDe(t.proveedorId)}</div>}
               <div className={styles.td}>{t.origen}</div>
               <div className={styles.td}>{t.destino}</div>
               <div className={styles.td}>{CAT_NOMBRE.get(t.categoria) ?? t.categoria}</div>
@@ -200,6 +229,8 @@ export function TarifasBase({ me }: { me: UseMe }) {
           draft={draft}
           setDraft={setDraft}
           lugares={lugares}
+          proveedores={proveedores}
+          showDueno={showDueno}
           showCliente={showCliente}
           showProveedor={showProveedor}
           saving={saveMut.isPending}
@@ -244,6 +275,8 @@ function TarifaModal({
   draft,
   setDraft,
   lugares,
+  proveedores,
+  showDueno,
   showCliente,
   showProveedor,
   saving,
@@ -254,6 +287,8 @@ function TarifaModal({
   draft: TarifaBaseInput;
   setDraft: (d: TarifaBaseInput) => void;
   lugares: string[];
+  proveedores: Proveedor[];
+  showDueno: boolean;
   showCliente: boolean;
   showProveedor: boolean;
   saving: boolean;
@@ -264,6 +299,7 @@ function TarifaModal({
   const set = (patch: Partial<TarifaBaseInput>) => setDraft({ ...draft, ...patch });
   const numOk = (v: number) => v > 0;
   const valid =
+    !!draft.proveedorId &&
     !!draft.origen &&
     !!draft.destino &&
     draft.origen !== draft.destino &&
@@ -287,6 +323,21 @@ function TarifaModal({
       }
     >
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px 16px" }}>
+        {showDueno && (
+          <Field label="Proveedor" required span={2}>
+            <Select
+              value={draft.proveedorId}
+              onChange={(e) => set({ proveedorId: e.target.value })}
+            >
+              <option value="">—</option>
+              {proveedores.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="Origen" required>
           <Select value={draft.origen} onChange={(e) => set({ origen: e.target.value })}>
             <option value="">—</option>

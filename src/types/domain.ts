@@ -103,6 +103,10 @@ export interface Trip {
   history: HistoryEntry[];
   solicitante?: string;
   tarifa?: TripTarifa;
+  // Proveedor que presta el servicio. Define de qué tarifario salen los precios
+  // y quién puede editar los costos del viaje. El backend todavía no tiene este
+  // campo: se persiste en un overlay local (ver api/proveedores.ts).
+  proveedorId?: string;
 }
 
 export interface StatusMeta {

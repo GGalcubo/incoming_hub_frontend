@@ -7,6 +7,7 @@ import { STATUSES, TODAY, TOMORROW } from "./data/seed";
 import { useModals } from "./context/ModalsContext";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
+import { useMe } from "./hooks/useMe";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
 import { TarifasPage } from "./pages/Tarifas";
@@ -19,9 +20,11 @@ export function App() {
   const { user } = useUser();
   const { flash } = useToast();
   const { excelOpen, closeExcel } = useModals();
+  const { role, isProvider } = useMe();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isOperator, setIsOperator] = useState(false);
+  // Vista reducida para todo el que no es admin (operador de agencia y proveedor).
+  const isOperator = role != null && role !== "admin";
   // Señal para que la lista salte a la fecha de los viajes recién cargados.
   // Objeto nuevo en cada import para forzar el efecto aunque la fecha repita.
   const [dateFocus, setDateFocus] = useState<{ date: string } | null>(null);
@@ -48,23 +51,6 @@ export function App() {
       cancelled = true;
     };
   }, [user, flash]);
-
-  useEffect(() => {
-    if (!user) {
-      setIsOperator(false);
-      return;
-    }
-    let cancelled = false;
-    api
-      .getMe()
-      .then((me) => {
-        if (!cancelled) setIsOperator(me.role !== null && me.role !== "admin");
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   const saveTrip = async (t: Trip, mode: "new" | "edit"): Promise<Trip> => {
     let saved: Trip;
@@ -144,7 +130,13 @@ export function App() {
             />
           }
         />
-        <Route path="/viajes/nuevo" element={<NewTripRoute onSave={saveTrip} />} />
+        {/* El proveedor no crea viajes: solo trabaja sobre los que le asignaron. */}
+        <Route
+          path="/viajes/nuevo"
+          element={
+            isProvider ? <Navigate to="/viajes" replace /> : <NewTripRoute onSave={saveTrip} />
+          }
+        />
         <Route
           path="/viajes/:id"
           element={<EditTripRoute trips={trips} onSave={saveTrip} onCancelTrip={cancelTrip} />}

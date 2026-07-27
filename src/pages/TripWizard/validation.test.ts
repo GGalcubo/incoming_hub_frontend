@@ -44,15 +44,33 @@ describe("validateTripStep — paso tarifa", () => {
     expect(validateTripStep("tarifa", EMPTY_TRIP).cat).toBeDefined();
   });
 
+  it("exige el proveedor del viaje (define el tarifario)", () => {
+    expect(validateTripStep("tarifa", EMPTY_TRIP).proveedor).toBeDefined();
+    const conProveedor = tripWith({ cat: "STANDARD", proveedorId: "prov-norte" });
+    expect(validateTripStep("tarifa", conProveedor).proveedor).toBeUndefined();
+  });
+
   it("no marca error con una categoría elegida en modo traslado", () => {
-    const trip = tripWith({ cat: "STANDARD", tarifa: { modalidad: "traslado" } });
+    const trip = tripWith({
+      cat: "STANDARD",
+      proveedorId: "prov-norte",
+      tarifa: { modalidad: "traslado" },
+    });
     expect(validateTripStep("tarifa", trip)).toEqual({});
   });
 
   it("en modo horas exige la cantidad de horas", () => {
-    const trip = tripWith({ cat: "VAN", tarifa: { modalidad: "horas" } });
+    const trip = tripWith({
+      cat: "VAN",
+      proveedorId: "prov-norte",
+      tarifa: { modalidad: "horas" },
+    });
     expect(validateTripStep("tarifa", trip).horas).toBeDefined();
-    const ok = tripWith({ cat: "VAN", tarifa: { modalidad: "horas", horas: 3 } });
+    const ok = tripWith({
+      cat: "VAN",
+      proveedorId: "prov-norte",
+      tarifa: { modalidad: "horas", horas: 3 },
+    });
     expect(validateTripStep("tarifa", ok)).toEqual({});
   });
 });

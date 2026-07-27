@@ -245,6 +245,11 @@
 }
 
 /* ---- StepTarifa ---- */
+.proveedorField {
+  max-width: 320px;
+  margin-bottom: 14px;
+}
+
 .tarifaRouteRow {
   display: grid;
   grid-template-columns: 1fr 1fr auto;

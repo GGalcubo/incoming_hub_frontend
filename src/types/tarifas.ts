@@ -15,11 +15,22 @@ export interface VehicleCategoria {
   orden: number;
 }
 
+// Un proveedor de traslados. Cada uno tiene SU tarifario (tarifas base + extras)
+// y solo puede tocar el propio. El `id` es la clave de scoping en toda la app y
+// coincide con el username del usuario proveedor (ver api/proveedores.ts).
+export interface Proveedor {
+  id: string;
+  nombre: string;
+}
+
 // Una tarifa base: precio de un traslado punto-a-punto para una categoría de
 // vehículo. `tarifaProveedor` es lo que cobra el proveedor; `tarifaCliente` es lo
 // que se le factura al cliente (NUNCA visible para el rol proveedor).
 export interface TarifaBase {
   id: string;
+  // Dueño de la tarifa: cada proveedor tiene su propio tarifario y solo puede
+  // crear/editar/borrar las suyas.
+  proveedorId: string;
   origen: string;
   destino: string;
   categoria: string; // VehicleCategoria.codigo
@@ -32,7 +43,7 @@ export interface TarifaBase {
 export type TarifaBaseInput = Omit<TarifaBase, "id">;
 
 // Set de tarifas de EXTRAS. El deck aclara "solo puede existir un set por
-// proveedor": es un único registro por proveedor, no una lista.
+// proveedor": es un único registro POR PROVEEDOR (clave `proveedorId`).
 export interface TarifaExtras {
   proveedorId: string;
   esperaProveedor: number; // USD por minuto

@@ -5,11 +5,13 @@ import { decodeJwt, mockJwt } from "../lib/jwt";
 import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
 import type {
   CategoriaTarifada,
+  Proveedor,
   TarifaBase,
   TarifaBaseInput,
   TarifaExtras,
 } from "../types/tarifas";
 import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
+import * as proveedores from "./proveedores";
 import * as tarifas from "./tarifas";
 import * as viajes from "./viajes";
 
@@ -130,6 +132,21 @@ function mockPersonas(): Persona[] {
   return Array.from(byName.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
+// ── Overlay de proveedor ─────────────────────────────────────────────────────
+// El backend no tiene el campo `proveedorId` en el viaje: lo guardamos aparte
+// (localStorage, por id de viaje) y lo pegamos al entrar/salir de la API, así el
+// resto de la app trabaja con un `Trip` completo. Cuando el backend lo modele,
+// se borran estas dos funciones.
+function withProveedor(t: Trip): Trip {
+  const asignado = proveedores.loadAsignaciones()[t.id];
+  return asignado ? { ...t, proveedorId: asignado } : t;
+}
+
+function persistProveedor(t: Trip): Trip {
+  proveedores.setAsignacion(t.id, t.proveedorId);
+  return t;
+}
+
 function buildUser(user: string, token: string, refresh?: string): User {
   const payload = decodeJwt(token);
   return { user, token, refresh, exp: payload?.exp };
@@ -213,12 +230,26 @@ export const api = {
     return { agencies, ownAgency, solicitante, isAdmin, solicitantesByAgency };
   },
 
+  // Lista de viajes ya con su proveedor. El proveedor logueado ve SOLO los que
+  // tiene asignados: es el mismo recorte que después habilita la edición de
+  // costos. (Con backend real esto sigue siendo un filtro de front: el scoping
+  // definitivo tiene que hacerlo el servidor cuando modele el proveedor.)
   async listTrips(): Promise<Trip[]> {
+    const scope = proveedores.proveedorIdOf(await this.getMe().catch(() => null));
+    let list: Trip[];
     if (USE_VIAJES_MOCK) {
       await wait(150);
-      return [...mockTrips];
+      list = [...mockTrips];
+    } else {
+      list = await viajes.listTrips();
     }
-    return viajes.listTrips();
+    const conProveedor = list.map(withProveedor);
+    return scope ? conProveedor.filter((t) => t.proveedorId === scope) : conProveedor;
+  },
+
+  // Catálogo de proveedores (para asignar el viaje y elegir tarifario).
+  async listProveedores(): Promise<Proveedor[]> {
+    return proveedores.listProveedores(await this.getMe().catch(() => null));
   },
 
   // Una página del catálogo de pasajeros (búsqueda/filtro/paginación server-side).
@@ -271,21 +302,25 @@ export const api = {
       await wait(100);
       const t = mockTrips.find((x) => x.id === id);
       if (!t) throw new Error("Viaje no encontrado");
-      return t;
+      return withProveedor(t);
     }
-    return viajes.getTrip(id);
+    return withProveedor(await viajes.getTrip(id));
   },
 
   async createTrip(trip: Partial<Trip>): Promise<Trip> {
+    let created: Trip;
     if (USE_VIAJES_MOCK) {
       await wait(250);
       const id = "RX-0" + (8420 + mockTrips.length + 1);
-      const created = { ...(trip as Trip), id, est: trip.est ?? "PENDIENTE" };
+      created = { ...(trip as Trip), id, est: trip.est ?? "PENDIENTE" };
       mockTrips = [created, ...mockTrips];
       saveMockTrips();
-      return created;
+    } else {
+      created = await viajes.createTrip(trip as Trip);
     }
-    return viajes.createTrip(trip as Trip);
+    // El backend no devuelve el proveedor: lo tomamos del viaje que se mandó y
+    // lo guardamos en el overlay contra el id ya definitivo.
+    return persistProveedor({ ...created, proveedorId: trip.proveedorId });
   },
 
   async updateTrip(trip: Trip): Promise<Trip> {
@@ -293,9 +328,10 @@ export const api = {
       await wait(200);
       mockTrips = mockTrips.map((t) => (t.id === trip.id ? trip : t));
       saveMockTrips();
-      return trip;
+      return persistProveedor(trip);
     }
-    return viajes.updateTrip(trip);
+    const updated = await viajes.updateTrip(trip);
+    return persistProveedor({ ...updated, proveedorId: trip.proveedorId });
   },
 
   async setStatus(id: string, est: TripStatus): Promise<Trip> {
@@ -305,9 +341,9 @@ export const api = {
       mockTrips = mockTrips.map((t) => (t.id === id ? (next = { ...t, est }) : t));
       if (!next) throw new Error("Viaje no encontrado");
       saveMockTrips();
-      return next;
+      return withProveedor(next);
     }
-    return viajes.setStatus(id, est);
+    return withProveedor(await viajes.setStatus(id, est));
   },
 
   async cancelTrip(id: string, reason: string): Promise<Trip> {
@@ -322,12 +358,13 @@ export const api = {
       };
       mockTrips = mockTrips.map((t) => (t.id === id ? updated : t));
       saveMockTrips();
-      return updated;
+      return withProveedor(updated);
     }
-    return viajes.cancelTrip(id, reason);
+    return withProveedor(await viajes.cancelTrip(id, reason));
   },
 
   async deleteTrip(id: string): Promise<void> {
+    proveedores.setAsignacion(id, undefined);
     if (USE_VIAJES_MOCK) {
       await wait(150);
       mockTrips = mockTrips.filter((t) => t.id !== id);
@@ -375,28 +412,43 @@ export const api = {
   // El backend aún no expone tarifas: siempre van contra el mock (localStorage).
   // Cuando publique los endpoints, se cambia el cuerpo de api/tarifas.ts y esto
   // sigue igual.
-  listTarifasBase(): Promise<TarifaBase[]> {
-    return tarifas.listTarifasBase();
+  //
+  // El `scope` (id del proveedor logueado, o null para admin/agencia) NO viene de
+  // la vista: se resuelve acá contra /auth/me/ para que ninguna pantalla pueda
+  // pedir el tarifario de otro proveedor cambiando un prop.
+  async tarifaScope(): Promise<string | null> {
+    return proveedores.proveedorIdOf(await this.getMe().catch(() => null));
   },
-  createTarifaBase(input: TarifaBaseInput): Promise<TarifaBase> {
-    return tarifas.createTarifaBase(input);
+  async listTarifasBase(): Promise<TarifaBase[]> {
+    return tarifas.listTarifasBase(await this.tarifaScope());
   },
-  updateTarifaBase(t: TarifaBase): Promise<TarifaBase> {
-    return tarifas.updateTarifaBase(t);
+  async createTarifaBase(input: TarifaBaseInput): Promise<TarifaBase> {
+    return tarifas.createTarifaBase(input, await this.tarifaScope());
   },
-  deleteTarifaBase(id: string): Promise<void> {
-    return tarifas.deleteTarifaBase(id);
+  async updateTarifaBase(t: TarifaBase): Promise<TarifaBase> {
+    return tarifas.updateTarifaBase(t, await this.tarifaScope());
   },
-  getTarifasExtras(): Promise<TarifaExtras> {
-    return tarifas.getTarifasExtras();
+  async deleteTarifaBase(id: string): Promise<void> {
+    return tarifas.deleteTarifaBase(id, await this.tarifaScope());
   },
-  updateTarifasExtras(patch: Partial<TarifaExtras>): Promise<TarifaExtras> {
-    return tarifas.updateTarifasExtras(patch);
+  // Extras de un proveedor concreto (el del viaje, o el que eligió el admin).
+  getTarifasExtras(proveedorId: string): Promise<TarifaExtras> {
+    return tarifas.getTarifasExtras(proveedorId);
+  },
+  async updateTarifasExtras(
+    patch: Partial<TarifaExtras>,
+    proveedorId: string,
+  ): Promise<TarifaExtras> {
+    return tarifas.updateTarifasExtras(patch, proveedorId, await this.tarifaScope());
   },
   listTarifaLugares(): Promise<string[]> {
     return tarifas.listLugares();
   },
-  getCategoriasTarifadas(origen: string, destino: string): Promise<CategoriaTarifada[]> {
-    return tarifas.getCategoriasTarifadas(origen, destino);
+  getCategoriasTarifadas(
+    origen: string,
+    destino: string,
+    proveedorId: string,
+  ): Promise<CategoriaTarifada[]> {
+    return tarifas.getCategoriasTarifadas(origen, destino, proveedorId);
   },
 };

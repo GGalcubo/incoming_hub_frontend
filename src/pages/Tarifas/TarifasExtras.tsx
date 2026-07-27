@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { Button } from "../../components/ui/Button";
-import { Field, Input } from "../../components/ui/Field";
+import { Field, Input, Select } from "../../components/ui/Field";
 import { useToast } from "../../context/ToastContext";
 import type { UseMe } from "../../hooks/useMe";
 import type { TarifaExtras } from "../../types/tarifas";
@@ -30,12 +30,26 @@ const ROWS: ExtraRow[] = [
 export function TarifasExtras({ me }: { me: UseMe }) {
   const { flash } = useToast();
   const qc = useQueryClient();
-  const { isAdmin, isProvider, isAgency } = me;
-  const canEdit = isAdmin || isProvider;
+  const { isAdmin, isProvider, isAgency, proveedorId } = me;
   const showCliente = !isProvider; // el proveedor no ve el costo al cliente
   const showProveedor = !isAgency;
 
-  const { data } = useQuery({ queryKey: ["tarifasExtras"], queryFn: () => api.getTarifasExtras() });
+  // Hay un set de extras POR PROVEEDOR: el proveedor edita el suyo y no puede
+  // cambiar de dueño; admin/agencia eligen a cuál mirar.
+  const { data: proveedores = [] } = useQuery({
+    queryKey: ["proveedores"],
+    queryFn: () => api.listProveedores(),
+  });
+  const [elegido, setElegido] = useState("");
+  const target = proveedorId ?? (elegido || proveedores[0]?.id) ?? "";
+  // Solo el admin edita extras ajenos; el proveedor, únicamente los suyos.
+  const canEdit = isProvider ? target === proveedorId : isAdmin;
+
+  const { data } = useQuery({
+    queryKey: ["tarifasExtras", target],
+    queryFn: () => api.getTarifasExtras(target),
+    enabled: !!target,
+  });
   const [form, setForm] = useState<TarifaExtras | null>(null);
 
   useEffect(() => {
@@ -43,24 +57,39 @@ export function TarifasExtras({ me }: { me: UseMe }) {
   }, [data]);
 
   const saveMut = useMutation({
-    mutationFn: (patch: Partial<TarifaExtras>) => api.updateTarifasExtras(patch),
+    mutationFn: (patch: Partial<TarifaExtras>) => api.updateTarifasExtras(patch, target),
     onSuccess: (saved) => {
-      qc.setQueryData(["tarifasExtras"], saved);
+      qc.setQueryData(["tarifasExtras", target], saved);
       setForm(saved);
       flash("Extras actualizados", "success");
     },
     onError: (e) => flash(e instanceof Error ? e.message : "No se pudo guardar", "error"),
   });
 
-  if (!form) return <div className={styles.empty}>Cargando extras…</div>;
+  if (!target) return <div className={styles.empty}>No hay proveedores cargados.</div>;
+  if (!form || form.proveedorId !== target) {
+    return <div className={styles.empty}>Cargando extras…</div>;
+  }
 
   const set = (key: keyof TarifaExtras, value: number) =>
     setForm((f) => (f ? { ...f, [key]: value } : f));
 
   return (
     <div className={styles.formCard}>
+      {!isProvider && (
+        <Field label="Proveedor" style={{ marginBottom: 14 }}>
+          <Select value={target} onChange={(e) => setElegido(e.target.value)}>
+            {proveedores.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      )}
+
       <p className={styles.hint} style={{ marginBottom: 12 }}>
-        Solo existe un set de extras. {showProveedor && showCliente
+        Cada proveedor tiene un único set de extras. {showProveedor && showCliente
           ? "Definí el valor que cobra el proveedor y el que se factura al cliente."
           : showProveedor
             ? "Definí el valor que cobra el proveedor."
