@@ -17,11 +17,37 @@ import type {
 import * as comentarios from "./comentarios";
 import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as proveedores from "./proveedores";
+import * as tarifario from "./tarifario";
 import * as tarifas from "./tarifas";
 import * as tarifasCliente from "./tarifasCliente";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
+
+// ── Cotización de la ruta (paso "Tarifa" del wizard) ─────────────────────────
+// Una tarifa ofrecida para la ruta elegida: la categoría de vehículo con su
+// precio de las dos columnas y el proveedor dueño del tarifario. `tarifaId` es el
+// id del backend: es lo que se guarda en el tramo del viaje y lo que define su
+// costo. Sin backend real queda sin definir (el mock no tiene ids de tarifa).
+export interface TarifaOpcion {
+  tarifaId?: number;
+  proveedorId: string;
+  proveedorNombre: string;
+  codigo: string; // código de la categoría (STD/EJE/VVIP/VAN)
+  nombre: string;
+  vehiculo: string;
+  precioCliente: number | null;
+  precioProveedor: number | null;
+  moneda: string;
+}
+
+export interface CotizacionRuta {
+  // Proveedores con tarifa para la ruta (los que puede elegir el admin).
+  proveedores: Proveedor[];
+  opciones: TarifaOpcion[];
+  // Mensaje del backend cuando no hay tarifa vigente para el tramo.
+  detalle: string;
+}
 
 // Identidad que consume el wizard para los dropdowns de agencia y solicitante.
 export interface WizardIdentity {
@@ -138,17 +164,18 @@ function mockPersonas(): Persona[] {
   return Array.from(byName.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
-// ── Overlay de proveedor ─────────────────────────────────────────────────────
-// El backend no tiene el campo `proveedorId` en el viaje: lo guardamos aparte
-// (localStorage, por id de viaje) y lo pegamos al entrar/salir de la API, así el
-// resto de la app trabaja con un `Trip` completo. Cuando el backend lo modele,
-// se borran estas dos funciones.
+// ── Overlay de proveedor (solo modo mock) ────────────────────────────────────
+// El backend real ya devuelve el proveedor con el viaje (`viaje.proveedor`), así
+// que estas dos funciones solo actúan cuando el viaje viene SIN proveedor: es el
+// caso del mock, donde la asignación se guarda en localStorage por id de viaje.
 function withProveedor(t: Trip): Trip {
+  if (t.proveedorId) return t;
   const asignado = proveedores.loadAsignaciones()[t.id];
   return asignado ? { ...t, proveedorId: asignado } : t;
 }
 
 function persistProveedor(t: Trip): Trip {
+  if (!USE_VIAJES_MOCK) return t;
   proveedores.setAsignacion(t.id, t.proveedorId);
   return t;
 }
@@ -331,10 +358,11 @@ export const api = {
       mockTrips = [created, ...mockTrips];
       saveMockTrips();
     } else {
-      created = await viajes.createTrip(trip as Trip);
+      // El backend devuelve el viaje ya con su proveedor: no se pisa con el
+      // local (podría venir vacío y borrar el que asignó el servidor).
+      return viajes.createTrip(trip as Trip);
     }
-    // El backend no devuelve el proveedor: lo tomamos del viaje que se mandó y
-    // lo guardamos en el overlay contra el id ya definitivo.
+    // Mock: el proveedor se guarda en el overlay contra el id ya definitivo.
     return persistProveedor({ ...created, proveedorId: trip.proveedorId });
   },
 
@@ -345,8 +373,7 @@ export const api = {
       saveMockTrips();
       return persistProveedor(trip);
     }
-    const updated = await viajes.updateTrip(trip);
-    return persistProveedor({ ...updated, proveedorId: trip.proveedorId });
+    return viajes.updateTrip(trip);
   },
 
   async setStatus(id: string, est: TripStatus): Promise<Trip> {
@@ -484,6 +511,92 @@ export const api = {
     proveedorId?: string,
   ): Promise<CategoriaTarifada[]> {
     return tarifas.getCategoriasTarifadas(origen, destino, proveedorId);
+  },
+
+  // ── Cotización de la ruta del viaje ────────────────────────────────────────
+  // Con backend real sale del tarifario del servidor (/tarifarios/): las zonas
+  // pueblan los selectores de origen/destino y la cotización devuelve las
+  // tarifas vigentes de esa ruta, con su id (lo que después se guarda en el
+  // tramo). Sin backend cae al tarifario mock, con el mismo formato.
+
+  // Lugares tarifados con los que se arma la ruta del viaje.
+  async listLugaresRuta(): Promise<string[]> {
+    if (!VIAJES_BASE) return tarifas.listLugares();
+    const zonas = await tarifario.listZonas();
+    return Array.from(new Set(zonas.map(tarifario.zonaKey).filter(Boolean))).sort();
+  },
+
+  // Tarifas disponibles para una ruta. `proveedorId` solo lo usa el mock (su
+  // tarifario es por proveedor); el backend devuelve los de todos los que tengan
+  // tarifa vigente para el tramo.
+  async cotizarRuta(
+    origen: string,
+    destino: string,
+    proveedorId?: string,
+  ): Promise<CotizacionRuta> {
+    if (!VIAJES_BASE) {
+      const [provs, cats] = await Promise.all([
+        this.listProveedores(),
+        tarifas.getCategoriasTarifadas(origen, destino, proveedorId),
+      ]);
+      const nombre = provs.find((p) => p.id === proveedorId)?.nombre ?? "";
+      return {
+        proveedores: provs,
+        // El mock ya resuelve los precios contra el tarifario del proveedor
+        // elegido: las opciones se le atribuyen a ese mismo (así el filtro por
+        // proveedor del paso Tarifa las encuentra).
+        opciones: cats.map((c) => ({
+          proveedorId: proveedorId ?? "",
+          proveedorNombre: nombre,
+          codigo: c.codigo,
+          nombre: c.nombre,
+          vehiculo: c.vehiculo,
+          precioCliente: c.tarifaCliente,
+          precioProveedor: c.tarifaProveedor,
+          moneda: "USD",
+        })),
+        detalle: "",
+      };
+    }
+    const out = await tarifario.cotizar(origen, destino);
+    return {
+      proveedores: out.proveedores.map((p) => ({
+        id: String(p.proveedor.id),
+        nombre: p.proveedor.nombre,
+      })),
+      opciones: out.proveedores.flatMap(({ proveedor, tarifas: rows }) =>
+        rows.map((r) => ({
+          tarifaId: r.id,
+          proveedorId: String(proveedor.id),
+          proveedorNombre: proveedor.nombre,
+          codigo: r.categoria_servicio.codigo,
+          nombre: r.categoria_servicio.nombre,
+          vehiculo: r.categoria_servicio.descripcion ?? "",
+          precioCliente: r.precio_cliente != null ? Number(r.precio_cliente) : null,
+          precioProveedor: r.precio_proveedor != null ? Number(r.precio_proveedor) : null,
+          moneda: r.moneda_cliente || r.moneda_proveedor || "USD",
+        })),
+      ),
+      detalle: out.tarifa_encontrada ? "" : out.detalle,
+    };
+  },
+
+  // Ruta (códigos de zona) de una tarifa ya elegida. Se usa al reabrir un viaje:
+  // del tramo solo viene el id de la tarifa, y el paso Tarifa necesita el origen
+  // y el destino para volver a cotizar y marcar la selección.
+  async rutaDeTarifa(tarifaId: number): Promise<{ origen: string; destino: string } | null> {
+    if (!VIAJES_BASE) return null;
+    const [tarifa, zonas] = await Promise.all([
+      tarifario.getTarifa(tarifaId),
+      tarifario.listZonas(),
+    ]);
+    const key = (id: number) => {
+      const z = zonas.find((x) => x.id === id);
+      return z ? tarifario.zonaKey(z) : "";
+    };
+    const origen = key(tarifa.origen);
+    const destino = key(tarifa.destino);
+    return origen && destino ? { origen, destino } : null;
   },
 
   // ── Tarifas de cliente ─────────────────────────────────────────────────────

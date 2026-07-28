@@ -7,6 +7,11 @@ const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
 // VITE_API_URL explícito lo respetamos; si no, reusamos el base de auth.
 export const VIAJES_BASE = API_URL || AUTH_URL;
 
+// true cuando hay backend real de viajes/tarifas configurado. Las vistas lo usan
+// para saber qué campos calcula el servidor (p. ej. la base del costo, que sale
+// del tarifario y no se edita a mano) y qué sigue viniendo del mock local.
+export const HAS_BACKEND = !!VIAJES_BASE;
+
 const USER_STORAGE_KEY = "proxy:user";
 
 let onUnauthorized: () => void = () => {};
@@ -84,4 +89,25 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) await parseError(res);
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
+}
+
+// Página de DRF (page-number pagination). Se declara acá para que los módulos de
+// API puedan recorrer la paginación sin depender entre sí.
+interface Page<T> {
+  next: string | null;
+  results: T[];
+}
+
+// Recorre la paginación de DRF hasta que `next` sea null y devuelve todo junto.
+export async function fetchAll<T>(path: string): Promise<T[]> {
+  const out: T[] = [];
+  let page = 1;
+  for (;;) {
+    const sep = path.includes("?") ? "&" : "?";
+    const data = await request<Page<T>>(`${path}${sep}page=${page}`);
+    out.push(...data.results);
+    if (!data.next) break;
+    page += 1;
+  }
+  return out;
 }

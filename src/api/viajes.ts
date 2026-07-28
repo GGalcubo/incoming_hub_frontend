@@ -2,10 +2,20 @@
 // esquema del backend (`Viaje` + catálogos). Toda la lógica de red de viajes
 // vive acá; client.ts solo decide entre este módulo y el mock.
 
-import type { ExcelRow, Leg, LegType, Trip, TripCosts, TripStatus } from "../types/domain";
+import type {
+  ExcelRow,
+  Leg,
+  LegType,
+  Trip,
+  TripCosts,
+  TripStatus,
+  TripTarifa,
+} from "../types/domain";
 import type {
   Agencia,
   CategoriaServicio,
+  CostoViaje,
+  CostoViajePatch,
   MeProfile,
   Paginated,
   PasajeroRead,
@@ -19,7 +29,8 @@ import type {
   ViajePersonaWrite,
   ViajeWrite,
 } from "./backend";
-import { request } from "./http";
+import { fetchAll, request } from "./http";
+import { patchCostos, setTramoTarifa } from "./tarifario";
 
 // ── Estados ────────────────────────────────────────────────────────────────
 // El backend expone `estado` como entero pero NO publica un endpoint de
@@ -70,20 +81,6 @@ export interface Catalogs {
 }
 
 let catalogsPromise: Promise<Catalogs> | null = null;
-
-async function fetchAll<T>(path: string): Promise<T[]> {
-  const out: T[] = [];
-  let page = 1;
-  // Recorre la paginación de DRF hasta que `next` sea null.
-  for (;;) {
-    const sep = path.includes("?") ? "&" : "?";
-    const data = await request<Paginated<T>>(`${path}${sep}page=${page}`);
-    out.push(...data.results);
-    if (!data.next) break;
-    page += 1;
-  }
-  return out;
-}
 
 export function loadCatalogs(): Promise<Catalogs> {
   if (!catalogsPromise) {
@@ -248,6 +245,11 @@ function num(s: string | null | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+// Monto para el backend: decimal con 2 lugares (patrón ^-?\d{0,8}(?:\.\d{0,2})?$).
+function money(n: number): string {
+  return (Math.round((Number.isFinite(n) ? n : 0) * 100) / 100).toFixed(2);
+}
+
 // Texto visible de un extremo del tramo. Combina nombre del lugar + dirección
 // ("Obelisco, Av. 9 de Julio") cuando el backend los devuelve por separado, sin
 // repetir si uno ya contiene al otro. Si faltan (tramos viejos guardados solo con
@@ -282,6 +284,8 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
   const solicitante = c.solicitantes.find((s) => s.id === v.solicitante);
 
   const tramos = [...(v.tramos ?? [])].sort((a, b) => a.numero_tramo - b.numero_tramo);
+  // La tarifa del viaje se guarda en el tramo principal (ver buildTramosInput).
+  const tarifaId = tramos[0]?.tarifa ?? undefined;
   const legs = tramos.map((tr, i) => {
     const originCoords = coordsOf(tr.origen_latitud, tr.origen_longitud);
     const destinationCoords = coordsOf(tr.destino_latitud, tr.destino_longitud);
@@ -347,16 +351,17 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
   if (passengers.length === 0)
     passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
-  const costs: TripCosts = v.costo
-    ? {
-        total: num(v.costo.costo_total),
-        viaje: num(v.costo.costo_viaje),
-        espera: num(v.costo.costo_espera),
-        peajes: num(v.costo.costo_peajes),
-        estacionamiento: num(v.costo.costo_estacionamiento),
-        otros: num(v.costo.costo_otros),
-      }
-    : { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 };
+  const costs = costoToTripCosts(v.costo);
+  // Horas a disposición: el backend las guarda con el costo. > 0 ⇒ el viaje se
+  // tarifó por horas, no por traslado.
+  const horasDispo = v.costo?.horas_disponibles ?? 0;
+  const tarifa: TripTarifa | undefined =
+    tarifaId != null || horasDispo > 0
+      ? {
+          ...(tarifaId != null ? { tarifaId } : {}),
+          ...(horasDispo > 0 ? { modalidad: "horas" as const, horas: horasDispo } : {}),
+        }
+      : undefined;
 
   return {
     id: String(v.id),
@@ -377,6 +382,37 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     costs,
     history: [],
     solicitante: solicitante?.nombre ?? "",
+    // El proveedor lo asigna el backend con el viaje (antes vivía en un overlay
+    // local). Se guarda como string porque es la clave de scoping del front.
+    ...(v.proveedor ? { proveedorId: String(v.proveedor.id) } : {}),
+    // La tarifa del viaje es la del tramo principal: es la que le da la base al
+    // costo. La ruta no la guarda el backend; el paso Tarifa la reconstruye a
+    // partir de esta tarifa.
+    ...(tarifa ? { tarifa } : {}),
+  };
+}
+
+// CostoViaje (dos columnas del backend) → TripCosts (modelo del front). Los
+// totales vienen calculados por el backend; `esperaMin` no se persiste (el
+// backend guarda el monto, no los minutos) y lo deriva la vista de costos.
+function costoToTripCosts(costo: CostoViaje | null): TripCosts {
+  if (!costo) {
+    return { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 };
+  }
+  return {
+    total: num(costo.costo_total_cliente),
+    viaje: num(costo.costo_viaje_cliente),
+    espera: num(costo.costo_espera_cliente),
+    peajes: num(costo.costo_peajes_cliente),
+    estacionamiento: num(costo.costo_estacionamiento_cliente),
+    otros: num(costo.costo_otros_cliente),
+    totalProveedor: num(costo.costo_total_proveedor),
+    tarifaProveedor: num(costo.costo_viaje_proveedor),
+    esperaProveedor: num(costo.costo_espera_proveedor),
+    peajesProveedor: num(costo.costo_peajes_proveedor),
+    estacionamientoProveedor: num(costo.costo_estacionamiento_proveedor),
+    otrosProveedor: num(costo.costo_otros_proveedor),
+    moneda: costo.moneda_cliente || costo.moneda_proveedor || undefined,
   };
 }
 
@@ -462,10 +498,26 @@ function buildTramoInput(l: Leg): TramoInput {
 // define el numero_tramo; el primero es el principal. Un tramo cuenta si tiene
 // texto O coordenadas: en edición el texto puede venir vacío del backend y
 // descartar esos tramos disparaba un DELETE de todo (incluido el principal).
+//
+// La tarifa elegida en el paso Tarifa se cuelga SOLO del tramo principal: el
+// backend suma la tarifa de cada tramo al costo del viaje, y el wizard cotiza
+// una única ruta (primer origen → último destino) para todo el viaje. Ponerla en
+// todos los tramos multiplicaría el costo.
 function buildTramosInput(t: Trip): TramoInput[] {
-  return t.legs
+  const bodies = t.legs
     .filter((l) => l.origin || l.destination || l.originCoords || l.destinationCoords)
     .map(buildTramoInput);
+  const tarifa = t.tarifa?.tarifaId;
+  if (bodies.length && tarifa != null) bodies[0].tarifa = tarifa;
+  return bodies;
+}
+
+// Id numérico del proveedor del viaje. El dominio lo guarda como string; contra
+// el backend real es el id de /auth/me/ o del viaje. Devuelve undefined si no es
+// numérico (catálogo mock): en ese caso el campo no se manda.
+function proveedorId(t: Trip): number | undefined {
+  const n = Number(t.proveedorId);
+  return t.proveedorId && Number.isInteger(n) ? n : undefined;
 }
 
 // Cuerpo del POST de creación. Los pasajeros van embebidos: el backend los da de
@@ -493,6 +545,8 @@ export function buildViajePayload(t: Trip, c: Catalogs): ViajeWrite {
   if (pasajeros.length) payload.pasajeros = pasajeros;
   const solicitante = resolveSolicitante(t, c, agencia);
   if (solicitante != null) payload.solicitante = solicitante;
+  const proveedor = proveedorId(t);
+  if (proveedor != null) payload.proveedor = proveedor;
   return payload;
 }
 
@@ -598,6 +652,14 @@ function diffViajePatch(t: Trip, c: Catalogs, current: Viaje): Partial<ViajeWrit
   const categoria = resolveCategoria(t, c);
   if (categoria !== current.categoria_servicio) out.categoria_servicio = categoria;
 
+  // Proveedor asignado. Solo se manda si se pudo resolver a un id numérico y
+  // cambió; nunca se limpia solo (quitarlo es una acción explícita del admin,
+  // que hoy no existe en la UI).
+  const proveedor = proveedorId(t);
+  if (proveedor != null && proveedor !== (current.proveedor?.id ?? null)) {
+    out.proveedor = proveedor;
+  }
+
   const estado = statusToEstado(t.est);
   if (estado !== current.estado) out.estado = estado;
 
@@ -636,6 +698,11 @@ export async function updateTrip(trip: Trip): Promise<Trip> {
     });
   }
   await syncTramos(trip, current.id, current.tramos);
+  // La tarifa del tramo va ANTES que los costos: cambiarla hace que el backend
+  // recalcule la base y resetee los ajustes manuales, así que si la tocamos hay
+  // que reenviarlos todos (por eso el flag `force`).
+  const tarifaCambio = await syncTarifaTramo(trip, current.tramos);
+  await syncCostos(trip, current.id, current.costo, tarifaCambio);
   await syncPasajeros(trip, current.id, current.pasajeros ?? []);
   // Pudo haberse creado/editado/quitado alguna Persona: refrescamos el cache.
   invalidateCatalogs();
@@ -712,9 +779,13 @@ async function syncTramos(trip: Trip, viajeId: number, existing: Tramo[]): Promi
     const tramo = current[i];
     if (tramo) {
       if (!tramoChanged(bodies[i], tramo)) continue;
+      // La tarifa no se toca acá (es de solo lectura en este endpoint): tiene el
+      // suyo propio, ver syncTarifaTramo.
+      const body = { ...bodies[i] };
+      delete body.tarifa;
       await request<Tramo>(`/tramos/${tramo.id}/`, {
         method: "PATCH",
-        body: JSON.stringify(bodies[i]),
+        body: JSON.stringify(body),
       });
     } else {
       await request<Tramo>("/tramos/", {
@@ -728,6 +799,81 @@ async function syncTramos(trip: Trip, viajeId: number, existing: Tramo[]): Promi
   for (let i = bodies.length; i < current.length; i++) {
     await request<void>(`/tramos/${current[i].id}/`, { method: "DELETE" });
   }
+}
+
+// Cambia la tarifa del tramo principal cuando el paso Tarifa eligió otra. Va por
+// el endpoint dedicado (/tramos/{id}/tarifa/) porque en el PATCH normal del
+// tramo la tarifa es de solo lectura. Devuelve true si hubo cambio: el backend
+// recalcula la base del costo y resetea los ajustes manuales.
+// Si el tramo principal todavía no existe (viaje sin tramos) no hay dónde
+// colgarla: la tarifa viaja en el POST del tramo (ver buildTramosInput).
+async function syncTarifaTramo(trip: Trip, existing: Tramo[]): Promise<boolean> {
+  const principal = [...existing].sort((a, b) => a.numero_tramo - b.numero_tramo)[0];
+  const next = trip.tarifa?.tarifaId;
+  if (!principal || next == null || next === principal.tarifa) return false;
+  await setTramoTarifa(principal.id, next);
+  return true;
+}
+
+// Ajustes manuales de los costos (espera, peajes, estacionamiento, otros de las
+// dos columnas, moneda y horas a disposición). NO se mandan la base ni los
+// totales: los calcula el backend a partir de la tarifa del tramo.
+//
+// Solo viajan los rubros que cambiaron contra el estado del servidor, así una
+// edición del proveedor no toca los montos del cliente (ni al revés).
+function diffCostosPatch(t: Trip, current: CostoViaje | null, force: boolean): CostoViajePatch {
+  const c = t.costs;
+  const out: CostoViajePatch = {};
+  // Rubros manuales (decimales) de las dos columnas.
+  type CampoMonto =
+    | "costo_espera_cliente"
+    | "costo_peajes_cliente"
+    | "costo_estacionamiento_cliente"
+    | "costo_otros_cliente"
+    | "costo_espera_proveedor"
+    | "costo_peajes_proveedor"
+    | "costo_estacionamiento_proveedor"
+    | "costo_otros_proveedor";
+  const montos: { campo: CampoMonto; valor: number }[] = [
+    { campo: "costo_espera_cliente", valor: c.espera ?? 0 },
+    { campo: "costo_peajes_cliente", valor: c.peajes ?? 0 },
+    { campo: "costo_estacionamiento_cliente", valor: c.estacionamiento ?? 0 },
+    { campo: "costo_otros_cliente", valor: c.otros ?? 0 },
+    { campo: "costo_espera_proveedor", valor: c.esperaProveedor ?? 0 },
+    { campo: "costo_peajes_proveedor", valor: c.peajesProveedor ?? 0 },
+    { campo: "costo_estacionamiento_proveedor", valor: c.estacionamientoProveedor ?? 0 },
+    { campo: "costo_otros_proveedor", valor: c.otrosProveedor ?? 0 },
+  ];
+  // Sin registro de costos todavía (el PATCH lo crea) solo mandamos lo que tenga
+  // algún valor: si no, editar cualquier viaje sin costos generaría uno en cero.
+  const cambio = (previo: string | undefined, valor: number) =>
+    force || (current ? num(previo) !== valor : valor !== 0);
+
+  for (const { campo, valor } of montos) {
+    if (cambio(current?.[campo], valor)) out[campo] = money(valor);
+  }
+  if (c.moneda) {
+    if (force || (current?.moneda_cliente ?? "") !== c.moneda) out.moneda_cliente = c.moneda;
+    if (force || (current?.moneda_proveedor ?? "") !== c.moneda) out.moneda_proveedor = c.moneda;
+  }
+  // Horas a disposición: 0 cuando el viaje se tarifó por traslado.
+  const horas =
+    t.tarifa?.modalidad === "horas" ? Math.max(0, Math.round(t.tarifa.horas ?? 0)) : 0;
+  if (force || (current ? current.horas_disponibles !== horas : horas !== 0)) {
+    out.horas_disponibles = horas;
+  }
+  return out;
+}
+
+async function syncCostos(
+  trip: Trip,
+  viajeId: number,
+  current: CostoViaje | null,
+  force: boolean,
+): Promise<void> {
+  const patch = diffCostosPatch(trip, current, force);
+  if (!Object.keys(patch).length) return;
+  await patchCostos(viajeId, patch);
 }
 
 // Sincroniza los pasajeros del viaje con los del Trip editado, vía

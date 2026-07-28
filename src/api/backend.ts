@@ -64,6 +64,10 @@ export interface Tramo {
   id: number;
   viaje: number;
   numero_tramo: number;
+  // Tarifa (del tarifario de un proveedor) elegida para este tramo: es la que
+  // define su costo. Solo lectura acá: se manda en el alta (TramoInput.tarifa) o
+  // se cambia con el endpoint dedicado PATCH /tramos/{id}/tarifa/.
+  tarifa: number | null;
   origen_direccion: string;
   origen_latitud: string | null;
   origen_longitud: string | null;
@@ -93,17 +97,119 @@ export interface PasajeroRead {
   es_principal: boolean;
 }
 
+// Costos del viaje (GET/PATCH /viajes/{id}/costos/). Tiene DOS columnas: lo que
+// cobra el proveedor y lo que se le factura al cliente. Por cada lado, la base
+// (`costo_viaje_*`) sale del tarifario de los tramos y el total lo calcula el
+// backend: ninguno de los dos se edita desde el front (ver CostoViajePatch).
 export interface CostoViaje {
   id: number;
   viaje: number;
-  costo_viaje: string;
-  costo_espera: string;
-  costo_peajes: string;
-  costo_estacionamiento: string;
-  costo_otros: string;
-  costo_total: string;
-  moneda: string;
+  costo_viaje_proveedor: string;
+  costo_espera_proveedor: string;
+  costo_peajes_proveedor: string;
+  costo_estacionamiento_proveedor: string;
+  costo_otros_proveedor: string;
+  costo_total_proveedor: string;
+  moneda_proveedor: string;
+  costo_viaje_cliente: string;
+  costo_espera_cliente: string;
+  costo_peajes_cliente: string;
+  costo_estacionamiento_cliente: string;
+  costo_otros_cliente: string;
+  costo_total_cliente: string;
+  moneda_cliente: string;
+  comentario: string;
+  horas_disponibles: number;
   updated_at: string;
+}
+
+// Ajustes manuales de los costos (PATCH /viajes/{id}/costos/). NO incluye la base
+// del tarifario (`costo_viaje_*`) ni los totales: los resuelve el backend. Si el
+// viaje todavía no tiene costo, el PATCH lo crea.
+export interface CostoViajePatch {
+  costo_espera_proveedor?: string;
+  costo_peajes_proveedor?: string;
+  costo_estacionamiento_proveedor?: string;
+  costo_otros_proveedor?: string;
+  moneda_proveedor?: string;
+  costo_espera_cliente?: string;
+  costo_peajes_cliente?: string;
+  costo_estacionamiento_cliente?: string;
+  costo_otros_cliente?: string;
+  moneda_cliente?: string;
+  comentario?: string;
+  horas_disponibles?: number;
+}
+
+// ── Tarifario ────────────────────────────────────────────────────────────────
+// Zona/ubicación tarifada (aeropuerto o barrio). Es el catálogo con el que se
+// arman las rutas del tarifario: `codigo_ref` (EZE, AEP, CABA…) es la clave con
+// la que se cotiza.
+export interface Zona {
+  id: number;
+  nombre: string;
+  tipo: "AEROPUERTO" | "ZONA";
+  codigo_ref: string;
+  iata: string;
+  latitud: string | null;
+  longitud: string | null;
+  prioridad: number;
+  activo: boolean;
+}
+
+// Proveedor tal como lo devuelve el backend (catálogo propio, con sus valores
+// por hora de espera y de disponibilidad).
+export interface ProveedorApi {
+  id: number;
+  nombre: string;
+  id_proveedor_central: number | null;
+  // Valor por HORA (no por minuto) de espera y de hora a disposición.
+  valor_espera: string | null;
+  valor_hora_dispo: string | null;
+}
+
+// Tarifa con su categoría de servicio (tipo de vehículo) anidada, tal como sale
+// de la cotización.
+export interface TarifaApi {
+  id: number;
+  categoria_servicio: CategoriaServicio;
+  precio_cliente: string | null;
+  moneda_cliente: string;
+  precio_proveedor: string;
+  moneda_proveedor: string;
+  vigencia_desde: string | null;
+  vigencia_hasta: string | null;
+}
+
+// Tarifa en su forma CRUD (ids planos), como la devuelve /tarifarios/tarifas/.
+export interface TarifaCRUD {
+  id: number;
+  proveedor: number;
+  origen: number;
+  destino: number;
+  categoria_servicio: number;
+  precio_cliente: string | null;
+  moneda_cliente: string;
+  precio_proveedor: string;
+  moneda_proveedor: string;
+  vigencia_desde: string | null;
+  vigencia_hasta: string | null;
+  activo: boolean;
+}
+
+export interface ProveedorCotizacion {
+  proveedor: ProveedorApi;
+  tarifas: TarifaApi[];
+}
+
+// Respuesta de /tarifarios/cotizar/ y /cotizar-por-codigo/: todas las tarifas
+// vigentes de la ruta, agrupadas por proveedor.
+export interface CotizarOutput {
+  tarifa_encontrada: boolean;
+  detalle: string;
+  origen: Zona | null;
+  destino: Zona | null;
+  proveedores: ProveedorCotizacion[];
 }
 
 export interface Viaje {
@@ -113,6 +219,9 @@ export interface Viaje {
   agencia: number;
   solicitante: number | null;
   categoria_servicio: number;
+  // Proveedor asignado al viaje. En lectura viene anidado; se escribe con el id
+  // (ViajeWrite.proveedor).
+  proveedor: ProveedorApi | null;
   estado: number;
   fecha_servicio: string;
   hora_servicio: string;
@@ -173,6 +282,10 @@ export interface TramoInput {
   destino_direccion?: string;
   destino_es_aeropuerto?: boolean;
   destino_iata?: string;
+  // Tarifa elegida para el tramo (id del tarifario). Es lo que le da su costo al
+  // viaje: al crearlo con tarifa, el backend genera el registro de costos con la
+  // base del tarifario.
+  tarifa?: number | null;
 }
 
 // Cuerpo escribible de un viaje (POST/PUT/PATCH). Solo campos editables.
@@ -181,6 +294,8 @@ export interface ViajeWrite {
   agencia: number;
   solicitante?: number | null;
   categoria_servicio: number;
+  // Id del proveedor que presta el servicio (null = sin asignar).
+  proveedor?: number | null;
   estado?: number;
   fecha_servicio: string;
   hora_servicio: string;
@@ -218,7 +333,10 @@ export interface ViajePersonaWrite {
 // y modifica los costos de los viajes que tiene asignados.
 export type RoleEnum = "admin" | "agency_staff" | "agency_operator" | "proveedor";
 
-// Lectura del usuario autenticado (GET /auth/me/).
+// Lectura del usuario autenticado (GET /auth/me/). `agencia` y `proveedor` son
+// los vínculos del usuario con su organización: el backend ya los resuelve, así
+// que no hay que inferirlos (antes la agencia se cruzaba por email contra el
+// catálogo de solicitantes).
 export interface MeProfile {
   id: number;
   username: string;
@@ -227,6 +345,8 @@ export interface MeProfile {
   last_name: string;
   role: RoleEnum | null;
   phone: string;
+  agencia?: Agencia | null;
+  proveedor?: ProveedorApi | null;
 }
 
 // Cuerpo editable del perfil (PATCH /auth/me/). El backend no expone endpoint

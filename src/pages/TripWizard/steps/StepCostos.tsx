@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../../../api/client";
+import { HAS_BACKEND } from "../../../api/http";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Field";
 import { useMe } from "../../../hooks/useMe";
@@ -49,6 +50,19 @@ const EXTRA_ROWS: CostRow[] = [
 // La espera se cobra por bloques: la unidad mínima es de 15 minutos.
 const ESPERA_UNIDAD = 15;
 
+// Minutos de espera a partir del monto ya cargado. Cada rol la deriva de SU
+// columna (es la única que ve). Sin tarifa de espera no hay forma de dividir: 0.
+function derivarEsperaMin(
+  c: TripCosts,
+  extras: TarifaExtras | null,
+  isProvider: boolean,
+): number {
+  const monto = isProvider ? (c.esperaProveedor ?? 0) : c.espera;
+  const valorMin = isProvider ? extras?.esperaProveedor : extras?.esperaCliente;
+  if (!monto || !valorMin) return 0;
+  return Math.max(0, Math.round(monto / valorMin / ESPERA_UNIDAD) * ESPERA_UNIDAD);
+}
+
 export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) => void }) {
   const { isAdmin, isProvider, proveedorId } = useMe();
   const [extras, setExtras] = useState<TarifaExtras | null>(null);
@@ -70,12 +84,17 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   // agencia (cliente) es solo lectura.
   const canEditCol = (col: Col) =>
     !cerrado && (isAdmin || (isProvider && col === "proveedor" && esPropio));
-  // El tramo base sale del tarifario elegido en el paso Tarifa: solo el admin lo
-  // corrige a mano.
-  const canEditBase = !cerrado && isAdmin;
+  // El tramo base sale del tarifario elegido en el paso Tarifa. Contra el backend
+  // real lo calcula el servidor a partir de la tarifa del tramo y no se edita a
+  // mano: para cambiarlo hay que elegir otra tarifa. Sin backend, el admin lo
+  // corrige acá.
+  const canEditBase = !cerrado && isAdmin && !HAS_BACKEND;
   const canEditAlgo = cols.some(canEditCol);
 
-  const esperaMin = c.esperaMin ?? 0;
+  // Minutos de espera. El backend guarda el MONTO, no los minutos: cuando el
+  // viaje viene del servidor los reconstruimos dividiendo por el valor/minuto de
+  // la tarifa (redondeado a la unidad de cobro).
+  const esperaMin = c.esperaMin ?? derivarEsperaMin(c, extras, isProvider);
   // Los minutos son uno solo para las dos columnas (es el mismo tiempo de
   // espera): los carga quien puede editar costos, y cada monto sale del
   // valor/minuto del tarifario correspondiente.
@@ -83,11 +102,12 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
 
   // Tarifa de extras del proveedor del viaje (valor por minuto de espera); si
   // todavía no tiene proveedor, las del tarifario general. Sin ella no se puede
-  // calcular la espera.
+  // calcular la espera. El backend todavía no expone estos valores por proveedor:
+  // con backend real se usa el set general del mock.
   useEffect(() => {
     let active = true;
     api
-      .getTarifasExtras(t.proveedorId)
+      .getTarifasExtras(HAS_BACKEND ? undefined : t.proveedorId)
       .then((e) => {
         if (active) setExtras(e);
       })

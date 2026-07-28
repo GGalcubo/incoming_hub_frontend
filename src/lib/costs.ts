@@ -19,8 +19,9 @@ export function totalProveedor(c: TripCosts): number {
   );
 }
 
-// Devuelve los costos con los dos totales al día. `total` es el del cliente: es
-// el único que hoy viaja al backend (costo_total).
+// Devuelve los costos con los dos totales al día. Son para mostrar mientras se
+// edita: contra el backend real los totales (costo_total_cliente/_proveedor) los
+// calcula el servidor y vuelven en la próxima lectura del viaje.
 export function withTotals(c: TripCosts): TripCosts {
   return { ...c, total: totalCliente(c), totalProveedor: totalProveedor(c) };
 }

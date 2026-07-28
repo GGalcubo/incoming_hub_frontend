@@ -1,13 +1,14 @@
 // Proveedores: catálogo y asignación viaje → proveedor.
 //
-// El backend todavía no modela proveedores (ni /proveedores/, ni un campo en
-// /viajes/), así que esto vive en el frontend:
+// Contra el BACKEND REAL el proveedor ya viene modelado: el viaje lo trae en
+// `viaje.proveedor` y el usuario logueado en `/auth/me/.proveedor`, así que ni el
+// overlay ni el catálogo del seed se usan (el catálogo de una ruta sale de la
+// cotización del tarifario, ver api/tarifario.ts).
+//
+// SIN backend (modo mock) sigue viviendo en el frontend:
 //   - el catálogo sale del seed (data/tarifasSeed.ts);
 //   - la asignación viaje → proveedor se guarda en localStorage indexada por id
-//     de viaje, así funciona igual contra el mock y contra el backend real (el
-//     id del viaje es estable en los dos casos).
-// Cuando el backend agregue el campo, se reemplaza `loadAsignaciones` por lo que
-// venga en el viaje y se borra el overlay.
+//     de viaje.
 
 import { DEFAULT_PROVEEDOR_ID, PROVEEDORES } from "../data/tarifasSeed";
 import type { Proveedor } from "../types/tarifas";
@@ -17,11 +18,12 @@ export { DEFAULT_PROVEEDOR_ID };
 
 const ASIGNACIONES_KEY = "proxy:tripProveedor";
 
-// Id de proveedor del usuario logueado, o null si no es proveedor. Usamos el
-// username: es lo único estable que expone /auth/me/ y es la misma clave con la
-// que el mock de auth deriva el rol.
+// Id de proveedor del usuario logueado, o null si no es proveedor. Con backend
+// real es el id del proveedor que devuelve /auth/me/; sin él caemos al username,
+// que es la clave con la que el mock deriva el rol y arma el tarifario.
 export function proveedorIdOf(me: MeProfile | null | undefined): string | null {
   if (!me || me.role !== "proveedor") return null;
+  if (me.proveedor) return String(me.proveedor.id);
   return me.username.trim().toLowerCase() || null;
 }
 

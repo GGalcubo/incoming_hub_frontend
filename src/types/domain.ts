@@ -90,9 +90,14 @@ export interface TripComentario {
   fecha: string;
 }
 
-// Metadata del paso "Tarifa" (solo frontend: no se envía al backend). Guarda la
-// ruta y modalidad elegidas para poder reconstruir la selección al reabrir.
+// Selección del paso "Tarifa". `tarifaId` es lo único que viaja al backend: se
+// manda en el tramo del viaje y es lo que define su costo (el backend crea el
+// registro de costos con la base de esa tarifa). El resto es la ruta y modalidad
+// elegidas, para poder reconstruir la selección al reabrir el viaje.
 export interface TripTarifa {
+  // Id de la tarifa del backend (/tarifarios/tarifas/). Sin backend real queda
+  // sin definir: el mock trabaja solo con origen/destino/categoría.
+  tarifaId?: number;
   origen?: string;
   destino?: string;
   categoria?: string; // código de VehicleCategoria (STD/EJE/VVIP/VAN)
@@ -127,8 +132,9 @@ export interface Trip {
   solicitante?: string;
   tarifa?: TripTarifa;
   // Proveedor que presta el servicio. Define de qué tarifario salen los precios
-  // y quién puede editar los costos del viaje. El backend todavía no tiene este
-  // campo: se persiste en un overlay local (ver api/proveedores.ts).
+  // y quién puede editar los costos del viaje. Contra el backend real es el id
+  // del proveedor del viaje (`viaje.proveedor`); sin backend, el del catálogo
+  // mock, persistido en un overlay local (ver api/proveedores.ts).
   proveedorId?: string;
 }
 
