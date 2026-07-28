@@ -166,67 +166,96 @@
   border-radius: 9999px;
 }
 
-.costTable {
+/* Cuadro de costos: una fila por rubro y una columna por rol visible (cliente
+   y/o proveedor). Las columnas se arman en el TSX (varían según el rol). */
+/* Sin `align-items`: las celdas se estiran a la altura de la fila para que las
+   líneas divisorias coincidan aunque una celda sea más alta (la de espera, que
+   lleva el selector de minutos debajo del rótulo). */
+.costGrid {
+  display: grid;
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   overflow: hidden;
   margin-top: 8px;
 }
 
-.costRow {
+.costHeadCell {
+  font: 500 11px/14px Heming;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.costHeadNum {
+  text-align: right;
+}
+
+.costCell {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border-subtle);
   font: 400 14px/20px Heming;
   color: var(--fg-secondary);
 }
 
+.costCellNum {
+  align-items: flex-end;
+  justify-content: center;
+}
+
 .costLabel {
   color: var(--fg-muted);
+}
+
+.costInput {
+  max-width: 130px;
+  text-align: right;
 }
 
 .tnum {
   font-feature-settings: "tnum" 1;
 }
 
-/* Fila de costo que se apila (label+monto arriba, control debajo): la espera. */
-.costRowStack {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-}
-
-.costRowHead {
-  display: flex;
-  justify-content: space-between;
+/* Selector de minutos de espera: −  [ 45 ] min  + (unidad mínima 15). */
+.esperaStep {
+  display: inline-flex;
   align-items: center;
-}
-
-.esperaChips {
-  display: flex;
-  flex-wrap: wrap;
   gap: 6px;
 }
 
-.esperaChip {
+.esperaStepBtn {
+  width: 26px;
+  height: 26px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: 9999px;
+  border-radius: 8px;
   color: var(--fg-tertiary);
   cursor: pointer;
-  font: 600 12px/16px Heming;
-  padding: 5px 12px;
+  font: 600 14px/1 Heming;
 }
 
-.esperaChip:hover {
+.esperaStepBtn:hover:not(:disabled) {
   color: var(--fg-primary);
 }
 
-.esperaChipActive {
-  background: var(--brand-tint);
-  border-color: var(--fg-primary);
-  color: var(--fg-primary);
+.esperaStepBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.esperaStepInput {
+  width: 68px;
+  text-align: center;
+}
+
+.esperaUnit {
+  font: 400 12px/16px Heming;
+  color: var(--fg-muted);
 }
 
 .esperaHint {
@@ -235,13 +264,106 @@
   font-feature-settings: "tnum" 1;
 }
 
-.costTotalRow {
+.costTotalCell {
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   padding: 14px;
   background: var(--bg-app);
   font: 600 14px/20px Heming;
   color: var(--fg-primary);
+}
+
+.costTotalNum {
+  justify-content: flex-end;
+}
+
+/* ---- Comentarios del viaje ---- */
+.comments {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+
+.commentsHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font: 600 13px/18px Heming;
+  color: var(--fg-primary);
+}
+
+.commentsCount {
+  font: 400 12px/16px Heming;
+  color: var(--fg-muted);
+  font-feature-settings: "tnum" 1;
+}
+
+.commentsEmpty {
+  padding: 14px;
+  font: 400 13px/18px Heming;
+  color: var(--fg-muted);
+}
+
+.comment {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.commentHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.commentAutor {
+  font: 600 13px/18px Heming;
+  color: var(--fg-secondary);
+}
+
+.commentRol {
+  font: 500 10px/14px Heming;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  padding: 1px 7px;
+}
+
+.commentFecha {
+  margin-left: auto;
+  font: 400 11px/16px Heming;
+  color: var(--fg-muted);
+  font-feature-settings: "tnum" 1;
+}
+
+.commentText {
+  margin-top: 3px;
+  font: 400 13px/19px Heming;
+  color: var(--fg-secondary);
+  white-space: pre-wrap;
+}
+
+.commentForm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+}
+
+.commentInput {
+  flex: 1;
+  min-width: 0;
+}
+
+.commentError {
+  padding: 0 14px 12px;
+  font: 400 12px/16px Heming;
+  color: var(--danger-fg);
 }
 
 /* ---- StepTarifa ---- */

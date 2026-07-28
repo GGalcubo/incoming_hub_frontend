@@ -1,24 +1,26 @@
 import type { Trip } from "../../types/domain";
-import type { StepId } from "./types";
-
-const PHONE_RE = /^[+\d\s-]{8,20}$/;
+import { PHONE_RE } from "../../lib/phone";
+import type { Mode, StepId } from "./types";
 
 /** Valida un paso del wizard y devuelve un mapa de errores por campo
  *  (vacío si el paso es válido). Función pura: fácil de testear.
  *  `requireCoords` exige que cada destino esté geocodificado (elegido del
  *  autocompletado de Google Maps): el backend crea los tramos solo con
  *  coordenadas, así que un texto libre sin coords haría fallar el guardado.
- *  Se activa solo cuando hay Maps disponible (si no, no hay forma de geocodificar). */
+ *  Se activa solo cuando hay Maps disponible (si no, no hay forma de geocodificar).
+ *  `mode` distingue el alta de la edición: al editar, un viaje viejo puede no
+ *  tener solicitante guardado y el campo está deshabilitado, así que exigirlo
+ *  dejaría el viaje imposible de modificar. */
 export function validateTripStep(
   stepId: StepId,
   t: Trip,
-  opts: { requireCoords?: boolean } = {},
+  opts: { requireCoords?: boolean; mode?: Mode } = {},
 ): Record<string, string> {
   const e: Record<string, string> = {};
 
   if (stepId === "viaje") {
     if (!t.agc) e.agc = "Seleccioná la agencia";
-    if (!t.solicitante) e.solicitante = "Ingresá el solicitante";
+    if (!t.solicitante && opts.mode !== "edit") e.solicitante = "Ingresá el solicitante";
     if (!t.date) e.date = "La fecha es obligatoria";
     if (!t.time) e.time = "La hora es obligatoria";
     // La categoría ya no se elige acá: se selecciona en el paso "Tarifa".

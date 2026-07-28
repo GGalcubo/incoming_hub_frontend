@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Field, Input } from "../../../components/ui/Field";
 import { Icon } from "../../../components/ui/Icon";
+import { normalizePhone } from "../../../lib/phone";
 import type { Passenger } from "../../../types/domain";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
@@ -68,8 +69,10 @@ export function StepPasajeros({ t, set, errs }: StepProps) {
             <Field label="Teléfono" required error={errs[`pax-${i}-phone`]} span={2}>
               <Input
                 value={px.phone}
-                onChange={(e) => updatePax(i, { phone: e.target.value })}
-                placeholder="+54 11 …"
+                type="tel"
+                // Se guarda compacto (sin espacios ni guiones) mientras se tipea.
+                onChange={(e) => updatePax(i, { phone: normalizePhone(e.target.value) })}
+                placeholder="+5411…"
               />
             </Field>
           </div>

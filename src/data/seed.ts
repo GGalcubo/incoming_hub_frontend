@@ -49,19 +49,20 @@ const fmt = (d: Date) =>
 export const TODAY = fmt(today);
 export const TOMORROW = fmt(new Date(today.getTime() + 86400000));
 
+// Teléfonos en el mismo formato compacto que guarda la carga (ver lib/phone.ts).
 const PAX_POOL: Passenger[] = [
-  { firstName: "Martín", lastName: "Álvarez", phone: "+54 11 5523-7711", email: "m.alvarez@example.com" },
-  { firstName: "Lucía", lastName: "Soto", phone: "+54 11 4471-3320", email: "l.soto@example.com" },
-  { firstName: "Javier", lastName: "Pereyra", phone: "+54 11 6612-4421", email: "j.pereyra@example.com" },
-  { firstName: "Rocío", lastName: "Méndez", phone: "+54 11 4490-0125", email: "r.mendez@example.com" },
-  { firstName: "Karina", lastName: "Núñez", phone: "+54 11 5887-2210", email: "k.nunez@example.com" },
-  { firstName: "Sebastián", lastName: "Vega", phone: "+54 11 3344-2280", email: "s.vega@example.com" },
-  { firstName: "Laura", lastName: "Bravo", phone: "+54 11 5021-4477", email: "l.bravo@example.com" },
-  { firstName: "Camila", lastName: "Ibarra", phone: "+54 11 6798-1140", email: "c.ibarra@example.com" },
-  { firstName: "Federico", lastName: "Roldán", phone: "+54 11 5410-9921", email: "f.roldan@example.com" },
-  { firstName: "Paula", lastName: "Quiroga", phone: "+54 11 4612-7755", email: "p.quiroga@example.com" },
-  { firstName: "Diego", lastName: "Sánchez", phone: "+54 11 5588-3902", email: "d.sanchez@example.com" },
-  { firstName: "Andrés", lastName: "Funes", phone: "+54 11 6701-2240", email: "a.funes@example.com" },
+  { firstName: "Martín", lastName: "Álvarez", phone: "+541155237711", email: "m.alvarez@example.com" },
+  { firstName: "Lucía", lastName: "Soto", phone: "+541144713320", email: "l.soto@example.com" },
+  { firstName: "Javier", lastName: "Pereyra", phone: "+541166124421", email: "j.pereyra@example.com" },
+  { firstName: "Rocío", lastName: "Méndez", phone: "+541144900125", email: "r.mendez@example.com" },
+  { firstName: "Karina", lastName: "Núñez", phone: "+541158872210", email: "k.nunez@example.com" },
+  { firstName: "Sebastián", lastName: "Vega", phone: "+541133442280", email: "s.vega@example.com" },
+  { firstName: "Laura", lastName: "Bravo", phone: "+541150214477", email: "l.bravo@example.com" },
+  { firstName: "Camila", lastName: "Ibarra", phone: "+541167981140", email: "c.ibarra@example.com" },
+  { firstName: "Federico", lastName: "Roldán", phone: "+541154109921", email: "f.roldan@example.com" },
+  { firstName: "Paula", lastName: "Quiroga", phone: "+541146127755", email: "p.quiroga@example.com" },
+  { firstName: "Diego", lastName: "Sánchez", phone: "+541155883902", email: "d.sanchez@example.com" },
+  { firstName: "Andrés", lastName: "Funes", phone: "+541167012240", email: "a.funes@example.com" },
 ];
 
 // Proveedor asignado a cada viaje del seed (mock): la mayoría al proveedor demo,

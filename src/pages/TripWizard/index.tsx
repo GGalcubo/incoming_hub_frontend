@@ -106,7 +106,7 @@ export function TripWizard({
   const validateStep = () => {
     // Con Google Maps disponible exigimos que cada destino esté geocodificado:
     // el backend crea los tramos solo con coordenadas (ver buildTramosInput).
-    const e = validateTripStep(step.id, t, { requireCoords: hasGoogleMapsKey() });
+    const e = validateTripStep(step.id, t, { requireCoords: hasGoogleMapsKey(), mode });
     setErrs(e);
     return Object.keys(e).length === 0;
   };
@@ -246,7 +246,7 @@ export function TripWizard({
 
       <div className={styles.content}>
         <div className={cx(styles.card, wide && styles.cardWide)}>
-          {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} />}
+          {step.id === "viaje" && <StepViaje t={t} set={set} errs={errs} mode={mode} />}
           {step.id === "pasajeros" && <StepPasajeros t={t} set={set} errs={errs} />}
           {step.id === "tramos" && <StepTramos t={t} set={set} errs={errs} />}
           {step.id === "tarifa" && <StepTarifa t={t} set={set} errs={errs} />}

@@ -5,7 +5,8 @@ import { AGENCIES } from "../../../data/seed";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
-export function StepViaje({ t, set, errs }: StepProps) {
+export function StepViaje({ t, set, errs, mode }: StepProps) {
+  const isEdit = mode === "edit";
   const [agencies, setAgencies] = useState<string[]>(AGENCIES);
   // El solicitante es el usuario logueado; el admin puede elegir otro de la agencia.
   const [loggedUser, setLoggedUser] = useState<string>(t.solicitante ?? "");
@@ -24,14 +25,19 @@ export function StepViaje({ t, set, errs }: StepProps) {
         setSolByAgency(id.solicitantesByAgency);
 
         const patch: Partial<typeof t> = {};
+        // Agencia y solicitante del viaje ya creado: se conservan tal cual vienen
+        // del backend. Recalcularlos con el usuario actual pisaba a quien generó
+        // el viaje (un operador abriendo el viaje de otro se ponía a sí mismo).
+        // Sólo completamos lo que venga vacío.
         // Agencia por defecto: la propia del usuario. Los no-admin quedan fijos
         // a su agencia; el admin puede cambiarla luego (sólo fijamos si está vacía).
-        if (id.ownAgency && (!t.agc || !id.isAdmin)) patch.agc = id.ownAgency;
-        else if (!t.agc && id.agencies.length) patch.agc = id.agencies[0];
-        // Solicitante: los no-admin son siempre el usuario logueado. El admin
-        // arranca con el usuario logueado pero puede cambiarlo.
-        if (!id.isAdmin) patch.solicitante = id.solicitante;
-        else if (!t.solicitante) patch.solicitante = id.solicitante;
+        if (!t.agc) patch.agc = id.ownAgency ?? id.agencies[0] ?? "";
+        else if (!isEdit && !id.isAdmin && id.ownAgency) patch.agc = id.ownAgency;
+        // Solicitante: SOLO se calcula al dar de alta (los no-admin son siempre
+        // el usuario logueado; el admin arranca con él y puede cambiarlo). Al
+        // editar se muestra el que guardó el viaje, aunque venga vacío: rellenarlo
+        // con el usuario actual era justamente lo que borraba a quien lo generó.
+        if (!isEdit && (!t.solicitante || !id.isAdmin)) patch.solicitante = id.solicitante;
         set(patch);
       })
       .catch(() => {
@@ -44,10 +50,16 @@ export function StepViaje({ t, set, errs }: StepProps) {
   }, []);
 
   // Al cambiar de agencia (sólo admin), reasignamos el solicitante: mantenemos
-  // al usuario logueado si pertenece a esa agencia, sino el primero de la lista.
+  // el actual si pertenece a esa agencia, sino al usuario logueado y por último
+  // el primero de la lista.
   const onAgencyChange = (agc: string) => {
     const list = solByAgency[agc] ?? [];
-    const next = list.includes(loggedUser) ? loggedUser : (list[0] ?? "");
+    const current = t.solicitante ?? "";
+    const next = list.includes(current)
+      ? current
+      : list.includes(loggedUser)
+        ? loggedUser
+        : (list[0] ?? "");
     set({ agc, solicitante: next });
   };
 
@@ -70,7 +82,7 @@ export function StepViaje({ t, set, errs }: StepProps) {
           label="Agencia"
           required
           error={errs.agc}
-          hint={isAdmin ? undefined : "Asignada a tu usuario."}
+          hint={isAdmin ? undefined : isEdit ? "Agencia del viaje." : "Asignada a tu usuario."}
         >
           <Select
             value={t.agc}
@@ -87,7 +99,13 @@ export function StepViaje({ t, set, errs }: StepProps) {
           label="Solicitante"
           required
           error={errs.solicitante}
-          hint={isAdmin ? "Solicitante de la agencia." : "Tu usuario."}
+          hint={
+            isAdmin
+              ? "Solicitante de la agencia."
+              : isEdit
+                ? "Quien generó el viaje."
+                : "Tu usuario."
+          }
         >
           <Select
             value={t.solicitante ?? ""}

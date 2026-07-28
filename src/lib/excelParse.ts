@@ -6,6 +6,7 @@
 import * as XLSX from "xlsx";
 import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { normalizePlace } from "./places";
+import { normalizePhone } from "./phone";
 import { validateExcelRow } from "./excelValidate";
 
 // Normaliza texto para comparar headers/valores: sin acentos, minúsculas, sin
@@ -102,7 +103,9 @@ function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
     .filter(Boolean);
 
   // Teléfonos alineados por posición con los pasajeros (mismo orden, " | ").
-  const phones = get("tel").split("|").map((s) => s.trim());
+  // Se normalizan acá: en el Excel vienen con espacios/guiones y se guardan
+  // siempre compactos (solo dígitos y el "+" del prefijo).
+  const phones = get("tel").split("|").map(normalizePhone);
 
   // Tramos: Origen→Destino (tipo de la fila), luego →Destino2, →Destino3 (otro).
   const origen = normalizePlace(get("origen"));

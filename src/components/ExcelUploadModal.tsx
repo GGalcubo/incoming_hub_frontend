@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
 import { validateExcelRow } from "../lib/excelValidate";
+import { normalizePhone } from "../lib/phone";
 import { PlaceCombo } from "../pages/TripWizard/PlaceCombo";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
@@ -173,7 +174,8 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
     mutateRow(rowNum, (r) => {
       const phones = [...(r.phones ?? [])];
       while (phones.length <= i) phones.push("");
-      phones[i] = phone;
+      // Sin espacios ni guiones, igual que en el wizard.
+      phones[i] = normalizePhone(phone);
       return { ...r, phones };
     });
 
@@ -437,7 +439,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                               value={r.phones?.[i] ?? ""}
                               type="tel"
                               className={styles.cellInput}
-                              placeholder="Teléfono +54 11 …"
+                              placeholder="Teléfono +5411…"
                               onChange={(e) => setPhone(r.row, i, e.target.value)}
                             />
                           </div>

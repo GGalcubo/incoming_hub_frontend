@@ -37,6 +37,12 @@ describe("validateTripStep — paso viaje", () => {
   it("marca la agencia faltante", () => {
     expect(validateTripStep("viaje", EMPTY_TRIP).agc).toBeDefined();
   });
+
+  it("al editar no exige solicitante (viajes viejos sin solicitante guardado)", () => {
+    const trip = tripWith({ agc: "Travel BA", solicitante: "", time: "10:00" });
+    expect(validateTripStep("viaje", trip, { mode: "edit" }).solicitante).toBeUndefined();
+    expect(validateTripStep("viaje", trip, { mode: "new" }).solicitante).toBeDefined();
+  });
 });
 
 describe("validateTripStep — paso tarifa", () => {
@@ -84,7 +90,7 @@ describe("validateTripStep — paso pasajeros", () => {
 
   it("no devuelve errores cuando los pasajeros son válidos", () => {
     const trip = tripWith({
-      passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "+54 11 1234 5678" }],
+      passengers: [{ firstName: "Ana", lastName: "Pérez", phone: "+541112345678" }],
     });
     expect(validateTripStep("pasajeros", trip)).toEqual({});
   });

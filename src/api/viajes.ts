@@ -190,6 +190,10 @@ export async function listCategorias(): Promise<string[]> {
 export interface WizardIdentity {
   agencies: string[];
   ownAgency: string | null;
+  // Nombre del usuario logueado TAL COMO figura en el catálogo de solicitantes.
+  // Es el que hay que usar como default: el nombre de /auth/me/ puede no coincidir
+  // y entonces no se podría resolver el id al guardar.
+  ownSolicitante: string | null;
   // Solicitantes activos por nombre de agencia (para que el admin pueda elegir).
   solicitantesByAgency: Record<string, string[]>;
 }
@@ -211,7 +215,12 @@ export async function loadWizardIdentity(me: MeProfile): Promise<WizardIdentity>
       .map((s) => s.nombre);
   }
 
-  return { agencies, ownAgency: ag ? agencyName(ag) : null, solicitantesByAgency };
+  return {
+    agencies,
+    ownAgency: ag ? agencyName(ag) : null,
+    ownSolicitante: mySol?.nombre ?? null,
+    solicitantesByAgency,
+  };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -383,6 +392,20 @@ function resolveAgencia(t: Trip, c: Catalogs): number {
   return byName?.id ?? c.agencies[0]?.id ?? 0;
 }
 
+// El solicitante del viaje es quien lo generó y se guarda en el backend (hasta
+// ahora no se mandaba nunca: el viaje quedaba con `solicitante: null` y el paso 1
+// lo rellenaba con el usuario que estuviera abriendo el viaje). Se busca por
+// nombre dentro de la agencia del viaje; si no se puede resolver devuelve null y
+// el campo no se toca (mejor dejarlo como está que pisarlo con un id equivocado).
+function resolveSolicitante(t: Trip, c: Catalogs, agencia: number): number | null {
+  const target = (t.solicitante ?? "").trim().toLowerCase();
+  if (!target) return null;
+  const inAgency = c.solicitantes.find(
+    (s) => s.agencia === agencia && s.nombre.trim().toLowerCase() === target,
+  );
+  return inAgency?.id ?? null;
+}
+
 function resolveCategoria(t: Trip, c: Catalogs): number {
   const target = t.cat.trim().toLowerCase();
   const match = c.categorias.find((x) => x.nombre.trim().toLowerCase() === target);
@@ -468,6 +491,8 @@ export function buildViajePayload(t: Trip, c: Catalogs): ViajeWrite {
     horas_minimas_cancelacion: 24,
   };
   if (pasajeros.length) payload.pasajeros = pasajeros;
+  const solicitante = resolveSolicitante(t, c, agencia);
+  if (solicitante != null) payload.solicitante = solicitante;
   return payload;
 }
 
@@ -564,6 +589,11 @@ function diffViajePatch(t: Trip, c: Catalogs, current: Viaje): Partial<ViajeWrit
 
   const agencia = resolveAgencia(t, c);
   if (agencia !== current.agencia) out.agencia = agencia;
+
+  // Solo se manda si se resolvió y cambió: un viaje viejo sin solicitante queda
+  // como está en vez de quedar atribuido a quien lo esté editando.
+  const solicitante = resolveSolicitante(t, c, agencia);
+  if (solicitante != null && solicitante !== current.solicitante) out.solicitante = solicitante;
 
   const categoria = resolveCategoria(t, c);
   if (categoria !== current.categoria_servicio) out.categoria_servicio = categoria;

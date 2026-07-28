@@ -65,6 +65,29 @@ export interface TripCosts {
   // Costo del proveedor para el tramo base (u$s). Se guarda aparte de `viaje`
   // (que es el precio al cliente) para no exponerlo nunca al cliente.
   tarifaProveedor?: number;
+  // Extras del lado PROVEEDOR: lo que el proveedor cobra por cada rubro, contra
+  // los campos de arriba (`peajes`, `estacionamiento`, `otros`), que son lo que
+  // se le factura al cliente. Van en columnas separadas porque cada rol ve (y
+  // edita) solo la suya.
+  peajesProveedor?: number;
+  estacionamientoProveedor?: number;
+  otrosProveedor?: number;
+  // Total de la columna proveedor (base + extras del proveedor). `total` es el
+  // de la columna cliente, que es el único que viaja al backend.
+  totalProveedor?: number;
+}
+
+// Comentario de un viaje. Lo puede dejar cualquier rol y lo ven todos: es el
+// canal para discutir diferencias de costos sin salir del viaje.
+export interface TripComentario {
+  id: string;
+  autor: string;
+  // Rol del autor al momento de comentar ("admin" | "proveedor" | "agency_*").
+  // Se guarda para poder mostrar de qué lado del mostrador vino el comentario.
+  rol: string | null;
+  texto: string;
+  // ISO 8601.
+  fecha: string;
 }
 
 // Metadata del paso "Tarifa" (solo frontend: no se envía al backend). Guarda la

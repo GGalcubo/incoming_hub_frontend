@@ -1,54 +1,89 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Field";
 import { useMe } from "../../../hooks/useMe";
+import { totalCliente, totalProveedor, withTotals } from "../../../lib/costs";
 import { cx } from "../../../lib/cx";
 import type { Trip, TripCosts } from "../../../types/domain";
 import type { TarifaExtras } from "../../../types/tarifas";
 import styles from "./steps.module.css";
+import { TripComentarios } from "./TripComentarios";
 
-// Rubros de extras que el proveedor/admin carga a mano sobre el costo base. La
-// espera NO está acá: se carga en minutos y el monto se calcula solo.
-const EXTRA_ROWS: { key: keyof TripCosts; label: string }[] = [
-  { key: "peajes", label: "Peajes" },
-  { key: "estacionamiento", label: "Estacionamiento" },
-  { key: "otros", label: "Otros" },
+// Las dos columnas del cuadro de costos: lo que se le factura al cliente y lo
+// que cobra el proveedor. Cada rol ve solo las que le corresponden.
+type Col = "cliente" | "proveedor";
+
+const COL_LABEL: Record<Col, string> = { cliente: "Cliente", proveedor: "Proveedor" };
+
+// Campos numéricos de TripCosts (los que se muestran en el cuadro).
+type NumKey =
+  | "viaje"
+  | "espera"
+  | "peajes"
+  | "estacionamiento"
+  | "otros"
+  | "tarifaProveedor"
+  | "esperaProveedor"
+  | "peajesProveedor"
+  | "estacionamientoProveedor"
+  | "otrosProveedor";
+
+interface CostRow {
+  label: string;
+  cliente: NumKey;
+  proveedor: NumKey;
+}
+
+// Fila del tramo base: sale del tarifario (paso Tarifa), solo el admin la ajusta.
+const BASE_ROW: CostRow = { label: "Viaje", cliente: "viaje", proveedor: "tarifaProveedor" };
+
+// Rubros de extras que se cargan a mano. La espera NO está acá: se carga en
+// minutos y los dos montos se calculan solos.
+const EXTRA_ROWS: CostRow[] = [
+  { label: "Peajes", cliente: "peajes", proveedor: "peajesProveedor" },
+  { label: "Estacionamiento", cliente: "estacionamiento", proveedor: "estacionamientoProveedor" },
+  { label: "Otros", cliente: "otros", proveedor: "otrosProveedor" },
 ];
 
 // La espera se cobra por bloques: la unidad mínima es de 15 minutos.
 const ESPERA_UNIDAD = 15;
-const ESPERA_OPCIONES = [15, 30, 45, 60, 75, 90];
 
 export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) => void }) {
-  const { isProvider, isAgency, proveedorId } = useMe();
+  const { isAdmin, isProvider, proveedorId } = useMe();
   const [extras, setExtras] = useState<TarifaExtras | null>(null);
+  // Borrador del input de minutos: mientras se tipea no redondeamos (si no,
+  // escribir "45" pasaría por "4" y se convertiría en 0). Se aplica al salir.
+  const [esperaDraft, setEsperaDraft] = useState<string | null>(null);
   const c = t.costs;
   const sym = c.moneda === "USD" ? "u$s" : "$";
+  const cerrado = t.est === "FINALIZADO";
   // El proveedor solo carga los costos de SUS viajes (los que tiene asignados).
   const esPropio = !isProvider || t.proveedorId === proveedorId;
-  // Proveedor (dueño del viaje) y admin editan costos; el cliente (agencia) es
-  // solo lectura.
-  const canEdit = !isAgency && esPropio;
-  // "Los proveedores no deben ver el costo final al cliente": para el proveedor la
-  // base es SU costo (tarifaProveedor); para el resto, el precio al cliente (viaje).
-  const base = isProvider ? c.tarifaProveedor ?? 0 : c.viaje;
-  const baseLabel = isProvider ? "Costo base (proveedor)" : "Viaje";
-  const cerrado = t.est === "FINALIZADO";
 
-  // Valor por minuto de espera que le corresponde ver a este rol.
-  const esperaRate = extras ? (isProvider ? extras.esperaProveedor : extras.esperaCliente) : null;
+  // Columnas visibles: el proveedor nunca ve el precio al cliente y el cliente
+  // (agencia) nunca ve el costo del proveedor. Solo el admin ve las dos. Con el
+  // rol todavía sin resolver se cae a la de cliente, que es la más restrictiva.
+  const cols: Col[] = isProvider ? ["proveedor"] : isAdmin ? ["cliente", "proveedor"] : ["cliente"];
+
+  // El admin edita las dos columnas; el proveedor, la suya en sus viajes; la
+  // agencia (cliente) es solo lectura.
+  const canEditCol = (col: Col) =>
+    !cerrado && (isAdmin || (isProvider && col === "proveedor" && esPropio));
+  // El tramo base sale del tarifario elegido en el paso Tarifa: solo el admin lo
+  // corrige a mano.
+  const canEditBase = !cerrado && isAdmin;
+  const canEditAlgo = cols.some(canEditCol);
+
   const esperaMin = c.esperaMin ?? 0;
-  // Monto de espera del lado que se está mirando. Para el proveedor, si el viaje
-  // viene de Central (sin desglose por rol), no hay monto suyo: se muestra 0.
-  const esperaMonto = isProvider ? c.esperaProveedor ?? 0 : c.espera;
-
-  const extrasSum = esperaMonto + c.peajes + c.estacionamiento + c.otros;
-  const totalShown = base + extrasSum;
+  // Los minutos son uno solo para las dos columnas (es el mismo tiempo de
+  // espera): los carga quien puede editar costos, y cada monto sale del
+  // valor/minuto del tarifario correspondiente.
+  const esperaEditable = !cerrado && canEditAlgo && !!extras;
 
   // Tarifa de extras del proveedor del viaje (valor por minuto de espera); si
   // todavía no tiene proveedor, las del tarifario general. Sin ella no se puede
-  // calcular.
+  // calcular la espera.
   useEffect(() => {
     let active = true;
     api
@@ -67,142 +102,180 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   const fmt = (n: number) =>
     `${sym} ${n.toLocaleString("es-AR", { minimumFractionDigits: 2 })}`;
 
-  // Actualiza un rubro y recalcula el total al cliente (viaje + extras). El total
-  // que se muestra al proveedor se calcula aparte (no se persiste el del cliente
-  // como si fuera suyo).
-  const setCost = (key: keyof TripCosts, value: number) => {
-    const next: TripCosts = { ...c, [key]: value };
-    next.total = next.viaje + next.espera + next.peajes + next.estacionamiento + next.otros;
-    set({ costs: next });
+  const valueOf = (key: NumKey) => c[key] ?? 0;
+
+  // Actualiza un rubro y recalcula los dos totales (cliente y proveedor).
+  const setCost = (key: NumKey, value: number) => {
+    set({ costs: withTotals({ ...c, [key]: value } as TripCosts) });
   };
 
-  // Carga los minutos de espera y calcula los dos montos (proveedor y cliente) a
-  // partir del valor/minuto de la tarifa de extras. Redondea a la unidad mínima.
+  // Carga los minutos de espera y calcula los dos montos a partir del valor/
+  // minuto de la tarifa de extras. Redondea a la unidad mínima.
   const setEsperaMin = (min: number) => {
     if (!extras) return;
     const m = Math.max(0, Math.round(min / ESPERA_UNIDAD) * ESPERA_UNIDAD);
-    const next: TripCosts = {
-      ...c,
-      esperaMin: m,
-      espera: +(m * extras.esperaCliente).toFixed(2),
-      esperaProveedor: +(m * extras.esperaProveedor).toFixed(2),
-    };
-    next.total = next.viaje + next.espera + next.peajes + next.estacionamiento + next.otros;
-    set({ costs: next });
+    set({
+      costs: withTotals({
+        ...c,
+        esperaMin: m,
+        espera: +(m * extras.esperaCliente).toFixed(2),
+        esperaProveedor: +(m * extras.esperaProveedor).toFixed(2),
+      }),
+    });
   };
 
-  const esperaEditable = canEdit && !cerrado && !!extras;
-  // Si el viaje ya trae minutos que no son de la lista (p. ej. 105), se agrega el
-  // chip para que la selección actual quede visible.
-  const opciones = ESPERA_OPCIONES.includes(esperaMin) || esperaMin === 0
-    ? ESPERA_OPCIONES
-    : [...ESPERA_OPCIONES, esperaMin].sort((a, b) => a - b);
+  // Valor/minuto de espera de cada columna (para el detalle bajo el selector).
+  const rateOf = (col: Col) =>
+    extras ? (col === "proveedor" ? extras.esperaProveedor : extras.esperaCliente) : null;
+
+  const totalOf = (col: Col) => (col === "proveedor" ? totalProveedor(c) : totalCliente(c));
+
+  const gridStyle = {
+    gridTemplateColumns: `1fr ${cols.map(() => "minmax(104px, auto)").join(" ")}`,
+  };
+
+  const commitEsperaDraft = () => {
+    if (esperaDraft !== null) setEsperaMin(Number(esperaDraft) || 0);
+    setEsperaDraft(null);
+  };
+
+  const stepEspera = (delta: number) => {
+    setEsperaDraft(null);
+    setEsperaMin(esperaMin + delta);
+  };
 
   return (
     <>
       <div className={styles.costHeader}>
         <h3 className={cx(styles.h2, styles.h2Flush)}>Costos</h3>
-        {canEdit ? (
-          cerrado ? (
-            <span className={styles.roTag}>Viaje cerrado</span>
-          ) : (
-            <span className={styles.roTag}>Editable</span>
-          )
+        {cerrado ? (
+          <span className={styles.roTag}>Viaje cerrado</span>
+        ) : canEditAlgo ? (
+          <span className={styles.roTag}>Editable</span>
         ) : (
           <span className={styles.roTag}>Solo lectura</span>
         )}
       </div>
       <p className={styles.p}>
-        {canEdit
-          ? "Cargá los minutos de espera y los extras del viaje. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
-          : !esPropio
-            ? "Este viaje está asignado a otro proveedor: solo podés cargar los costos de los viajes propios."
+        {!esPropio
+          ? "Este viaje está asignado a otro proveedor: solo podés cargar los costos de los viajes propios."
+          : canEditAlgo
+            ? isAdmin
+              ? "Cargá los minutos de espera y los extras de cada columna: lo que se le factura al cliente y lo que cobra el proveedor. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
+              : "Cargá los minutos de espera y tus extras del viaje. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
             : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
 
-      <div className={styles.costTable}>
-        <div className={styles.costRow}>
-          <span className={styles.costLabel}>{baseLabel}</span>
-          <span className={styles.tnum}>{fmt(base)}</span>
-        </div>
+      <div className={styles.costGrid} style={gridStyle}>
+        <span className={styles.costHeadCell} />
+        {cols.map((col) => (
+          <span key={col} className={cx(styles.costHeadCell, styles.costHeadNum)}>
+            {COL_LABEL[col]}
+          </span>
+        ))}
 
-        {/* Espera: se elige en minutos (unidad mínima 15) y el monto se calcula. */}
-        <div className={cx(styles.costRow, styles.costRowStack)}>
-          <div className={styles.costRowHead}>
-            <span className={styles.costLabel}>Espera</span>
-            <span className={styles.tnum}>{fmt(esperaMonto)}</span>
-          </div>
-          {esperaEditable ? (
-            <>
-              <div className={styles.esperaChips}>
-                <button
-                  type="button"
-                  className={cx(styles.esperaChip, esperaMin === 0 && styles.esperaChipActive)}
-                  onClick={() => setEsperaMin(0)}
-                >
-                  Sin espera
-                </button>
-                {opciones.map((m) => (
-                  <button
-                    type="button"
-                    key={m}
-                    className={cx(styles.esperaChip, esperaMin === m && styles.esperaChipActive)}
-                    onClick={() => setEsperaMin(m)}
-                  >
-                    {m} min
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  className={styles.esperaChip}
-                  onClick={() => setEsperaMin(esperaMin + ESPERA_UNIDAD)}
-                  title="Sumar un bloque de 15 minutos"
-                >
-                  +15
-                </button>
-              </div>
-              <span className={styles.esperaHint}>
-                {esperaMin > 0 && esperaRate != null
-                  ? `${esperaMin} min × ${fmt(esperaRate)}/min = ${fmt(esperaMonto)}`
-                  : `Unidad mínima 15 min${esperaRate != null ? ` · ${fmt(esperaRate)} por minuto` : ""}`}
-              </span>
-            </>
-          ) : (
-            <span className={styles.esperaHint}>
-              {esperaMin > 0
-                ? `${esperaMin} min de espera`
-                : canEdit && !cerrado
-                  ? "No hay tarifa de espera cargada."
-                  : "Sin espera"}
-            </span>
-          )}
-        </div>
-
-        {EXTRA_ROWS.map((r) => (
-          <div key={r.key} className={styles.costRow}>
-            <span className={styles.costLabel}>{r.label}</span>
-            {canEdit && !cerrado ? (
+        {/* Tramo base: precio de la categoría según el tarifario. */}
+        <span className={cx(styles.costCell, styles.costLabel)}>{BASE_ROW.label}</span>
+        {cols.map((col) => (
+          <span key={col} className={cx(styles.costCell, styles.costCellNum)}>
+            {canEditBase ? (
               <Input
                 type="number"
                 min={0}
                 step="0.01"
-                value={(c[r.key] as number) || ""}
-                onChange={(e) => setCost(r.key, Number(e.target.value))}
-                style={{ maxWidth: 140, textAlign: "right" }}
+                className={styles.costInput}
+                value={valueOf(BASE_ROW[col]) || ""}
+                onChange={(e) => setCost(BASE_ROW[col], Number(e.target.value))}
               />
             ) : (
-              <span className={styles.tnum}>{fmt(c[r.key] as number)}</span>
+              <span className={styles.tnum}>{fmt(valueOf(BASE_ROW[col]))}</span>
             )}
-          </div>
+          </span>
         ))}
 
-        <div className={styles.costTotalRow}>
-          <span>{isProvider ? "Total proveedor" : "Total"}</span>
-          <span className={styles.tnum}>{fmt(totalShown)}</span>
-        </div>
+        {/* Espera: se elige en minutos (unidad mínima 15) y los montos se calculan. */}
+        <span className={cx(styles.costCell, styles.costLabel)}>
+          Espera
+          <span className={styles.esperaStep}>
+            <button
+              type="button"
+              className={styles.esperaStepBtn}
+              disabled={!esperaEditable || esperaMin === 0}
+              onClick={() => stepEspera(-ESPERA_UNIDAD)}
+              title="Restar un bloque de 15 minutos"
+            >
+              −
+            </button>
+            <Input
+              type="number"
+              min={0}
+              step={ESPERA_UNIDAD}
+              className={styles.esperaStepInput}
+              disabled={!esperaEditable}
+              value={esperaDraft ?? String(esperaMin)}
+              onChange={(e) => setEsperaDraft(e.target.value)}
+              onBlur={commitEsperaDraft}
+            />
+            <span className={styles.esperaUnit}>min</span>
+            <button
+              type="button"
+              className={styles.esperaStepBtn}
+              disabled={!esperaEditable}
+              onClick={() => stepEspera(ESPERA_UNIDAD)}
+              title="Sumar un bloque de 15 minutos"
+            >
+              +
+            </button>
+          </span>
+          <span className={styles.esperaHint}>
+            {!extras
+              ? canEditAlgo
+                ? "No hay tarifa de espera cargada."
+                : `${esperaMin} min de espera`
+              : `Unidad mínima 15 min · ${cols
+                  .map((col) => `${fmt(rateOf(col) ?? 0)}/min ${COL_LABEL[col].toLowerCase()}`)
+                  .join(" · ")}`}
+          </span>
+        </span>
+        {cols.map((col) => (
+          <span key={col} className={cx(styles.costCell, styles.costCellNum)}>
+            <span className={styles.tnum}>
+              {fmt(valueOf(col === "proveedor" ? "esperaProveedor" : "espera"))}
+            </span>
+          </span>
+        ))}
+
+        {EXTRA_ROWS.map((r) => (
+          <Fragment key={r.label}>
+            <span className={cx(styles.costCell, styles.costLabel)}>{r.label}</span>
+            {cols.map((col) => (
+              <span key={col} className={cx(styles.costCell, styles.costCellNum)}>
+                {canEditCol(col) ? (
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    className={styles.costInput}
+                    value={valueOf(r[col]) || ""}
+                    onChange={(e) => setCost(r[col], Number(e.target.value))}
+                  />
+                ) : (
+                  <span className={styles.tnum}>{fmt(valueOf(r[col]))}</span>
+                )}
+              </span>
+            ))}
+          </Fragment>
+        ))}
+
+        <span className={styles.costTotalCell}>Total</span>
+        {cols.map((col) => (
+          <span key={col} className={cx(styles.costTotalCell, styles.costTotalNum)}>
+            <span className={styles.tnum}>{fmt(totalOf(col))}</span>
+          </span>
+        ))}
       </div>
 
-      {canEdit && !cerrado && (
+      {canEditAlgo && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
           <Button kind="primary" icon="check" onClick={() => set({ est: "FINALIZADO" })}>
             Cerrar viaje
@@ -214,6 +287,9 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
           El viaje está cerrado (finalizado). Los costos quedan fijados.
         </p>
       )}
+
+      {/* Comentarios: los ve y los deja cualquier rol. */}
+      <TripComentarios tripId={t.id} />
     </>
   );
 }

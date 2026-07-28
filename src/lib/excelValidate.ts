@@ -2,8 +2,7 @@
 // Vive aparte de excelParse.ts para que el modal pueda importar la validación
 // sin arrastrar xlsx al bundle principal (xlsx se carga lazy desde el parser).
 import type { ExcelLeg } from "../types/domain";
-
-export const PHONE_RE = /^[+\d\s-]{8,20}$/;
+import { PHONE_RE } from "./phone";
 
 // Valida una fila a partir de sus campos editables. Es la fuente única de verdad
 // de la validación: la usa el parser y también el modal cada vez que el usuario
@@ -26,6 +25,8 @@ export function validateExcelRow(r: {
   const named = r.passengers.filter((p) => p.trim());
   if (named.length === 0) warnings.push("Sin pasajero");
   if (named.length > 4) warnings.push("Más de 4 pasajeros");
+  // El teléfono ya viene normalizado (sin espacios ni guiones); acá solo se
+  // avisa si igual no parece un número válido.
   (r.phones ?? []).filter(Boolean).forEach((ph) => {
     if (!PHONE_RE.test(ph)) warnings.push(`Teléfono con formato dudoso: ${ph}`);
   });

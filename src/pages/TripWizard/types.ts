@@ -21,6 +21,9 @@ export interface StepProps {
   t: Trip;
   set: (patch: Partial<Trip>) => void;
   errs: Record<string, string>;
+  // Sólo lo consumen los pasos que se comportan distinto al editar un viaje ya
+  // creado (p. ej. Viaje, que no debe recalcular agencia/solicitante).
+  mode?: Mode;
 }
 
 export const EMPTY_TRIP: Trip = {

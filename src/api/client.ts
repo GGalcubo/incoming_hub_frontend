@@ -2,7 +2,7 @@ import type { MeProfile, MeWrite, Paginated, Persona, RoleEnum } from "./backend
 import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
-import type { ExcelRow, Trip, TripStatus, User } from "../types/domain";
+import type { ExcelRow, Trip, TripComentario, TripStatus, User } from "../types/domain";
 import type {
   CategoriaTarifada,
   Cliente,
@@ -14,6 +14,7 @@ import type {
   TarifaClienteInput,
   TarifaExtras,
 } from "../types/tarifas";
+import * as comentarios from "./comentarios";
 import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as proveedores from "./proveedores";
 import * as tarifas from "./tarifas";
@@ -231,8 +232,17 @@ export const api = {
         solicitantesByAgency,
       };
     }
-    const { agencies, ownAgency, solicitantesByAgency } = await viajes.loadWizardIdentity(me);
-    return { agencies, ownAgency, solicitante, isAdmin, solicitantesByAgency };
+    const { agencies, ownAgency, ownSolicitante, solicitantesByAgency } =
+      await viajes.loadWizardIdentity(me);
+    return {
+      agencies,
+      ownAgency,
+      // Preferimos el nombre del catálogo: es el que después se puede resolver a
+      // un id para guardar el solicitante en el viaje.
+      solicitante: ownSolicitante ?? solicitante,
+      isAdmin,
+      solicitantesByAgency,
+    };
   },
 
   // Lista de viajes ya con su proveedor. El proveedor logueado ve SOLO los que
@@ -411,6 +421,24 @@ export const api = {
       }
     }
     return { count, errors };
+  },
+
+  // ── Comentarios del viaje ──────────────────────────────────────────────────
+  // Los ve y los deja cualquier rol (es el canal para discutir diferencias de
+  // costos). El autor NO lo manda la vista: se resuelve acá contra /auth/me/
+  // para que nadie pueda firmar un comentario con otro nombre.
+  async listComentarios(tripId: string): Promise<TripComentario[]> {
+    await wait(80);
+    return comentarios.listComentarios(tripId);
+  },
+
+  async addComentario(tripId: string, texto: string): Promise<TripComentario> {
+    const me = await this.getMe().catch(() => null);
+    const autor = me
+      ? `${me.first_name} ${me.last_name}`.trim() || me.username
+      : "Usuario";
+    await wait(120);
+    return comentarios.addComentario(tripId, { autor, rol: me?.role ?? null, texto });
   },
 
   // ── Tarifas ────────────────────────────────────────────────────────────────
