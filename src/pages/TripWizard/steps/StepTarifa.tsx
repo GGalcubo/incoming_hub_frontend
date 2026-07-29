@@ -4,6 +4,7 @@ import { HAS_BACKEND } from "../../../api/http";
 import { Field, Input, Select } from "../../../components/ui/Field";
 import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
+import type { Trip } from "../../../types/domain";
 import type { Proveedor, TarifaExtras } from "../../../types/tarifas";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
@@ -51,6 +52,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   const [detalle, setDetalle] = useState("");
   const [extras, setExtras] = useState<TarifaExtras | null>(null);
   const [loading, setLoading] = useState(false);
+  // Ruta a la que corresponden las opciones ya cargadas. Sirve para no recotizar
+  // con las tarifas de la ruta anterior mientras la nueva está en vuelo.
+  const [cotizada, setCotizada] = useState("");
+  // Categoría elegida que quedó pendiente de recotizar tras cambiar la ruta.
+  const [pendiente, setPendiente] = useState<string | null>(null);
 
   const origen = t.tarifa?.origen ?? "";
   const destino = t.tarifa?.destino ?? "";
@@ -123,10 +129,12 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   }, [proveedorViaje]);
 
   // Tarifas vigentes de la ruta elegida.
+  const rutaKey = `${origen}|${destino}|${proveedorViaje}`;
   useEffect(() => {
     if (!origen || !destino) {
       setOpciones([]);
       setProveedores([]);
+      setCotizada("");
       return;
     }
     let active = true;
@@ -146,12 +154,14 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         setDetalle("No se pudieron cargar las tarifas de la ruta.");
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (!active) return;
+        setLoading(false);
+        setCotizada(rutaKey);
       });
     return () => {
       active = false;
     };
-  }, [origen, destino, proveedorViaje]);
+  }, [origen, destino, proveedorViaje, rutaKey]);
 
   // Con un proveedor asignado se muestran solo sus tarifas; sin asignar, las de
   // todos (elegir una es lo que asigna el proveedor del viaje).
@@ -209,12 +219,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     commit(sel, nextModalidad, nextHoras);
   };
 
-  // Cambiar de proveedor cambia el tarifario: se limpia la tarifa elegida y su
-  // precio para que se vuelva a elegir con los valores del nuevo.
-  const onProveedor = (id: string) => {
+  // Deja el viaje sin tarifa: se usa cuando la selección ya no es válida (cambio
+  // de proveedor, o categoría sin tarifa en la ruta nueva).
+  const clearSeleccion = (patch: Partial<Trip> = {}) => {
     const c = t.costs;
     set({
-      proveedorId: id || undefined,
       cat: "",
       tarifa: { ...t.tarifa, categoria: undefined, tarifaId: undefined },
       costs: {
@@ -223,20 +232,47 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         tarifaProveedor: undefined,
         total: c.espera + c.peajes + c.estacionamiento + c.otros,
       },
+      ...patch,
     });
   };
 
+  // Recotiza la categoría ya elegida cuando cambia la ruta: apenas llegan las
+  // tarifas del nuevo origen/destino se reaplica el precio de esa misma
+  // categoría (y con él el tarifaId, que es lo que se manda al backend). Si la
+  // ruta nueva no tiene esa categoría (o la tiene sin precio), se limpia para
+  // que se vuelva a elegir.
+  useEffect(() => {
+    if (!pendiente || loading || cotizada !== rutaKey) return;
+    const op = visibles.find((o) => o.codigo === pendiente);
+    const p = op ? priceOf(op, modalidad, horas, extras) : null;
+    const precio = isProvider ? p?.proveedor : p?.cliente;
+    setPendiente(null);
+    if (op && precio != null) commit(op);
+    else clearSeleccion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendiente, loading, cotizada, rutaKey, opciones]);
+
+  // Cambiar de proveedor cambia el tarifario: se limpia la tarifa elegida y su
+  // precio para que se vuelva a elegir con los valores del nuevo.
+  const onProveedor = (id: string) => {
+    setPendiente(null);
+    clearSeleccion({ proveedorId: id || undefined });
+  };
+
   const onRoute = (patch: { origen?: string; destino?: string }) => {
-    // Al cambiar la ruta el precio cambia: limpiamos la selección para re-elegir.
-    set({
-      cat: "",
-      tarifa: { ...t.tarifa, ...patch, categoria: undefined, tarifaId: undefined },
-      costs: {
-        ...t.costs,
-        viaje: 0,
-        total: t.costs.espera + t.costs.peajes + t.costs.estacionamiento + t.costs.otros,
-      },
-    });
+    const ruta = { ...t.tarifa, ...patch };
+    // Ruta incompleta (eligió "—"): no hay contra qué recotizar, se limpia.
+    if (!ruta.origen || !ruta.destino) {
+      setPendiente(null);
+      clearSeleccion({ tarifa: { ...ruta, categoria: undefined, tarifaId: undefined } });
+      return;
+    }
+    // Al cambiar la ruta cambia el precio, pero NO la categoría elegida: la
+    // dejamos marcada y la recotizamos cuando lleguen las tarifas de la ruta
+    // nueva (efecto de arriba). Mientras tanto se mantiene el precio anterior,
+    // así el viaje nunca queda a medio camino sin tarifa.
+    setPendiente(t.tarifa?.categoria ?? null);
+    set({ tarifa: ruta });
   };
 
   return (
