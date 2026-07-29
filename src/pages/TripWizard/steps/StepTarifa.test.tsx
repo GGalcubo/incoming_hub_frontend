@@ -84,7 +84,7 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
   afterEach(cleanup);
 
   it("recalcula el precio de la categoría elegida y trae el tarifaId nuevo", async () => {
-    cotizarRuta.mockImplementation((origen: string, destino: string) =>
+    cotizarRuta.mockImplementation((_origen: string, destino: string) =>
       Promise.resolve({
         proveedores: [{ id: "p1", nombre: "Prov 1" }],
         opciones:
@@ -110,7 +110,7 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
   });
 
   it("limpia la selección si la ruta nueva no tiene esa categoría", async () => {
-    cotizarRuta.mockImplementation((origen: string, destino: string) =>
+    cotizarRuta.mockImplementation((_origen: string, destino: string) =>
       Promise.resolve({
         proveedores: [{ id: "p1", nombre: "Prov 1" }],
         opciones:
@@ -152,7 +152,7 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
     // La cotización de la ruta vieja resuelve DESPUÉS que la de la nueva.
     const resolvers: Array<() => void> = [];
     cotizarRuta.mockImplementation(
-      (origen: string, destino: string) =>
+      (_origen: string, destino: string) =>
         new Promise((resolve) => {
           const payload = {
             proveedores: [{ id: "p1", nombre: "Prov 1" }],
@@ -184,7 +184,7 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
   it("mantiene el precio anterior mientras la nueva cotización está en vuelo", async () => {
     let resolveSegunda: (() => void) | null = null;
     cotizarRuta.mockImplementation(
-      (origen: string, destino: string) =>
+      (_origen: string, destino: string) =>
         new Promise((resolve) => {
           const payload = {
             proveedores: [{ id: "p1", nombre: "Prov 1" }],
