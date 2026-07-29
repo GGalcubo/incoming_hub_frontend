@@ -94,10 +94,10 @@ let mockTrips: Trip[] = loadMockTrips();
 const MOCK_ME_KEY = "proxy:mockMe";
 
 // Sin backend de auth, derivamos el rol del username para poder probar cada rol:
-// "prov…" → proveedor, "agen…"/"cliente…"/"oper…" → operador de agencia, resto → admin.
+// "prov…" → provider, "agen…"/"cliente…"/"oper…" → operador de agencia, resto → admin.
 function mockRoleFromUsername(username: string): RoleEnum {
   const u = username.trim().toLowerCase();
-  if (u.startsWith("prov")) return "proveedor";
+  if (u.startsWith("prov")) return "provider";
   if (u.startsWith("agen") || u.startsWith("cliente") || u.startsWith("oper")) {
     return "agency_operator";
   }
@@ -615,7 +615,7 @@ export const api = {
   // puede ver lo que se le factura al cliente.
   async clienteScope(): Promise<string | null> {
     const me = await this.getMe();
-    if (me.role === "proveedor") throw new Error("Sin acceso al tarifario de clientes.");
+    if (me.role === "provider") throw new Error("Sin acceso al tarifario de clientes.");
     if (me.role === "admin") return null;
     const { agencies, ownAgencyId } = await this.passengersAccess();
     // Si no se pudo resolver la agencia del usuario, queda con un scope vacío:

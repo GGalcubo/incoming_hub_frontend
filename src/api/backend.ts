@@ -21,6 +21,8 @@ export interface Agencia {
   telefono: string | null;
   cuit: string | null;
   activo: boolean;
+  fecha_ultima_sincronizacion?: string | null;
+  fecha_creacion: string;
 }
 
 export interface CategoriaServicio {
@@ -42,6 +44,7 @@ export interface Solicitante {
   puesto: string | null;
   activo: boolean;
   es_principal: boolean;
+  fecha_creacion: string;
 }
 
 export interface Persona {
@@ -54,15 +57,10 @@ export interface Persona {
   fecha_creacion: string;
 }
 
-export interface TramoPasajero {
-  id: number;
-  pasajero: number;
-  cantidad_valijas?: number;
-}
-
 export interface Tramo {
   id: number;
   viaje: number;
+  // Read-only: lo asigna el backend según el orden de alta.
   numero_tramo: number;
   // Tarifa (del tarifario de un proveedor) elegida para este tramo: es la que
   // define su costo. Solo lectura acá: se manda en el alta (TramoInput.tarifa) o
@@ -72,17 +70,21 @@ export interface Tramo {
   origen_latitud: string | null;
   origen_longitud: string | null;
   origen_lugar_nombre: string;
+  origen_es_aeropuerto?: boolean;
+  origen_iata?: string;
   destino_direccion: string;
   destino_latitud: string | null;
   destino_longitud: string | null;
   destino_lugar_nombre: string;
+  destino_es_aeropuerto?: boolean;
+  destino_iata?: string;
   localidad_origen_central?: string;
   id_localidad_origen_central?: number | null;
   localidad_destino_central?: string;
   id_localidad_destino_central?: number | null;
   distancia_km?: string | null;
   duracion_estimada_minutos?: number | null;
-  pasajeros_tramo: TramoPasajero[];
+  id_tramo_central: number | null;
 }
 
 // Pasajero embebido en la lectura de un viaje (GET /viajes/). El backend ya
@@ -95,6 +97,8 @@ export interface PasajeroRead {
   dni: string | null;
   email: string | null;
   es_principal: boolean;
+  id_persona_central: number | null;
+  id_viaje_persona_central: number | null;
 }
 
 // Costos del viaje (GET/PATCH /viajes/{id}/costos/). Tiene DOS columnas: lo que
@@ -153,6 +157,8 @@ export interface Zona {
   iata: string;
   latitud: string | null;
   longitud: string | null;
+  // GeoJSON del área cubierta por la zona (el front no lo usa: cotiza por código).
+  poligono?: unknown | null;
   prioridad: number;
   activo: boolean;
 }
@@ -226,7 +232,6 @@ export interface Viaje {
   fecha_servicio: string;
   hora_servicio: string;
   tipo_servicio: TipoServicio;
-  pasajero_principal: number | null;
   cantidad_pasajeros: number;
   cantidad_valijas: number;
   observaciones: string;
@@ -245,7 +250,7 @@ export interface Viaje {
   updated_at: string;
   tramos: Tramo[];
   costo: CostoViaje | null;
-  puede_cancelar: string;
+  puede_cancelar: boolean;
   // Pasajeros del viaje, embebidos por el backend en la lectura.
   pasajeros: PasajeroRead[];
 }
@@ -300,9 +305,9 @@ export interface ViajeWrite {
   fecha_servicio: string;
   hora_servicio: string;
   tipo_servicio: TipoServicio;
-  pasajero_principal?: number | null;
   // Alta de pasajeros en la misma llamada de creación del viaje. El backend los
-  // crea como Personas y asigna el `pasajero_principal`.
+  // crea como Personas y marca al principal (`PasajeroWrite.es_principal`); el
+  // viaje ya no expone un campo `pasajero_principal`.
   pasajeros?: PasajeroWrite[];
   // Alta de tramos en la misma llamada de creación (coordenadas, ver TramoInput).
   tramos?: TramoInput[];
@@ -329,9 +334,10 @@ export interface ViajePersonaWrite {
 }
 
 // ── Perfil de usuario (/auth/me/) ────────────────────────────────────────────
-// `proveedor` es el rol nuevo (deck "Nuevo Rol: Proveedor"): carga/edita tarifas
-// y modifica los costos de los viajes que tiene asignados.
-export type RoleEnum = "admin" | "agency_staff" | "agency_operator" | "proveedor";
+// `provider` es el rol nuevo (deck "Nuevo Rol: Proveedor"): carga/edita tarifas
+// y modifica los costos de los viajes que tiene asignados. OJO con el nombre: el
+// enum del backend está en INGLÉS (`provider`), no en español.
+export type RoleEnum = "admin" | "agency_staff" | "agency_operator" | "provider";
 
 // Lectura del usuario autenticado (GET /auth/me/). `agencia` y `proveedor` son
 // los vínculos del usuario con su organización: el backend ya los resuelve, así

@@ -33,9 +33,14 @@ import { fetchAll, request } from "./http";
 import { patchCostos, setTramoTarifa } from "./tarifario";
 
 // ── Estados ────────────────────────────────────────────────────────────────
-// El backend expone `estado` como entero pero NO publica un endpoint de
-// catálogo de estados. Este mapeo sigue el orden del catálogo de producto
-// (data/seed STATUSES). Si el backend usa otros IDs, ajustar solo esta tabla.
+// El backend expone `estado` como entero. Este mapeo sigue el orden del catálogo
+// de producto (data/seed STATUSES). Si el backend usa otros IDs, ajustar solo
+// esta tabla.
+//
+// PENDIENTE: el backend YA publica el catálogo real en `GET /estados/`
+// (`{ id, codigo, nombre, color, es_final, visible_agencia }`, 15 códigos: NUE,
+// PRE, ASI, CON, PRO, FIN, CER, ELI, CAN, NSH, MOD, CXL, CLX, REV, WEB). Hay que
+// migrar a él: acá cualquier id fuera de 1–9 cae silenciosamente a PENDIENTE.
 const ESTADO_TO_STATUS: Record<number, TripStatus> = {
   1: "PENDIENTE",
   2: "CONFIRMADO",
@@ -73,11 +78,13 @@ const LEG_TO_TIPO: Record<LegType, TipoServicio> = {
 };
 
 // ── Catálogos (cache en memoria por sesión) ─────────────────────────────────
+// NO incluye personas: los pasajeros de un viaje vienen embebidos en la lectura
+// (`viaje.pasajeros`) y la vista /pasajeros pagina contra /personas/, así que no
+// hace falta traerse el padrón completo al arrancar.
 export interface Catalogs {
   agencies: Agencia[];
   categorias: CategoriaServicio[];
   solicitantes: Solicitante[];
-  personas: Persona[];
 }
 
 let catalogsPromise: Promise<Catalogs> | null = null;
@@ -88,13 +95,11 @@ export function loadCatalogs(): Promise<Catalogs> {
       fetchAll<Agencia>("/agencies/"),
       fetchAll<CategoriaServicio>("/services/"),
       fetchAll<Solicitante>("/agencies/solicitantes/"),
-      fetchAll<Persona>("/personas/"),
     ])
-      .then(([agencies, categorias, solicitantes, personas]) => ({
+      .then(([agencies, categorias, solicitantes]) => ({
         agencies,
         categorias,
         solicitantes,
-        personas,
       }))
       .catch((err) => {
         catalogsPromise = null; // permite reintentar tras un fallo
@@ -102,10 +107,6 @@ export function loadCatalogs(): Promise<Catalogs> {
       });
   }
   return catalogsPromise;
-}
-
-export function invalidateCatalogs() {
-  catalogsPromise = null;
 }
 
 // ── Pasajeros (personas) con paginación/búsqueda server-side ─────────────────
@@ -135,8 +136,8 @@ export interface AgenciaMin {
 }
 
 export async function listAgenciasMin(): Promise<AgenciaMin[]> {
-  // Consulta SOLO /agencies/ (no loadCatalogs(), que arrastraría todas las
-  // personas/solicitantes y reintroduciría el problema de performance).
+  // Consulta SOLO /agencies/ (no loadCatalogs(), que arrastraría además todos los
+  // solicitantes).
   const agencies = await fetchAll<Agencia>("/agencies/");
   return agencies
     .filter((a) => a.activo)
@@ -146,8 +147,9 @@ export async function listAgenciasMin(): Promise<AgenciaMin[]> {
 
 // Acceso a la vista de pasajeros según el rol: el admin ve todas las agencias y
 // puede filtrar libremente; el no-admin queda restringido a su propia agencia.
-// La agencia propia se infiere cruzando el email del perfil con los solicitantes
-// (el backend no la expone en /auth/me/), igual que loadWizardIdentity.
+// La agencia propia se infiere cruzando el email del perfil con los solicitantes,
+// igual que loadWizardIdentity. PENDIENTE: `/auth/me/` ya devuelve `agencia`
+// resuelta, así que esta inferencia (y su fetchAll de solicitantes) sobra.
 export interface PassengersAccess {
   isAdmin: boolean;
   agencies: AgenciaMin[];
@@ -183,7 +185,8 @@ export async function listCategorias(): Promise<string[]> {
 
 // Identidad para el wizard: lista de agencias y la agencia propia del usuario
 // logueado. La agencia propia se infiere cruzando el email del perfil con el
-// catálogo de solicitantes (el backend no la expone en /auth/me/).
+// catálogo de solicitantes. PENDIENTE: `/auth/me/` ya devuelve `agencia` resuelta;
+// el cruce por email solo hace falta para `ownSolicitante`.
 export interface WizardIdentity {
   agencies: string[];
   ownAgency: string | null;
@@ -327,27 +330,12 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
 
   // Los pasajeros vienen embebidos en el viaje (`v.pasajeros`) con nombre,
   // teléfono y email ya resueltos por el backend. Ordenamos el principal primero.
-  let passengers = [...(v.pasajeros ?? [])]
+  // Es la única fuente: el backend ya no expone `pasajero_principal` en el viaje
+  // ni `pasajeros_tramo` en el tramo (antes había un fallback por catálogo).
+  const passengers = [...(v.pasajeros ?? [])]
     .sort((a, b) => Number(b.es_principal) - Number(a.es_principal))
     .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
 
-  // Fallback (viajes viejos sin `pasajeros`): reconstruir desde el principal y
-  // los pasajeros embebidos en los tramos, resolviendo el nombre vía catálogo.
-  if (passengers.length === 0) {
-    const passengerIds: number[] = [];
-    if (v.pasajero_principal != null) passengerIds.push(v.pasajero_principal);
-    for (const tr of tramos) {
-      for (const pt of tr.pasajeros_tramo ?? []) {
-        if (pt.pasajero != null && !passengerIds.includes(pt.pasajero)) {
-          passengerIds.push(pt.pasajero);
-        }
-      }
-    }
-    passengers = passengerIds
-      .map((id) => c.personas.find((p) => p.id === id))
-      .filter((p): p is Persona => p != null)
-      .map((p) => ({ ...splitName(p.nombre), phone: p.telefono ?? "", email: p.email ?? undefined }));
-  }
   if (passengers.length === 0)
     passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
@@ -624,9 +612,6 @@ export async function createTrip(trip: Trip): Promise<Trip> {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  // Las personas recién creadas por el backend no están en el cache; lo
-  // invalidamos para que getTrip resuelva los nombres.
-  invalidateCatalogs();
   return getTrip(String(created.id));
 }
 
@@ -704,8 +689,6 @@ export async function updateTrip(trip: Trip): Promise<Trip> {
   const tarifaCambio = await syncTarifaTramo(trip, current.tramos);
   await syncCostos(trip, current.id, current.costo, tarifaCambio);
   await syncPasajeros(trip, current.id, current.pasajeros ?? []);
-  // Pudo haberse creado/editado/quitado alguna Persona: refrescamos el cache.
-  invalidateCatalogs();
   return getTrip(String(trip.id));
 }
 

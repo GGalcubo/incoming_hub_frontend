@@ -34,7 +34,7 @@ export function useMe(): UseMe {
     me: data,
     role,
     isAdmin: role === "admin",
-    isProvider: role === "proveedor",
+    isProvider: role === "provider",
     isAgency: role === "agency_staff" || role === "agency_operator",
     proveedorId: proveedorIdOf(data),
     loading: !!user && isLoading,

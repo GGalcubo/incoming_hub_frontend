@@ -18,6 +18,18 @@
 | POST | `/auth/refresh/` | Renovar access con refresh |
 | GET/PUT/PATCH | `/auth/me/` | Perfil del usuario autenticado |
 
+### Roles (`RoleEnum`)
+```
+admin | agency_staff | agency_operator | provider
+```
+⚠️ El rol de proveedor se llama **`provider`**, en inglés — no `proveedor`. Todo el
+gateo de UI del front cuelga de esto (`useMe.isProvider`, `proveedorIdOf`,
+`clienteScope`, los `roles` del `NAV` del Topbar).
+
+`/auth/me/` devuelve además `agencia` (objeto `Agencia`) y `proveedor` (objeto
+`Proveedor`) ya resueltos: **no** hay que inferir la agencia cruzando el email
+contra el catálogo de solicitantes.
+
 ## Agencias y solicitantes
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -25,8 +37,12 @@
 | GET/PUT/PATCH/DELETE | `/agencies/{id}/` | Detalle / editar / borrar |
 | GET/POST | `/agencies/solicitantes/` | Solicitantes por agencia |
 | GET/PUT/PATCH/DELETE | `/agencies/solicitantes/{id}/` | Detalle / editar / borrar |
-| GET | `/solicitantes/` | Usuarios elegibles como solicitantes (filtra por agencia/rol) |
-| GET | `/solicitantes/{id}/` | Detalle |
+| GET | `/solicitantes/` | Usuarios elegibles como solicitantes — devuelve **`User`**, no `Solicitante` (filtros: `agencia`, `role`, `is_active`, `search`) |
+| GET | `/solicitantes/{id}/` | Detalle (`User`) |
+
+> Ojo con los dos recursos parecidos: `/agencies/solicitantes/` es el catálogo de
+> **contactos** de una agencia (`Solicitante`: nombre, email, puesto, es_principal)
+> y es el que usa el front; `/solicitantes/` lista **usuarios** del sistema.
 
 ## Catálogos
 | Método | Ruta | Descripción |
@@ -34,7 +50,18 @@
 | GET | `/categorias/` · `/categorias/{id}/` | Categorías de servicio (solo lectura) |
 | GET/POST | `/services/` | Alias de categorías (con escritura) |
 | GET/PUT/PATCH/DELETE | `/services/{id}/` | Detalle / editar / borrar categoría |
-| GET | `/estados/` · `/estados/{id}/` | Estados de viaje |
+| GET | `/estados/` · `/estados/{id}/` | Estados de viaje (filtros: `es_final`, `visible_agencia`) |
+
+`Estado` = `{ id, codigo, nombre, color, es_final, visible_agencia }`. Códigos:
+
+```
+NUE PRE ASI CON PRO FIN CER ELI CAN NSH MOD CXL CLX REV WEB
+```
+
+⚠️ **Pendiente:** `viaje.estado` es un **entero** y el front todavía lo traduce con
+la tabla hardcodeada `ESTADO_TO_STATUS` (ids 1–9) en `api/viajes.ts`. Son 15
+estados: cualquier id fuera de 1–9 cae silenciosamente a `PENDIENTE`. Hay que
+migrar ese mapeo al catálogo real (requiere leer `/estados/` con credenciales).
 
 ## Personas (pasajeros)
 | Método | Ruta | Descripción |
@@ -57,6 +84,11 @@
 > …), así que si además hay costos que guardar, este PATCH va primero
 > (`syncTarifaTramo` → `syncCostos`).
 
+En la **lectura** el tramo trae también `origen_es_aeropuerto` / `origen_iata` y
+sus pares de destino, más `id_tramo_central`. `numero_tramo` es read-only.
+**`pasajeros_tramo` ya no existe**: los pasajeros no se cuelgan del tramo sino del
+viaje (`viaje.pasajeros`).
+
 ## Tarifario
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -69,6 +101,11 @@
 La cotización devuelve `proveedores[] → { proveedor, tarifas[] }`, una tarifa por
 categoría de vehículo, con `precio_cliente` y `precio_proveedor`. El `id` de la
 tarifa elegida es lo que se guarda en el tramo. Ver `api/tarifario.ts`.
+
+`/tarifarios/tarifas/` filtra **server-side** por `proveedor`, `id_proveedor`,
+`origen`, `destino`, `categoria_servicio` y `activo`. Es todo lo que necesitan las
+pantallas de Tarifas, que **todavía viven en localStorage** (`api/tarifas.ts`,
+`api/tarifasCliente.ts`): migrarlas a este CRUD sigue pendiente.
 
 ## Costos del viaje
 | Método | Ruta | Descripción |
@@ -91,6 +128,16 @@ tarifa elegida es lo que se guarda en el tramo. Ver `api/tarifario.ts`.
 | GET/PUT/PATCH/DELETE | `/viajes/{id}/` | Detalle / editar (solo campos del viaje) / borrar |
 | GET | `/viajes/{id}/historial/` | Historial / auditoría |
 
+### Filtros de `/viajes/` (server-side)
+`agencia`, `estado`, `estado__codigo`, `fecha_servicio`, `fecha_servicio__gte`,
+`fecha_servicio__lte`, `tipo_servicio`, `sincronizado_central`, `search`,
+`pasajeros__persona__nombre__icontains`, `tramos__origen_direccion__icontains`,
+`tramos__destino_direccion__icontains`, `ordering`, `page`.
+
+⚠️ **Pendiente:** `listTrips` hace `fetchAll("/viajes/")` y se trae la tabla
+completa paginando en el cliente. El filtrado y la búsqueda de la grilla deberían
+delegarse a estos parámetros.
+
 ### Creación vs. modificación
 - **Crear** (`POST /viajes/`): los `pasajeros` y los `tramos` van **anidados en el
   mismo POST**. El backend crea las Personas (fija el principal) y los tramos en
@@ -98,6 +145,13 @@ tarifa elegida es lo que se guarda en el tramo. Ver `api/tarifario.ts`.
 - **Modificar**: van **separados**. `PATCH /viajes/{id}/` toca solo campos del
   viaje; los tramos se sincronizan vía `/tramos/` (`syncTramos`) y los pasajeros
   vía `/pasajeros-viaje/` (`syncPasajeros`), incluyendo desasociar/borrar.
+
+### Pasajeros del viaje
+`viaje.pasajeros` (read-only) es la **única** fuente: cada item trae `persona`,
+`nombre`, `telefono`, `dni`, `email`, `es_principal` + `id_persona_central` /
+`id_viaje_persona_central`. **`viaje.pasajero_principal` ya no existe** — el
+principal se marca con `es_principal` (en el alta, dentro de `pasajeros[]`).
+`puede_cancelar` es **boolean** (antes venía como string).
 
 ### Flujo tarifa → costos
 1. En el alta se elige la tarifa (cotización de la ruta) y se manda en el tramo:
@@ -124,4 +178,5 @@ un overlay local.
   al menos un extremo completo. ⚠️ Implica que un destino sin geocodificar (texto
   libre, sin elegir sugerencia de Google) no tiene coords y **rompería la creación**.
 
-_Fuente: OpenAPI schema en `/api/schema/` + guía del backend (examinado el 2026-06-29)._
+_Fuente: OpenAPI schema en `/api/schema/?format=json` (examinado el 2026-07-29) +
+guía del backend._

@@ -9,6 +9,8 @@ import styles from "./steps.module.css";
 // comentario, así que un cambio de rol posterior no reescribe el historial.
 const ROL_LABEL: Record<string, string> = {
   admin: "Administración",
+  provider: "Proveedor",
+  // Comentarios viejos guardados cuando el rol se llamaba "proveedor".
   proveedor: "Proveedor",
   agency_staff: "Agencia",
   agency_operator: "Agencia",

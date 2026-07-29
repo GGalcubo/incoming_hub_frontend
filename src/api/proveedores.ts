@@ -22,7 +22,7 @@ const ASIGNACIONES_KEY = "proxy:tripProveedor";
 // real es el id del proveedor que devuelve /auth/me/; sin él caemos al username,
 // que es la clave con la que el mock deriva el rol y arma el tarifario.
 export function proveedorIdOf(me: MeProfile | null | undefined): string | null {
-  if (!me || me.role !== "proveedor") return null;
+  if (!me || me.role !== "provider") return null;
   if (me.proveedor) return String(me.proveedor.id);
   return me.username.trim().toLowerCase() || null;
 }

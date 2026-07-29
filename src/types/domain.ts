@@ -82,7 +82,7 @@ export interface TripCosts {
 export interface TripComentario {
   id: string;
   autor: string;
-  // Rol del autor al momento de comentar ("admin" | "proveedor" | "agency_*").
+  // Rol del autor al momento de comentar ("admin" | "provider" | "agency_*").
   // Se guarda para poder mostrar de qué lado del mostrador vino el comentario.
   rol: string | null;
   texto: string;

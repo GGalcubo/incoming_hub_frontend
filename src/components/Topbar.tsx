@@ -46,7 +46,7 @@ const NAV: NavItem[] = [
     // /tarifas sin sufijo redirige acá: lo tomamos como activo para que el ítem
     // no quede apagado durante la redirección.
     match: (p) => p === "/tarifas" || p.startsWith("/tarifas/proveedor"),
-    roles: ["admin", "proveedor", "agency_staff", "agency_operator"],
+    roles: ["admin", "provider", "agency_staff", "agency_operator"],
   },
   {
     // El proveedor no ve lo que se le factura al cliente.
@@ -62,7 +62,7 @@ const ROLE_LABEL: Record<RoleEnum, string> = {
   admin: "Administrador",
   agency_staff: "Agencia",
   agency_operator: "Operador",
-  proveedor: "Proveedor",
+  provider: "Proveedor",
 };
 
 export function Topbar({ title, subtitle, actions }: TopbarProps) {
