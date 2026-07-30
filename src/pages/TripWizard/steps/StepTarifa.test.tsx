@@ -1,9 +1,8 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TarifaOpcion } from "../../../api/client";
-import type { Trip } from "../../../types/domain";
+import type { Leg, Trip } from "../../../types/domain";
 import { EMPTY_TRIP } from "../types";
 import { StepTarifa } from "./StepTarifa";
 
@@ -47,11 +46,24 @@ function op(patch: Partial<TarifaOpcion>): TarifaOpcion {
   };
 }
 
-// Viaje con una tarifa YA elegida: EZE → CENTRO, categoría STD a 100.
+function leg(patch: Partial<Leg> = {}): Leg {
+  return {
+    type: "in",
+    origin: "Aeropuerto de Ezeiza",
+    destination: "Av. Corrientes 1000, CABA",
+    flight: "",
+    obs: "",
+    ...patch,
+  };
+}
+
+// Viaje con una tarifa YA elegida: EZE → CENTRO, categoría STD a 100. Su primer
+// destino es esa misma ruta (es de donde salió la cotización).
 const TRIP_CON_TARIFA: Trip = {
   ...EMPTY_TRIP,
   cat: "Sedán",
   proveedorId: "p1",
+  legs: [leg()],
   tarifa: {
     origen: "EZE",
     destino: "CENTRO",
@@ -62,19 +74,31 @@ const TRIP_CON_TARIFA: Trip = {
   costs: { ...EMPTY_TRIP.costs, viaje: 100, peajes: 10, total: 110, moneda: "USD" },
 };
 
-// Monta el paso con estado real, y expone el viaje resultante para las aserciones.
+// Monta el paso con estado real. Expone el viaje resultante para las aserciones y
+// un setter para simular que el usuario cambia el primer destino (paso Destinos).
 function setup(initial: Trip) {
-  const seen: { trip: Trip } = { trip: initial };
+  const seen: { trip: Trip; patch: (p: Partial<Trip>) => void } = {
+    trip: initial,
+    patch: () => {},
+  };
   function Harness() {
     const [t, setT] = useState(initial);
     seen.trip = t;
+    seen.patch = (patch) => setT((prev) => ({ ...prev, ...patch }));
     return <StepTarifa t={t} set={(patch) => setT((prev) => ({ ...prev, ...patch }))} errs={{}} />;
   }
   render(<Harness />);
   return seen;
 }
 
-describe("StepTarifa — recotización al cambiar la ruta", () => {
+// Cambia el primer tramo como si el usuario hubiera vuelto al paso Destinos.
+async function editarPrimerDestino(seen: { trip: Trip; patch: (p: Partial<Trip>) => void }, patch: Partial<Leg>) {
+  await act(async () => {
+    seen.patch({ legs: seen.trip.legs.map((l, i) => (i === 0 ? { ...l, ...patch } : l)) });
+  });
+}
+
+describe("StepTarifa — la cotización sale del primer destino", () => {
   beforeEach(() => {
     cotizarRuta.mockReset();
   });
@@ -82,6 +106,29 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
   // El proyecto corre vitest con `globals: false`, así que el cleanup automático
   // de testing-library no se registra: hay que desmontar a mano.
   afterEach(cleanup);
+
+  it("viaje nuevo: toma la ruta del primer tramo, no del último", async () => {
+    cotizarRuta.mockResolvedValue({
+      proveedores: [{ id: "p1", nombre: "Prov 1" }],
+      opciones: [op({ tarifaId: 1 })],
+      detalle: "",
+    });
+    // Dos tramos: EZE → CABA y CABA → Aeroparque. La cotización es la del primero.
+    const seen = setup({
+      ...EMPTY_TRIP,
+      legs: [
+        leg(),
+        leg({
+          type: "otro",
+          origin: "Av. Corrientes 1000, CABA",
+          destination: "Aeroparque Jorge Newbery",
+        }),
+      ],
+    });
+
+    await waitFor(() => expect(seen.trip.tarifa?.origen).toBe("EZE"));
+    expect(seen.trip.tarifa?.destino).toBe("CENTRO");
+  });
 
   it("recalcula el precio de la categoría elegida y trae el tarifaId nuevo", async () => {
     cotizarRuta.mockImplementation((_origen: string, destino: string) =>
@@ -95,9 +142,9 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
       }),
     );
     const seen = setup(TRIP_CON_TARIFA);
-    await screen.findAllByRole("option", { name: "AEP" });
+    await waitFor(() => expect(cotizarRuta).toHaveBeenCalled());
 
-    await userEvent.selectOptions(screen.getByLabelText(/Destino/), "AEP");
+    await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
 
     await waitFor(() => expect(seen.trip.tarifa?.tarifaId).toBe(2));
     // Misma categoría, precio nuevo, y el total rehecho con los peajes ya cargados.
@@ -121,9 +168,9 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
       }),
     );
     const seen = setup(TRIP_CON_TARIFA);
-    await screen.findAllByRole("option", { name: "AEP" });
+    await waitFor(() => expect(cotizarRuta).toHaveBeenCalled());
 
-    await userEvent.selectOptions(screen.getByLabelText(/Destino/), "AEP");
+    await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
 
     await waitFor(() => expect(seen.trip.cat).toBe(""));
     expect(seen.trip.tarifa?.tarifaId).toBeUndefined();
@@ -132,20 +179,68 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
     expect(seen.trip.costs.total).toBe(10); // solo los peajes
   });
 
-  it("limpia la selección si la ruta queda incompleta", async () => {
+  it("limpia la selección si el primer destino queda vacío", async () => {
     cotizarRuta.mockResolvedValue({
       proveedores: [{ id: "p1", nombre: "Prov 1" }],
       opciones: [op({ tarifaId: 1 })],
       detalle: "",
     });
     const seen = setup(TRIP_CON_TARIFA);
-    await screen.findAllByRole("option", { name: "AEP" });
+    await waitFor(() => expect(cotizarRuta).toHaveBeenCalled());
 
-    await userEvent.selectOptions(screen.getByLabelText(/Destino/), "");
+    await editarPrimerDestino(seen, { destination: "" });
 
     await waitFor(() => expect(seen.trip.cat).toBe(""));
     expect(seen.trip.tarifa?.tarifaId).toBeUndefined();
     expect(seen.trip.costs.viaje).toBe(0);
+  });
+
+  it("horas a disposición: cobra horas × tarifa y lo muestra en la card", async () => {
+    cotizarRuta.mockResolvedValue({
+      proveedores: [{ id: "p1", nombre: "Prov 1" }],
+      opciones: [op({ tarifaId: 1, precioCliente: 100, precioProveedor: 70 })],
+      detalle: "",
+    });
+    const seen = setup({
+      ...EMPTY_TRIP,
+      legs: [leg({ type: "disposicion", hours: 3 })],
+    });
+
+    // 3 hs × 100 = 300, y la card muestra el total (no el valor de la hora).
+    const card = await screen.findByRole("button", { name: /Sedán/ });
+    expect(card.textContent).toContain("300");
+    expect(card.textContent).toContain("3 hs × 100");
+
+    await act(async () => {
+      card.click();
+    });
+    await waitFor(() => expect(seen.trip.costs.viaje).toBe(300));
+    expect(seen.trip.tarifa?.modalidad).toBe("horas");
+    expect(seen.trip.tarifa?.horas).toBe(3);
+    expect(seen.trip.costs.tarifaProveedor).toBe(210);
+  });
+
+  it("recotiza al cambiar las horas en el paso Destinos", async () => {
+    cotizarRuta.mockResolvedValue({
+      proveedores: [{ id: "p1", nombre: "Prov 1" }],
+      opciones: [op({ tarifaId: 1, precioCliente: 100, precioProveedor: 70 })],
+      detalle: "",
+    });
+    const seen = setup({
+      ...EMPTY_TRIP,
+      legs: [leg({ type: "disposicion", hours: 2 })],
+    });
+
+    const card = await screen.findByRole("button", { name: /Sedán/ });
+    await act(async () => {
+      card.click();
+    });
+    await waitFor(() => expect(seen.trip.costs.viaje).toBe(200));
+
+    await editarPrimerDestino(seen, { hours: 5 });
+
+    await waitFor(() => expect(seen.trip.costs.viaje).toBe(500));
+    expect(seen.trip.tarifa?.horas).toBe(5);
   });
 
   it("no pisa la selección con las tarifas de la ruta anterior", async () => {
@@ -167,37 +262,21 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
         }),
     );
     const seen = setup(TRIP_CON_TARIFA);
-    await screen.findAllByRole("option", { name: "AEP" });
     await waitFor(() => expect(resolvers.length).toBe(1)); // cotización inicial (CENTRO)
 
-    await userEvent.selectOptions(screen.getByLabelText(/Destino/), "AEP");
+    await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
     await waitFor(() => expect(resolvers.length).toBe(2)); // cotización de AEP
-    resolvers[1]!(); // llega primero la nueva
+    await act(async () => {
+      resolvers[1]!(); // llega primero la nueva
+    });
     await waitFor(() => expect(seen.trip.costs.viaje).toBe(150));
-    resolvers[0]!(); // y después la vieja, que ya no debe aplicarse
+    await act(async () => {
+      resolvers[0]!(); // y después la vieja, que ya no debe aplicarse
+    });
 
     await new Promise((r) => setTimeout(r, 20));
     expect(seen.trip.costs.viaje).toBe(150);
     expect(seen.trip.tarifa?.tarifaId).toBe(2);
-  });
-
-  it("viaje nuevo: toma la ruta del primer tramo, no del último", async () => {
-    cotizarRuta.mockResolvedValue({
-      proveedores: [{ id: "p1", nombre: "Prov 1" }],
-      opciones: [op({ tarifaId: 1 })],
-      detalle: "",
-    });
-    // Dos tramos: EZE → CABA y CABA → Aeroparque. La tarifa es la del primero.
-    const seen = setup({
-      ...EMPTY_TRIP,
-      legs: [
-        { type: "in", origin: "Aeropuerto de Ezeiza", destination: "Av. Corrientes 1000, CABA", flight: "", obs: "" },
-        { type: "out", origin: "Av. Corrientes 1000, CABA", destination: "Aeroparque Jorge Newbery", flight: "", obs: "" },
-      ],
-    });
-
-    await waitFor(() => expect(seen.trip.tarifa?.origen).toBe("EZE"));
-    expect(seen.trip.tarifa?.destino).toBe("CENTRO");
   });
 
   it("mantiene el precio anterior mientras la nueva cotización está en vuelo", async () => {
@@ -215,9 +294,9 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
         }),
     );
     const seen = setup(TRIP_CON_TARIFA);
-    await screen.findAllByRole("option", { name: "AEP" });
+    await waitFor(() => expect(cotizarRuta).toHaveBeenCalled());
 
-    await userEvent.selectOptions(screen.getByLabelText(/Destino/), "AEP");
+    await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
     await waitFor(() => expect(resolveSegunda).not.toBeNull());
 
     // Todavía sin respuesta: la tarifa vieja sigue puesta (el viaje nunca queda
@@ -226,7 +305,9 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
     expect(seen.trip.costs.viaje).toBe(100);
     expect(seen.trip.tarifa?.tarifaId).toBe(1);
 
-    resolveSegunda!();
+    await act(async () => {
+      resolveSegunda!();
+    });
     await waitFor(() => expect(seen.trip.costs.viaje).toBe(150));
   });
 });

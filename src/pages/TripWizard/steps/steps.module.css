@@ -366,48 +366,7 @@
   color: var(--danger-fg);
 }
 
-/* ---- StepTarifa ---- */
-.proveedorField {
-  max-width: 320px;
-  margin-bottom: 14px;
-}
-
-.tarifaRouteRow {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 16px;
-  align-items: end;
-  margin-bottom: 8px;
-}
-
-.modalidadRow {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0 4px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.modChip {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 9999px;
-  color: var(--fg-tertiary);
-  cursor: pointer;
-  font: 600 12px/16px Heming;
-  padding: 6px 14px;
-}
-
-.modChipActive {
-  background: var(--brand-tint);
-  border-color: var(--fg-primary);
-  color: var(--fg-primary);
-}
-
-.horasField {
-  width: 180px;
-}
-
+/* ---- StepTarifa (paso "Cotización") ---- */
 .catGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -418,9 +377,6 @@
 @media (max-width: 860px) {
   .catGrid {
     grid-template-columns: repeat(2, 1fr);
-  }
-  .tarifaRouteRow {
-    grid-template-columns: 1fr 1fr;
   }
 }
 

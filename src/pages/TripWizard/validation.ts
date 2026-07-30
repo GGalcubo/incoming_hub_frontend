@@ -36,14 +36,10 @@ export function validateTripStep(
   }
 
   if (stepId === "tarifa") {
-    // El proveedor NO es obligatorio: la agencia crea el viaje sin saber quién lo
-    // va a prestar y el precio sale del tarifario general hasta que se asigne.
-    // Hay que elegir una categoría (card). El precio puede ser 0 en modo horas
-    // hasta que se cargue la cantidad de horas.
+    // Lo único que se elige en Cotización es la categoría (card): la ruta, la
+    // modalidad y las horas salen del primer destino, y el proveedor lo define la
+    // tarifa elegida. Las horas se validan en "tramos", que es donde se cargan.
     if (!t.cat) e.cat = "Elegí una categoría";
-    if (t.tarifa?.modalidad === "horas" && !(t.tarifa.horas && t.tarifa.horas > 0)) {
-      e.horas = "Ingresá las horas a disposición";
-    }
   }
 
   if (stepId === "tramos") {
@@ -57,6 +53,9 @@ export function validateTripStep(
       if (!leg.destination) e[`leg-${i}-destination`] = "Destino requerido";
       else if (opts.requireCoords && !leg.destinationCoords)
         e[`leg-${i}-destination`] = COORD_MSG;
+      // Las horas a disposición se cargan acá y de acá las toma la cotización.
+      if (leg.type === "disposicion" && !(leg.hours && leg.hours > 0))
+        e[`leg-${i}-hours`] = "Ingresá las horas a disposición";
     });
   }
 

@@ -289,6 +289,10 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
   const tramos = [...(v.tramos ?? [])].sort((a, b) => a.numero_tramo - b.numero_tramo);
   // La tarifa del viaje se guarda en el tramo principal (ver buildTramosInput).
   const tarifaId = tramos[0]?.tarifa ?? undefined;
+  // Horas a disposición: el backend las guarda con el costo. > 0 ⇒ el viaje se
+  // tarifó por horas, no por traslado. En el front las carga (y las edita) el
+  // primer destino, así que se las devolvemos a ese tramo.
+  const horasDispo = v.costo?.horas_disponibles ?? 0;
   const legs = tramos.map((tr, i) => {
     const originCoords = coordsOf(tr.origen_latitud, tr.origen_longitud);
     const destinationCoords = coordsOf(tr.destino_latitud, tr.destino_longitud);
@@ -308,6 +312,7 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
       ),
       flight: i === 0 ? v.datos_vuelo : "",
       obs: "",
+      ...(i === 0 && horasDispo > 0 ? { hours: horasDispo } : {}),
       // Guardamos el desglose que devuelve el backend para poder reenviarlo tal
       // cual si el usuario edita el viaje sin volver a tocar este extremo.
       ...(tr.origen_lugar_nombre ? { originName: tr.origen_lugar_nombre } : {}),
@@ -325,6 +330,7 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
       destination: "",
       flight: v.datos_vuelo ?? "",
       obs: "",
+      ...(horasDispo > 0 ? { hours: horasDispo } : {}),
     });
   }
 
@@ -340,9 +346,6 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
   const costs = costoToTripCosts(v.costo);
-  // Horas a disposición: el backend las guarda con el costo. > 0 ⇒ el viaje se
-  // tarifó por horas, no por traslado.
-  const horasDispo = v.costo?.horas_disponibles ?? 0;
   const tarifa: TripTarifa | undefined =
     tarifaId != null || horasDispo > 0
       ? {

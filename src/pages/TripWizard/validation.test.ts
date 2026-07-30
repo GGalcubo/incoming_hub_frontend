@@ -65,19 +65,15 @@ describe("validateTripStep — paso tarifa", () => {
     expect(validateTripStep("tarifa", trip)).toEqual({});
   });
 
-  it("en modo horas exige la cantidad de horas", () => {
+  // Las horas ya no se cargan acá: salen del primer destino y se validan en el
+  // paso "tramos", que es donde el usuario puede corregirlas.
+  it("no exige las horas en este paso", () => {
     const trip = tripWith({
       cat: "VAN",
       proveedorId: "prov-norte",
       tarifa: { modalidad: "horas" },
     });
-    expect(validateTripStep("tarifa", trip).horas).toBeDefined();
-    const ok = tripWith({
-      cat: "VAN",
-      proveedorId: "prov-norte",
-      tarifa: { modalidad: "horas", horas: 3 },
-    });
-    expect(validateTripStep("tarifa", ok)).toEqual({});
+    expect(validateTripStep("tarifa", trip)).toEqual({});
   });
 });
 
@@ -181,6 +177,28 @@ describe("validateTripStep — paso tramos", () => {
       ],
     });
     expect(validateTripStep("tramos", trip, { requireCoords: true })).toEqual({});
+  });
+
+  it("exige las horas cuando el tipo de servicio es 'Hs disposición'", () => {
+    const sinHoras = tripWith({
+      legs: [
+        { type: "disposicion", origin: "Ezeiza", destination: "Centro", flight: "", obs: "" },
+      ],
+    });
+    expect(validateTripStep("tramos", sinHoras)["leg-0-hours"]).toBeDefined();
+    const conHoras = tripWith({
+      legs: [
+        {
+          type: "disposicion",
+          origin: "Ezeiza",
+          destination: "Centro",
+          flight: "",
+          obs: "",
+          hours: 3,
+        },
+      ],
+    });
+    expect(validateTripStep("tramos", conHoras)).toEqual({});
   });
 });
 

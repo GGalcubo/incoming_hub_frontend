@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type TarifaOpcion } from "../../../api/client";
-import { HAS_BACKEND } from "../../../api/http";
-import { Field, Input, Select } from "../../../components/ui/Field";
 import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
 import type { Trip } from "../../../types/domain";
-import type { Proveedor, TarifaExtras } from "../../../types/tarifas";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
@@ -22,24 +19,25 @@ function guessLugar(text: string | undefined, lugares: string[]): string {
   return has("CENTRO") ?? has("CABA") ?? (lugares[0] ?? "");
 }
 
-// Precio cliente/proveedor de una opción según la modalidad elegida.
+// Precio cliente/proveedor de una opción según la modalidad del viaje.
 //
-// Con backend real el precio SIEMPRE es el de la tarifa: la base del costo la
-// calcula el servidor a partir de la tarifa del tramo, y las horas a disposición
-// viajan aparte (costo.horas_disponibles). Sin backend se mantiene el cálculo
-// del mock: valor de la hora × horas.
+// En "horas a disposición" la tarifa de la categoría es el valor de la hora: se
+// cobra horas × tarifa, y ese total es el que muestra la card (es lo que va a
+// gastar el cliente). En traslado, la tarifa es el precio del viaje.
+//
+// OJO con backend real: la base del costo la recalcula el servidor a partir de la
+// tarifa del tramo, y las horas viajan aparte (costo.horas_disponibles). Este
+// total es lo que el wizard muestra y manda; si el servidor no multiplica igual,
+// al releer el viaje el monto vuelve al precio plano de la tarifa.
 function priceOf(
   op: TarifaOpcion,
   modalidad: "traslado" | "horas",
   horas: number,
-  extras: TarifaExtras | null,
 ): { cliente: number | null; proveedor: number | null } {
-  if (modalidad === "horas" && !HAS_BACKEND) {
-    if (!extras || !(horas > 0)) return { cliente: null, proveedor: null };
-    return {
-      cliente: +(extras.horaDispoCliente * horas).toFixed(2),
-      proveedor: +(extras.horaDispoProveedor * horas).toFixed(2),
-    };
+  if (modalidad === "horas") {
+    if (!(horas > 0)) return { cliente: null, proveedor: null };
+    const por = (v: number | null) => (v == null ? null : +(v * horas).toFixed(2));
+    return { cliente: por(op.precioCliente), proveedor: por(op.precioProveedor) };
   }
   return { cliente: op.precioCliente, proveedor: op.precioProveedor };
 }
@@ -47,21 +45,17 @@ function priceOf(
 export function StepTarifa({ t, set, errs }: StepProps) {
   const { isProvider, isAgency, proveedorId } = useMe();
   const [lugares, setLugares] = useState<string[]>([]);
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [opciones, setOpciones] = useState<TarifaOpcion[]>([]);
   const [detalle, setDetalle] = useState("");
-  const [extras, setExtras] = useState<TarifaExtras | null>(null);
   const [loading, setLoading] = useState(false);
   // Ruta a la que corresponden las opciones ya cargadas. Sirve para no recotizar
   // con las tarifas de la ruta anterior mientras la nueva está en vuelo.
   const [cotizada, setCotizada] = useState("");
   // Categoría elegida que quedó pendiente de recotizar tras cambiar la ruta.
   const [pendiente, setPendiente] = useState<string | null>(null);
-  // Una vez que el usuario elige origen/destino a mano dejamos de seguir al
-  // primer tramo: manda lo que eligió.
-  const [rutaManual, setRutaManual] = useState(false);
-  // Viaje que ya venía con tarifa (edición): la ruta guardada no se toca.
-  const rutaGuardada = useRef(t.tarifa != null);
+  // Viaje que ya venía con tarifa (edición): se respeta la ruta con la que se
+  // guardó en vez de rearmarla. Pasa a false si el backend no sabe cuál era.
+  const [rutaFija, setRutaFija] = useState(t.tarifa != null);
 
   const origen = t.tarifa?.origen ?? "";
   const destino = t.tarifa?.destino ?? "";
@@ -72,13 +66,10 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   // no haya uno asignado, del general (lo resuelve la API). El proveedor logueado
   // solo ve viajes suyos, así que es siempre el propio.
   const proveedorViaje = t.proveedorId ?? proveedorId ?? "";
-  // Solo el admin asigna proveedor. La agencia crea el viaje sin saber quién lo
-  // va a prestar: no ve el campo. El proveedor lo ve pero no lo cambia.
-  const canSetProveedor = !isProvider && !isAgency;
 
   // Catálogo de lugares tarifados. Al entrar, si el viaje ya tiene tarifa pero no
   // sabemos de qué ruta es, se la pedimos al backend. La ruta de un viaje nuevo la
-  // arma el efecto de abajo a partir del primer tramo.
+  // arma el efecto de abajo a partir del primer destino.
   useEffect(() => {
     let active = true;
     api
@@ -91,8 +82,14 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         // pedimos al backend de qué ruta es para poder marcar la selección.
         if (tarifaId != null) {
           const ruta = await api.rutaDeTarifa(tarifaId).catch(() => null);
-          if (active && ruta) set({ tarifa: { ...t.tarifa, ...ruta, modalidad } });
+          if (!active) return;
+          if (ruta) {
+            set({ tarifa: { ...t.tarifa, ...ruta, modalidad } });
+            return;
+          }
         }
+        // No hay ruta guardada que respetar: la arma el primer destino.
+        setRutaFija(false);
       })
       .catch(() => {
         /* sin backend/mocks: se queda vacío */
@@ -103,30 +100,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Extras (valor de la hora a disposición) del proveedor del viaje. Es lo único
-  // del tarifario que el backend todavía no expone por proveedor: con backend
-  // real se usa el set general del mock.
-  useEffect(() => {
-    let active = true;
-    api
-      .getTarifasExtras(HAS_BACKEND ? undefined : proveedorViaje)
-      .then((ex) => {
-        if (active) setExtras(ex);
-      })
-      .catch(() => {
-        if (active) setExtras(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, [proveedorViaje]);
-
   // Tarifas vigentes de la ruta elegida.
   const rutaKey = `${origen}|${destino}|${proveedorViaje}`;
   useEffect(() => {
     if (!origen || !destino) {
       setOpciones([]);
-      setProveedores([]);
       setCotizada("");
       return;
     }
@@ -137,13 +115,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
       .then((c) => {
         if (!active) return;
         setOpciones(c.opciones);
-        setProveedores(c.proveedores);
         setDetalle(c.detalle);
       })
       .catch(() => {
         if (!active) return;
         setOpciones([]);
-        setProveedores([]);
         setDetalle("No se pudieron cargar las tarifas de la ruta.");
       })
       .finally(() => {
@@ -156,11 +132,14 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     };
   }, [origen, destino, proveedorViaje, rutaKey]);
 
-  // Con un proveedor asignado se muestran solo sus tarifas; sin asignar, las de
-  // todos (elegir una es lo que asigna el proveedor del viaje).
-  const visibles = proveedorViaje
-    ? opciones.filter((o) => o.proveedorId === proveedorViaje)
-    : opciones;
+  // El proveedor no se elige acá: lo define la tarifa que se elija. Se ven las de
+  // todos los que tengan tarifa vigente para la ruta (así se puede cambiar de
+  // proveedor eligiendo otra), salvo para el proveedor logueado, que solo ve las
+  // suyas.
+  const visibles =
+    isProvider && proveedorViaje
+      ? opciones.filter((o) => o.proveedorId === proveedorViaje)
+      : opciones;
   // El cliente nunca ve de qué proveedor es la tarifa.
   const showProveedorEnCard =
     !isAgency && new Set(visibles.map((o) => o.proveedorId)).size > 1;
@@ -179,7 +158,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     nextModalidad: "traslado" | "horas" = modalidad,
     nextHoras: number = horas,
   ) => {
-    const p = priceOf(op, nextModalidad, nextHoras, extras);
+    const p = priceOf(op, nextModalidad, nextHoras);
     const viaje = p.cliente ?? 0;
     const c = t.costs;
     set({
@@ -237,7 +216,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   useEffect(() => {
     if (!pendiente || loading || cotizada !== rutaKey) return;
     const op = visibles.find((o) => o.codigo === pendiente);
-    const p = op ? priceOf(op, modalidad, horas, extras) : null;
+    const p = op ? priceOf(op, modalidad, horas) : null;
     const precio = isProvider ? p?.proveedor : p?.cliente;
     setPendiente(null);
     if (op && precio != null) commit(op);
@@ -245,17 +224,10 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendiente, loading, cotizada, rutaKey, opciones]);
 
-  // Cambiar de proveedor cambia el tarifario: se limpia la tarifa elegida y su
-  // precio para que se vuelva a elegir con los valores del nuevo.
-  const onProveedor = (id: string) => {
-    setPendiente(null);
-    clearSeleccion({ proveedorId: id || undefined });
-  };
-
-  const onRoute = (patch: { origen?: string; destino?: string }, manual = true) => {
-    if (manual) setRutaManual(true);
+  const setRuta = (patch: Partial<NonNullable<typeof t.tarifa>>) => {
     const ruta = { ...t.tarifa, ...patch };
-    // Ruta incompleta (eligió "—"): no hay contra qué recotizar, se limpia.
+    // Ruta incompleta (todavía sin destinos cargados): no hay contra qué
+    // recotizar, se limpia.
     if (!ruta.origen || !ruta.destino) {
       setPendiente(null);
       clearSeleccion({ tarifa: { ...ruta, categoria: undefined, tarifaId: undefined } });
@@ -269,120 +241,50 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     set({ tarifa: ruta });
   };
 
-  // Viaje nuevo: la ruta tarifada es la del PRIMER tramo, el origen y el destino
-  // que cargó el usuario en la pantalla anterior. Si vuelve atrás y los cambia,
-  // la tarifa los sigue (y se recotiza sola). Deja de seguirlos en cuanto elige
-  // origen/destino a mano, y nunca pisa la ruta de un viaje ya tarifado.
-  const leg0Origen = t.legs[0]?.origin;
-  const leg0Destino = t.legs[0]?.destination;
+  // Acá no se carga nada: lo que se cotiza sale del PRIMER destino del viaje (paso
+  // Destinos). El origen y el destino son los de ese tramo, y la modalidad su tipo
+  // de servicio ("Hs disposición" ⇒ horas a disposición, con sus horas). Si el
+  // usuario vuelve atrás y los cambia, la cotización los sigue y se recotiza sola.
+  const leg0 = t.legs[0];
+  const leg0Origen = leg0?.origin;
+  const leg0Destino = leg0?.destination;
+  const legModalidad: "traslado" | "horas" =
+    leg0?.type === "disposicion" ? "horas" : "traslado";
+  // En traslado las horas no juegan: se deja lo que ya había para no ensuciar.
+  const legHoras = legModalidad === "horas" ? (leg0?.hours ?? horas) : horas;
+  // Un viaje ya tarifado conserva la ruta con la que se guardó… hasta que el
+  // usuario toca el primer destino: ahí la cotización vuelve a seguirlo.
+  const legKey = `${leg0Origen}|${leg0Destino}|${legModalidad}|${legHoras}`;
+  const legInicial = useRef(legKey);
   useEffect(() => {
-    if (rutaManual || rutaGuardada.current || !lugares.length) return;
-    if (!leg0Origen || !leg0Destino) return;
-    const o = guessLugar(leg0Origen, lugares);
-    const d = guessLugar(leg0Destino, lugares);
-    if (o === origen && d === destino) return;
-    onRoute({ origen: o, destino: d }, false);
+    if (rutaFija && legKey !== legInicial.current) setRutaFija(false);
+  }, [legKey, rutaFija]);
+
+  useEffect(() => {
+    if (rutaFija || !lugares.length) return;
+    const o = leg0Origen ? guessLugar(leg0Origen, lugares) : "";
+    const d = leg0Destino ? guessLugar(leg0Destino, lugares) : "";
+    if (o !== origen || d !== destino) {
+      setRuta({ origen: o, destino: d, modalidad: legModalidad, horas: legHoras });
+      return;
+    }
+    if (legModalidad !== modalidad || legHoras !== horas) {
+      patchTarifa({ modalidad: legModalidad, horas: legHoras });
+      recommit(legModalidad, legHoras);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leg0Origen, leg0Destino, lugares, rutaManual]);
+  }, [leg0Origen, leg0Destino, legModalidad, legHoras, lugares, rutaFija, origen, destino]);
 
   return (
     <>
-      <h3 className={styles.h2}>Tarifa</h3>
+      <h3 className={styles.h2}>Cotización</h3>
       <p className={styles.p}>
-        El precio se calcula según origen y destino.{" "}
-        {HAS_BACKEND
-          ? "En modo “horas a disposición” se informan las horas junto con el costo del viaje."
-          : "En modo “horas a disposición” se multiplican las horas por el valor de hora."}{" "}
-        Montos en dólares (u$s).
+        El precio sale del primer destino del viaje.{" "}
+        {modalidad === "horas"
+          ? `Horas a disposición: la tarifa es el valor de la hora, y la card muestra el total por las ${horas} hs.`
+          : ""}{" "}
+        Elegí la categoría de vehículo. Montos en dólares (u$s).
       </p>
-
-      {!isAgency && (
-        <Field
-          label="Proveedor"
-          className={styles.proveedorField}
-          hint={
-            canSetProveedor
-              ? "Quién presta el servicio: define su tarifario y quién carga los costos. Elegir una tarifa lo asigna solo."
-              : undefined
-          }
-        >
-          {canSetProveedor ? (
-            <Select value={proveedorViaje} onChange={(e) => onProveedor(e.target.value)}>
-              <option value="">
-                {HAS_BACKEND ? "Sin asignar (ver todas las tarifas)" : "Sin asignar (tarifario general)"}
-              </option>
-              {proveedores.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.nombre}
-                </option>
-              ))}
-            </Select>
-          ) : (
-            <Input
-              readOnly
-              value={proveedores.find((p) => p.id === proveedorViaje)?.nombre ?? "Sin asignar"}
-            />
-          )}
-        </Field>
-      )}
-
-      <div className={styles.tarifaRouteRow}>
-        <Field label="Origen" required error={errs.cat && !origen ? "Elegí un origen" : undefined}>
-          <Select value={origen} onChange={(e) => onRoute({ origen: e.target.value })}>
-            <option value="">—</option>
-            {lugares.map((l) => (
-              <option key={l}>{l}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label="Destino" required>
-          <Select value={destino} onChange={(e) => onRoute({ destino: e.target.value })}>
-            <option value="">—</option>
-            {lugares.map((l) => (
-              <option key={l}>{l}</option>
-            ))}
-          </Select>
-        </Field>
-        {modalidad === "horas" && (
-          <Field label="Horas" error={errs.horas} className={styles.horasField}>
-            <Input
-              type="number"
-              min={1}
-              step={1}
-              value={horas || ""}
-              onChange={(e) => {
-                const h = Number(e.target.value);
-                patchTarifa({ horas: h });
-                recommit("horas", h);
-              }}
-            />
-          </Field>
-        )}
-      </div>
-
-      <div className={styles.modalidadRow}>
-        <span className={styles.catCurrency}>Modalidad:</span>
-        <button
-          type="button"
-          className={cx(styles.modChip, modalidad === "traslado" && styles.modChipActive)}
-          onClick={() => {
-            patchTarifa({ modalidad: "traslado" });
-            recommit("traslado", horas);
-          }}
-        >
-          Traslado
-        </button>
-        <button
-          type="button"
-          className={cx(styles.modChip, modalidad === "horas" && styles.modChipActive)}
-          onClick={() => {
-            patchTarifa({ modalidad: "horas" });
-            recommit("horas", horas);
-          }}
-        >
-          Horas a disposición
-        </button>
-      </div>
 
       {errs.cat && !t.cat && (
         <div className={styles.catNoPrice} style={{ color: "var(--danger-fg)" }}>
@@ -391,7 +293,9 @@ export function StepTarifa({ t, set, errs }: StepProps) {
       )}
 
       {!origen || !destino ? (
-        <div className={styles.catNoPrice}>Elegí origen y destino para ver las tarifas.</div>
+        <div className={styles.catNoPrice}>
+          Cargá el origen y el destino en el paso Destinos para ver las tarifas.
+        </div>
       ) : loading ? (
         <div className={styles.catNoPrice}>Cargando tarifas…</div>
       ) : !visibles.length ? (
@@ -401,8 +305,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
       ) : (
         <div className={styles.catGrid}>
           {visibles.map((op) => {
-            const p = priceOf(op, modalidad, horas, extras);
+            const p = priceOf(op, modalidad, horas);
             const shown = isProvider ? p.proveedor : p.cliente;
+            // Precio unitario de la tarifa (por hora en "horas a disposición"),
+            // para que se entienda de dónde sale el total de la card.
+            const unit = isProvider ? op.precioProveedor : op.precioCliente;
             // Con backend real la selección es la tarifa concreta (dos
             // proveedores pueden ofrecer la misma categoría); sin él, la categoría.
             const selected =
@@ -425,7 +332,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
                   <>
                     <span className={styles.catPrice}>{shown}</span>
                     <span className={styles.catCurrency}>{op.moneda}</span>
-                    <span className={styles.catPeajes}>(Incluye peajes)</span>
+                    <span className={styles.catPeajes}>
+                      {modalidad === "horas"
+                        ? `(${horas} hs × ${unit})`
+                        : "(Incluye peajes)"}
+                    </span>
                   </>
                 ) : (
                   <span className={styles.catNoPrice}>Sin tarifa</span>

@@ -139,6 +139,7 @@ export function StepTramos({ t, set, errs }: StepProps) {
                       <Field
                         label="Horas de disposición"
                         hint="Entre 1 y 12 hs"
+                        error={errs[`leg-${i}-hours`]}
                       >
                         <Input
                           type="number"

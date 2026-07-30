@@ -45,7 +45,7 @@ export function TripWizard({
     { id: "viaje", label: "Viaje" },
     { id: "pasajeros", label: "Pasajeros" },
     { id: "tramos", label: "Destinos" },
-    { id: "tarifa", label: "Tarifa" },
+    { id: "tarifa", label: "Cotización" },
     ...(mode === "edit" ? [{ id: "costos" as const, label: "Costos" }] : []),
     { id: "resumen", label: "Resumen" },
     ...(mode === "edit" ? [{ id: "historial" as const, label: "Historial" }] : []),
