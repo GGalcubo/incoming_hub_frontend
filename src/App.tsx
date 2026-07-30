@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { api } from "./api/client";
+import type { RoleEnum } from "./api/backend";
 import { Topbar } from "./components/Topbar";
 import { ExcelUploadModal } from "./components/ExcelUploadModal";
 import { STATUSES, TODAY, TOMORROW } from "./data/seed";
@@ -150,15 +151,32 @@ export function App() {
             </>
           }
         />
-        <Route path="/tarifas/proveedor" element={<TarifasProveedorPage />} />
-        {/* El proveedor no ve el tarifario de clientes: nunca el costo al cliente. */}
+        {/* La agencia no entra a ningún tarifario: no ve ni el costo del proveedor
+            ni el precio al cliente. El proveedor solo ve el suyo. */}
+        <Route
+          path="/tarifas/proveedor"
+          element={
+            <RoleRoute allow={["admin", "provider"]}>
+              <TarifasProveedorPage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="/tarifas/cliente"
           element={
-            isProvider ? <Navigate to="/tarifas/proveedor" replace /> : <TarifasClientePage />
+            <RoleRoute allow={["admin"]} redirect={isProvider ? "/tarifas/proveedor" : "/viajes"}>
+              <TarifasClientePage />
+            </RoleRoute>
           }
         />
-        <Route path="/tarifas" element={<Navigate to="/tarifas/proveedor" replace />} />
+        <Route
+          path="/tarifas"
+          element={
+            <RoleRoute allow={["admin", "provider"]}>
+              <Navigate to="/tarifas/proveedor" replace />
+            </RoleRoute>
+          }
+        />
         <Route path="/login" element={<Navigate to="/viajes" replace />} />
         <Route path="*" element={<Navigate to="/viajes" replace />} />
       </Routes>
@@ -169,6 +187,24 @@ export function App() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return <div className={styles.shell}>{children}</div>;
+}
+
+// Gateo de ruta por rol, con la misma lista blanca declarativa que la nav del
+// Topbar. Mientras el perfil carga no decidimos nada: así el contenido no
+// aparece un instante para quien no debería verlo (ni redirigimos de más).
+function RoleRoute({
+  allow,
+  redirect = "/viajes",
+  children,
+}: {
+  allow: RoleEnum[];
+  redirect?: string;
+  children: React.ReactNode;
+}) {
+  const { role, loading } = useMe();
+  if (loading) return <div className={styles.loading}>Cargando…</div>;
+  if (role == null || !allow.includes(role)) return <Navigate to={redirect} replace />;
+  return <>{children}</>;
 }
 
 function TripsListRoute({

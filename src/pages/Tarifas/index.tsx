@@ -51,14 +51,13 @@ function TarifasLayout({
 }
 
 // Tarifario de PROVEEDOR: lo que cuesta cada traslado según quién lo presta.
+// Solo admin y proveedor: la agencia no llega acá (la ruta la redirige).
 export function TarifasProveedorPage() {
   const me = useMe();
 
   const subtitle = me.isProvider
     ? "Gestioná tus tarifas base y de extras."
-    : me.isAgency
-      ? "Consultá las tarifas vigentes."
-      : "Tarifas base por destino y extras, por proveedor.";
+    : "Tarifas base por destino y extras, por proveedor.";
 
   return (
     <TarifasLayout
@@ -70,19 +69,15 @@ export function TarifasProveedorPage() {
   );
 }
 
-// Tarifario de CLIENTE: lo que se le factura a cada agencia. El proveedor no
-// llega acá (la ruta lo redirige): nunca ve el costo al cliente.
+// Tarifario de CLIENTE: lo que se le factura a cada agencia. Solo admin; ni el
+// proveedor ni la propia agencia llegan acá (la ruta los redirige).
 export function TarifasClientePage() {
   const me = useMe();
-
-  const subtitle = me.isAdmin
-    ? "Tarifas base por destino y extras, por cliente."
-    : "Consultá las tarifas vigentes de tu agencia.";
 
   return (
     <TarifasLayout
       title="Tarifas Cliente"
-      subtitle={subtitle}
+      subtitle="Tarifas base por destino y extras, por cliente."
       base={<TarifasClienteBase me={me} />}
       extras={<TarifasClienteExtras me={me} />}
     />
