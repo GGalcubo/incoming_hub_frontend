@@ -7,6 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import type { UseMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
 import type { TarifaClienteExtras as Extras } from "../../types/tarifas";
+import { AvisoMock } from "./AvisoMock";
 import styles from "./Tarifas.module.css";
 
 // Cada fila del form: una unidad (espera/hora/km) con el valor facturado al
@@ -89,6 +90,11 @@ export function TarifasClienteExtras({ me }: { me: UseMe }) {
 
   return (
     <div className={styles.formCard}>
+      <AvisoMock>
+        Los extras todavía no existen en el backend: lo que cargues acá se guarda solo en este
+        navegador y no lo ve el resto del equipo.
+      </AvisoMock>
+
       {scope === null && (
         <Field label="Cliente" style={{ marginBottom: 14 }}>
           <Select value={target} onChange={(e) => setElegido(e.target.value)}>

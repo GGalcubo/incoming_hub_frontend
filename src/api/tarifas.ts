@@ -1,7 +1,8 @@
-// Capa de API de TARIFAS. Hoy es 100% mock (localStorage): el backend todavía no
-// expone endpoints de tarifas. Está aislada acá para que, cuando el backend los
-// publique, se reemplace el cuerpo de cada función por un `request(...)` (igual
-// que api/viajes.ts) sin tocar las vistas ni el wizard.
+// ⚠️ MOCK (localStorage) del tarifario. Solo se usa cuando NO hay backend
+// configurado (modo demo local): con backend, las pantallas de Tarifas y el
+// wizard van contra el tarifario real (api/tarifasCrud.ts y api/tarifario.ts).
+// La excepción son los EXTRAS, que el backend todavía no modela y siguen
+// saliendo de acá siempre.
 //
 // SCOPING: cada tarifa (base y extras) pertenece a un proveedor. Las funciones
 // de escritura reciben `scope`: el id del proveedor logueado, o `null` cuando es

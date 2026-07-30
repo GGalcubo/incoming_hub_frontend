@@ -9,17 +9,18 @@ import type {
   Proveedor,
   TarifaBase,
   TarifaBaseInput,
-  TarifaCliente,
   TarifaClienteExtras,
-  TarifaClienteInput,
   TarifaExtras,
+  VehicleCategoria,
 } from "../types/tarifas";
+import { VEHICLE_CATEGORIAS } from "../data/tarifasSeed";
 import * as comentarios from "./comentarios";
 import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as proveedores from "./proveedores";
 import * as tarifario from "./tarifario";
 import * as tarifas from "./tarifas";
 import * as tarifasCliente from "./tarifasCliente";
+import * as tarifasCrud from "./tarifasCrud";
 import * as viajes from "./viajes";
 
 export { setOnUnauthorized };
@@ -64,6 +65,9 @@ const USE_AUTH_MOCK = !AUTH_URL;
 // Los viajes (y el guardado de la carga por Excel) usan el backend real si hay
 // base (VITE_API_URL o, por defecto, el de auth); si no, quedan en mock local.
 const USE_VIAJES_MOCK = !VIAJES_BASE;
+// Las pantallas de Tarifas van contra el tarifario real del backend
+// (/tarifarios/tarifas/) cuando hay base configurada; si no, al mock local.
+const USE_TARIFAS_MOCK = !VIAJES_BASE;
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -289,9 +293,13 @@ export const api = {
     return scope ? conProveedor.filter((t) => t.proveedorId === scope) : conProveedor;
   },
 
-  // Catálogo de proveedores (para asignar el viaje y elegir tarifario).
+  // Catálogo de proveedores (para asignar el viaje y elegir tarifario). Con
+  // backend real sale del tarifario y del perfil del usuario (ver
+  // tarifasCrud.listProveedores): el backend no expone /proveedores/.
   async listProveedores(): Promise<Proveedor[]> {
-    return proveedores.listProveedores(await this.getMe().catch(() => null));
+    const me = await this.getMe().catch(() => null);
+    if (USE_TARIFAS_MOCK) return proveedores.listProveedores(me);
+    return tarifasCrud.listProveedores(me);
   },
 
   // Una página del catálogo de pasajeros (búsqueda/filtro/paginación server-side).
@@ -469,30 +477,37 @@ export const api = {
   },
 
   // ── Tarifas ────────────────────────────────────────────────────────────────
-  // El backend aún no expone tarifas: siempre van contra el mock (localStorage).
-  // Cuando publique los endpoints, se cambia el cuerpo de api/tarifas.ts y esto
-  // sigue igual.
+  // Con backend configurado van contra el tarifario REAL (/tarifarios/tarifas/),
+  // donde cada tarifa es (proveedor, origen, destino, categoría) con sus dos
+  // precios y el scoping por proveedor lo hace el servidor. Sin backend caen al
+  // mock de api/tarifas.ts, que replica esas reglas en localStorage.
   //
   // El `scope` (id del proveedor logueado, o null para admin/agencia) NO viene de
   // la vista: se resuelve acá contra /auth/me/ para que ninguna pantalla pueda
-  // pedir el tarifario de otro proveedor cambiando un prop.
+  // pedir el tarifario de otro proveedor cambiando un prop. Solo lo usa el mock.
   async tarifaScope(): Promise<string | null> {
     return proveedores.proveedorIdOf(await this.getMe().catch(() => null));
   },
   async listTarifasBase(): Promise<TarifaBase[]> {
-    return tarifas.listTarifasBase(await this.tarifaScope());
+    if (USE_TARIFAS_MOCK) return tarifas.listTarifasBase(await this.tarifaScope());
+    return tarifasCrud.listTarifasBase();
   },
   async createTarifaBase(input: TarifaBaseInput): Promise<TarifaBase> {
-    return tarifas.createTarifaBase(input, await this.tarifaScope());
+    if (USE_TARIFAS_MOCK) return tarifas.createTarifaBase(input, await this.tarifaScope());
+    return tarifasCrud.createTarifaBase(input);
   },
   async updateTarifaBase(t: TarifaBase): Promise<TarifaBase> {
-    return tarifas.updateTarifaBase(t, await this.tarifaScope());
+    if (USE_TARIFAS_MOCK) return tarifas.updateTarifaBase(t, await this.tarifaScope());
+    return tarifasCrud.updateTarifaBase(t);
   },
   async deleteTarifaBase(id: string): Promise<void> {
-    return tarifas.deleteTarifaBase(id, await this.tarifaScope());
+    if (USE_TARIFAS_MOCK) return tarifas.deleteTarifaBase(id, await this.tarifaScope());
+    return tarifasCrud.deleteTarifaBase(id);
   },
-  // Extras de un proveedor concreto (el del viaje, o el que eligió el admin).
-  // Sin proveedor caen al tarifario general.
+  // ⚠️ MOCK: el backend no modela los extras (espera / hora a disposición / km).
+  // Tiene `valor_espera` y `valor_hora_dispo` colgando del proveedor, sin km ni
+  // columna cliente y sin endpoint para escribirlos. Hasta que los publique, esto
+  // vive en localStorage y las vistas lo avisan en pantalla.
   getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
     return tarifas.getTarifasExtras(proveedorId);
   },
@@ -502,8 +517,15 @@ export const api = {
   ): Promise<TarifaExtras> {
     return tarifas.updateTarifasExtras(patch, proveedorId, await this.tarifaScope());
   },
+  // Lugares (códigos de zona) y categorías de vehículo con los que se arma una
+  // tarifa: catálogos del backend, o los del seed si no hay backend.
   listTarifaLugares(): Promise<string[]> {
-    return tarifas.listLugares();
+    if (USE_TARIFAS_MOCK) return tarifas.listLugares();
+    return tarifasCrud.listLugares();
+  },
+  async listCategoriasTarifa(): Promise<VehicleCategoria[]> {
+    if (USE_TARIFAS_MOCK) return [...VEHICLE_CATEGORIAS];
+    return tarifasCrud.listCategorias();
   },
   getCategoriasTarifadas(
     origen: string,
@@ -600,9 +622,11 @@ export const api = {
   },
 
   // ── Tarifas de cliente ─────────────────────────────────────────────────────
-  // Mismo esquema que las de proveedor, del otro lado del mostrador. El catálogo
-  // de clientes son las agencias que ya expone el backend: las tomamos de
-  // passengersAccess(), que además resuelve la agencia propia del usuario.
+  // El PRECIO al cliente no es un tarifario aparte: es la columna
+  // `precio_cliente` de la misma tarifa (ver listTarifasBase). Lo que sigue acá
+  // es solo el catálogo de clientes y los EXTRAS por cliente, que siguen siendo
+  // mock. El catálogo de clientes son las agencias que ya expone el backend: las
+  // tomamos de passengersAccess(), que además resuelve la agencia propia.
 
   // Catálogo de clientes (agencias) visibles para el usuario logueado.
   async listClientes(): Promise<Cliente[]> {
@@ -623,22 +647,7 @@ export const api = {
     return agencies.find((a) => a.id === ownAgencyId)?.nombre ?? "";
   },
 
-  async listTarifasCliente(): Promise<TarifaCliente[]> {
-    const scope = await this.clienteScope();
-    // El admin ve todos los tarifarios: le pasamos el catálogo para que los
-    // clientes que todavía no tienen tarifas arranquen con las de referencia.
-    const clientes = scope === null ? (await this.listClientes()).map((c) => c.id) : [];
-    return tarifasCliente.listTarifasCliente(scope, clientes);
-  },
-  async createTarifaCliente(input: TarifaClienteInput): Promise<TarifaCliente> {
-    return tarifasCliente.createTarifaCliente(input, await this.clienteScope());
-  },
-  async updateTarifaCliente(t: TarifaCliente): Promise<TarifaCliente> {
-    return tarifasCliente.updateTarifaCliente(t, await this.clienteScope());
-  },
-  async deleteTarifaCliente(id: string): Promise<void> {
-    return tarifasCliente.deleteTarifaCliente(id, await this.clienteScope());
-  },
+  // ⚠️ MOCK: igual que los extras de proveedor, el backend no los modela.
   async getTarifasClienteExtras(clienteId: string): Promise<TarifaClienteExtras> {
     // Un cliente solo puede pedir los suyos; el admin, los de cualquiera.
     const scope = await this.clienteScope();

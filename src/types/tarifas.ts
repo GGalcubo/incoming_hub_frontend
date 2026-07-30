@@ -1,7 +1,7 @@
-// Modelo de dominio de las TARIFAS (frontend). Como el backend todavía no expone
-// endpoints de tarifas, estos tipos son el contrato que el front necesita; la
-// capa de API (api/tarifas.ts) los sirve desde un mock en localStorage y, cuando
-// el backend publique las rutas, se traducirá igual que en api/viajes.ts.
+// Modelo de dominio de las TARIFAS (frontend). Es el contrato que consumen las
+// vistas: api/tarifasCrud.ts lo traduce desde el tarifario real del backend
+// (/tarifarios/tarifas/) y api/tarifas.ts lo sirve desde localStorage cuando no
+// hay backend configurado.
 //
 // IMPORTANTE: todos los montos están en DÓLARES (USD). El deck lo pide explícito
 // ("Los costos son en dólares").
@@ -64,25 +64,12 @@ export interface TarifaExtras {
 }
 
 // ── Tarifario de CLIENTE ─────────────────────────────────────────────────────
-// Espejo del tarifario de proveedor, pero del otro lado del mostrador: lo que se
-// le factura a cada cliente (agencia). Un solo monto por fila, porque el costo
-// del proveedor no pertenece a este tarifario.
-
-export interface TarifaCliente {
-  id: string;
-  // Dueño de la tarifa: cada cliente tiene su propio tarifario.
-  clienteId: string; // Cliente.id (nombre de la agencia)
-  origen: string;
-  destino: string;
-  categoria: string; // VehicleCategoria.codigo
-  tarifa: number; // USD facturados al cliente
-  activo: boolean;
-}
-
-export type TarifaClienteInput = Omit<TarifaCliente, "id">;
-
-// Extras del tarifario de cliente. Igual que con el proveedor, solo puede existir
-// un set por cliente (clave `clienteId`).
+// NO hay una tarifa por cliente: el backend modela una sola tarifa por
+// (proveedor, ruta, categoría) con las dos columnas de precio adentro, así que
+// "lo que se le factura al cliente" es `TarifaBase.tarifaCliente`.
+//
+// Extras del tarifario de cliente. Solo puede existir un set por cliente (clave
+// `clienteId`). Sigue siendo mock: el backend no los modela.
 export interface TarifaClienteExtras {
   clienteId: string;
   espera: number; // USD por minuto

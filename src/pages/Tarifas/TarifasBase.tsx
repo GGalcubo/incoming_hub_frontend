@@ -6,35 +6,44 @@ import { Field, Input, Select } from "../../components/ui/Field";
 import { Icon } from "../../components/ui/Icon";
 import { Modal } from "../../components/ui/Modal";
 import { useToast } from "../../context/ToastContext";
-import { VEHICLE_CATEGORIAS } from "../../data/tarifasSeed";
 import type { UseMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
-import type { Proveedor, TarifaBase, TarifaBaseInput } from "../../types/tarifas";
+import type {
+  Proveedor,
+  TarifaBase,
+  TarifaBaseInput,
+  VehicleCategoria,
+} from "../../types/tarifas";
 import styles from "./Tarifas.module.css";
 
-const CAT_NOMBRE = new Map(VEHICLE_CATEGORIAS.map((c) => [c.codigo, c.nombre]));
+// Qué columna de precio mira la pantalla. Es la MISMA tarifa: el backend guarda
+// una sola por (proveedor, ruta, categoría) con los dos precios adentro, así que
+// "Tarifas Proveedor" muestra el costo y "Tarifas Cliente" el precio de venta.
+export type LadoTarifa = "proveedor" | "cliente";
 
-const emptyDraft = (proveedorId: string): TarifaBaseInput => ({
+const emptyDraft = (proveedorId: string, categoria: string): TarifaBaseInput => ({
   proveedorId,
   origen: "",
   destino: "",
-  categoria: VEHICLE_CATEGORIAS[0]?.codigo ?? "",
+  categoria,
   tarifaProveedor: 0,
   tarifaCliente: 0,
   activo: true,
 });
 
-export function TarifasBase({ me }: { me: UseMe }) {
+export function TarifasBase({ me, lado = "proveedor" }: { me: UseMe; lado?: LadoTarifa }) {
   const { flash } = useToast();
   const qc = useQueryClient();
   const { isAdmin, isProvider, isAgency, proveedorId } = me;
   // Proveedor y admin editan; el cliente (agencia) solo consulta.
   const canEdit = isAdmin || isProvider;
-  // "Los proveedores no deben ver el costo final al cliente".
+  // "Los proveedores no deben ver el costo final al cliente"; la agencia, a la
+  // inversa, nunca ve el costo del proveedor. Sobre eso, cada pantalla recorta a
+  // su columna: la de Cliente no muestra el costo aunque sea el admin.
   const showCliente = !isProvider;
-  const showProveedor = !isAgency;
-  // El proveedor ve solo su tarifario (el filtro lo aplica la API): la columna
-  // "Proveedor" sobra. Para admin/agencia es la que distingue una fila de otra.
+  const showProveedor = !isAgency && lado === "proveedor";
+  // El proveedor ve solo su tarifario (el filtro lo aplica el backend): la
+  // columna "Proveedor" sobra. Para admin/agencia distingue una fila de otra.
   const showDueno = !isProvider;
 
   const [origenFilter, setOrigenFilter] = useState("");
@@ -56,7 +65,15 @@ export function TarifasBase({ me }: { me: UseMe }) {
     queryKey: ["proveedores"],
     queryFn: () => api.listProveedores(),
   });
+  // Categorías de vehículo del catálogo del backend (no una lista fija del front:
+  // el id de la categoría es parte de la tarifa).
+  const { data: categorias = [] } = useQuery({
+    queryKey: ["categoriasTarifa"],
+    queryFn: () => api.listCategoriasTarifa(),
+  });
   const nombreDe = (id: string) => proveedores.find((p) => p.id === id)?.nombre ?? id;
+  const nombreCategoria = (codigo: string) =>
+    categorias.find((c) => c.codigo === codigo)?.nombre ?? codigo;
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["tarifasBase"] });
   // El proveedor logueado no elige dueño: la API fuerza el suyo igual.
@@ -99,7 +116,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
   const openNew = () => {
     setEditing(null);
     // Si el admin está filtrando por un proveedor, la nueva tarifa arranca con ese.
-    setDraft(emptyDraft(draftOwner || duenoFilter));
+    setDraft(emptyDraft(draftOwner || duenoFilter, categorias[0]?.codigo ?? ""));
   };
   const openEdit = (t: TarifaBase) => {
     setEditing(t);
@@ -189,7 +206,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
               {showDueno && <div className={styles.td}>{nombreDe(t.proveedorId)}</div>}
               <div className={styles.td}>{t.origen}</div>
               <div className={styles.td}>{t.destino}</div>
-              <div className={styles.td}>{CAT_NOMBRE.get(t.categoria) ?? t.categoria}</div>
+              <div className={styles.td}>{nombreCategoria(t.categoria)}</div>
               {showProveedor && (
                 <div className={cx(styles.td, styles.num)}>u$s {t.tarifaProveedor}</div>
               )}
@@ -230,9 +247,14 @@ export function TarifasBase({ me }: { me: UseMe }) {
           setDraft={setDraft}
           lugares={lugares}
           proveedores={proveedores}
+          categorias={categorias}
           showDueno={showDueno}
-          showCliente={showCliente}
-          showProveedor={showProveedor}
+          // En el formulario los precios se muestran por ROL, no por pantalla:
+          // la tarifa es una sola y el backend pide el costo del proveedor
+          // siempre, así que el admin carga las dos columnas también desde
+          // "Tarifas Cliente".
+          showCliente={!isProvider}
+          showProveedor={!isAgency}
           saving={saveMut.isPending}
           title={editing ? "Editar tarifa" : "Nueva tarifa"}
           onClose={closeModal}
@@ -262,8 +284,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
         >
           <div className={styles.hint}>
             Se eliminará la tarifa {toDelete.origen} → {toDelete.destino} (
-            {CAT_NOMBRE.get(toDelete.categoria) ?? toDelete.categoria}). Esta acción no se puede
-            deshacer.
+            {nombreCategoria(toDelete.categoria)}). Esta acción no se puede deshacer.
           </div>
         </Modal>
       )}
@@ -276,6 +297,7 @@ function TarifaModal({
   setDraft,
   lugares,
   proveedores,
+  categorias,
   showDueno,
   showCliente,
   showProveedor,
@@ -288,6 +310,7 @@ function TarifaModal({
   setDraft: (d: TarifaBaseInput) => void;
   lugares: string[];
   proveedores: Proveedor[];
+  categorias: VehicleCategoria[];
   showDueno: boolean;
   showCliente: boolean;
   showProveedor: boolean;
@@ -364,9 +387,9 @@ function TarifaModal({
         </Field>
         <Field label="Categoría de vehículo" required span={2}>
           <Select value={draft.categoria} onChange={(e) => set({ categoria: e.target.value })}>
-            {VEHICLE_CATEGORIAS.map((c) => (
+            {categorias.map((c) => (
               <option key={c.codigo} value={c.codigo}>
-                {c.nombre} · {c.vehiculo}
+                {c.vehiculo ? `${c.nombre} · ${c.vehiculo}` : c.nombre}
               </option>
             ))}
           </Select>

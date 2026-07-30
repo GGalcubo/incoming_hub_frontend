@@ -3,7 +3,6 @@ import { Topbar } from "../../components/Topbar";
 import { useMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
 import { TarifasBase } from "./TarifasBase";
-import { TarifasClienteBase } from "./TarifasClienteBase";
 import { TarifasClienteExtras } from "./TarifasClienteExtras";
 import { TarifasExtras } from "./TarifasExtras";
 import styles from "./Tarifas.module.css";
@@ -69,16 +68,19 @@ export function TarifasProveedorPage() {
   );
 }
 
-// Tarifario de CLIENTE: lo que se le factura a cada agencia. Solo admin; ni el
-// proveedor ni la propia agencia llegan acá (la ruta los redirige).
+// Tarifario de CLIENTE: lo que se le factura por cada traslado. Es el MISMO
+// tarifario que el de proveedor mirado del otro lado del mostrador (una tarifa
+// por proveedor/ruta/categoría, con los dos precios adentro): acá se muestra la
+// columna de venta. Solo admin; ni el proveedor ni la agencia llegan (la ruta
+// los redirige).
 export function TarifasClientePage() {
   const me = useMe();
 
   return (
     <TarifasLayout
       title="Tarifas Cliente"
-      subtitle="Tarifas base por destino y extras, por cliente."
-      base={<TarifasClienteBase me={me} />}
+      subtitle="Precio de venta por destino, según el tarifario de cada proveedor."
+      base={<TarifasBase me={me} lado="cliente" />}
       extras={<TarifasClienteExtras me={me} />}
     />
   );

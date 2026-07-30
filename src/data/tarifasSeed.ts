@@ -1,7 +1,6 @@
 import type {
   Proveedor,
   TarifaBase,
-  TarifaCliente,
   TarifaClienteExtras,
   TarifaExtras,
   VehicleCategoria,
@@ -98,22 +97,8 @@ export function seedTarifasBaseFor(proveedorId: string): TarifaBase[] {
 }
 
 // ── Seeds del tarifario de CLIENTE ───────────────────────────────────────────
-// No inventamos precios nuevos: el tarifario de arranque de cada cliente sale de
-// la columna `tarifaCliente` de las tarifas base, así los números que ya muestra
-// la app siguen siendo los mismos. Los ids llevan el cliente como sufijo para no
-// colisionar entre tarifarios.
-export function seedTarifasClienteFor(clienteId: string): TarifaCliente[] {
-  return SEED_TARIFAS_BASE.map((t, i) => ({
-    id: `TC-${String(i + 1).padStart(3, "0")}-${clienteId}`,
-    clienteId,
-    origen: t.origen,
-    destino: t.destino,
-    categoria: t.categoria,
-    tarifa: t.tarifaCliente,
-    activo: true,
-  }));
-}
-
+// Solo quedan los extras: el precio al cliente ya no es un tarifario aparte,
+// sale de `precio_cliente` de la tarifa real (ver api/tarifasCrud.ts).
 export function seedClienteExtrasFor(clienteId: string): TarifaClienteExtras {
   return {
     clienteId,

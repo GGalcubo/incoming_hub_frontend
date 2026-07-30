@@ -103,9 +103,30 @@ categoría de vehículo, con `precio_cliente` y `precio_proveedor`. El `id` de l
 tarifa elegida es lo que se guarda en el tramo. Ver `api/tarifario.ts`.
 
 `/tarifarios/tarifas/` filtra **server-side** por `proveedor`, `id_proveedor`,
-`origen`, `destino`, `categoria_servicio` y `activo`. Es todo lo que necesitan las
-pantallas de Tarifas, que **todavía viven en localStorage** (`api/tarifas.ts`,
-`api/tarifasCliente.ts`): migrarlas a este CRUD sigue pendiente.
+`origen`, `destino`, `categoria_servicio` y `activo`. Es el que usan las pantallas
+de Tarifas (`api/tarifasCrud.ts`); `api/tarifas.ts` quedó como mock para el modo
+sin backend.
+
+### Lo que este CRUD NO modela (y el front sigue resolviendo local)
+- **No hay tarifario por cliente.** Hay UNA tarifa por (proveedor, origen,
+  destino, categoría) con las dos columnas de precio adentro. "Tarifas Cliente"
+  es la misma tabla mostrando `precio_cliente`, no un tarifario aparte.
+- **No hay extras** (espera / hora a disposición / km adicional). El proveedor
+  tiene `valor_espera` y `valor_hora_dispo` (por HORA, y solo llegan de rebote en
+  la cotización, sin endpoint para escribirlos) y no hay km ni columna cliente.
+  Las dos solapas de Extras siguen en localStorage y lo avisan en pantalla.
+- **No hay `/proveedores/`.** Los únicos lugares donde un proveedor viene con
+  NOMBRE son `/auth/me/.proveedor` y la cotización de una ruta. El catálogo del
+  selector se arma con eso (`tarifasCrud.listProveedores`): cotiza rutas del
+  propio tarifario hasta tener nombre para todos; el que no se resuelva queda
+  como `Proveedor #id`.
+
+Los ids de `origen`/`destino` son **zonas** (`/tarifarios/zonas/`) y el de
+`categoria_servicio` sale de `/categorias/`: el front traduce en los dos sentidos
+contra esos catálogos (cacheados por sesión). Al editar se manda **PATCH** (no
+PUT) para no pisar las vigencias, y `precio_cliente` se **omite** si no está
+cargado en vez de mandarse en `null` — el proveedor no lo ve, y mandarlo vacío
+desde su pantalla borraría el precio de venta.
 
 ## Costos del viaje
 | Método | Ruta | Descripción |
