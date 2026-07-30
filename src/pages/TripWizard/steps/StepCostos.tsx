@@ -298,7 +298,7 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
       {canEditAlgo && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
           <Button kind="primary" icon="check" onClick={() => set({ est: "FINALIZADO" })}>
-            Cerrar viaje
+            Finalizar viaje
           </Button>
         </div>
       )}

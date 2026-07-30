@@ -266,14 +266,19 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     const d = leg0Destino ? guessLugar(leg0Destino, lugares) : "";
     if (o !== origen || d !== destino) {
       setRuta({ origen: o, destino: d, modalidad: legModalidad, horas: legHoras });
-      return;
-    }
-    if (legModalidad !== modalidad || legHoras !== horas) {
-      patchTarifa({ modalidad: legModalidad, horas: legHoras });
-      recommit(legModalidad, legHoras);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leg0Origen, leg0Destino, legModalidad, legHoras, lugares, rutaFija, origen, destino]);
+  }, [leg0Origen, leg0Destino, lugares, rutaFija, origen, destino]);
+
+  // La modalidad y las horas salen SIEMPRE del primer destino, también al editar:
+  // son el tipo de servicio del viaje. Cambiarlas recotiza la categoría elegida
+  // (en horas a disposición el precio depende de la cantidad de horas).
+  useEffect(() => {
+    if (legModalidad === modalidad && legHoras === horas) return;
+    patchTarifa({ modalidad: legModalidad, horas: legHoras });
+    recommit(legModalidad, legHoras);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [legModalidad, legHoras, modalidad, horas]);
 
   return (
     <>

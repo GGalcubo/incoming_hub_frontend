@@ -386,23 +386,56 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
 // CostoViaje (dos columnas del backend) → TripCosts (modelo del front). Los
 // totales vienen calculados por el backend; `esperaMin` no se persiste (el
 // backend guarda el monto, no los minutos) y lo deriva la vista de costos.
+//
+// Horas a disposición: el backend guarda la base PLANA (la tarifa del tramo) y
+// las horas aparte, pero la regla de negocio del front es que en esa modalidad la
+// tarifa es el valor de la hora y se cobra horas × tarifa (es lo que cotiza el
+// wizard). Como la base no es escribible desde el front (ver CostoViajePatch), la
+// multiplicación se rehace acá al leer, y con ella los totales: así el viaje
+// guardado muestra lo mismo que la cotización. Si algún día el backend multiplica,
+// hay que sacar esto de una pieza o los montos quedan al cuadrado.
 function costoToTripCosts(costo: CostoViaje | null): TripCosts {
   if (!costo) {
     return { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 };
   }
+  const horas = costo.horas_disponibles > 0 ? costo.horas_disponibles : 1;
+  const viaje = +(num(costo.costo_viaje_cliente) * horas).toFixed(2);
+  const tarifaProveedor = +(num(costo.costo_viaje_proveedor) * horas).toFixed(2);
+  const espera = num(costo.costo_espera_cliente);
+  const peajes = num(costo.costo_peajes_cliente);
+  const estacionamiento = num(costo.costo_estacionamiento_cliente);
+  const otros = num(costo.costo_otros_cliente);
+  const esperaProveedor = num(costo.costo_espera_proveedor);
+  const peajesProveedor = num(costo.costo_peajes_proveedor);
+  const estacionamientoProveedor = num(costo.costo_estacionamiento_proveedor);
+  const otrosProveedor = num(costo.costo_otros_proveedor);
   return {
-    total: num(costo.costo_total_cliente),
-    viaje: num(costo.costo_viaje_cliente),
-    espera: num(costo.costo_espera_cliente),
-    peajes: num(costo.costo_peajes_cliente),
-    estacionamiento: num(costo.costo_estacionamiento_cliente),
-    otros: num(costo.costo_otros_cliente),
-    totalProveedor: num(costo.costo_total_proveedor),
-    tarifaProveedor: num(costo.costo_viaje_proveedor),
-    esperaProveedor: num(costo.costo_espera_proveedor),
-    peajesProveedor: num(costo.costo_peajes_proveedor),
-    estacionamientoProveedor: num(costo.costo_estacionamiento_proveedor),
-    otrosProveedor: num(costo.costo_otros_proveedor),
+    // Con horas a disposición el total del backend quedó armado con la base
+    // plana: se rehace con la base multiplicada.
+    total:
+      horas > 1
+        ? +(viaje + espera + peajes + estacionamiento + otros).toFixed(2)
+        : num(costo.costo_total_cliente),
+    viaje,
+    espera,
+    peajes,
+    estacionamiento,
+    otros,
+    totalProveedor:
+      horas > 1
+        ? +(
+            tarifaProveedor +
+            esperaProveedor +
+            peajesProveedor +
+            estacionamientoProveedor +
+            otrosProveedor
+          ).toFixed(2)
+        : num(costo.costo_total_proveedor),
+    tarifaProveedor,
+    esperaProveedor,
+    peajesProveedor,
+    estacionamientoProveedor,
+    otrosProveedor,
     moneda: costo.moneda_cliente || costo.moneda_proveedor || undefined,
   };
 }
