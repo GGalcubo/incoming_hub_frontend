@@ -181,6 +181,25 @@ describe("StepTarifa — recotización al cambiar la ruta", () => {
     expect(seen.trip.tarifa?.tarifaId).toBe(2);
   });
 
+  it("viaje nuevo: toma la ruta del primer tramo, no del último", async () => {
+    cotizarRuta.mockResolvedValue({
+      proveedores: [{ id: "p1", nombre: "Prov 1" }],
+      opciones: [op({ tarifaId: 1 })],
+      detalle: "",
+    });
+    // Dos tramos: EZE → CABA y CABA → Aeroparque. La tarifa es la del primero.
+    const seen = setup({
+      ...EMPTY_TRIP,
+      legs: [
+        { type: "in", origin: "Aeropuerto de Ezeiza", destination: "Av. Corrientes 1000, CABA", flight: "", obs: "" },
+        { type: "out", origin: "Av. Corrientes 1000, CABA", destination: "Aeroparque Jorge Newbery", flight: "", obs: "" },
+      ],
+    });
+
+    await waitFor(() => expect(seen.trip.tarifa?.origen).toBe("EZE"));
+    expect(seen.trip.tarifa?.destino).toBe("CENTRO");
+  });
+
   it("mantiene el precio anterior mientras la nueva cotización está en vuelo", async () => {
     let resolveSegunda: (() => void) | null = null;
     cotizarRuta.mockImplementation(

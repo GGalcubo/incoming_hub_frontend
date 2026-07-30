@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type TarifaOpcion } from "../../../api/client";
 import { HAS_BACKEND } from "../../../api/http";
 import { Field, Input, Select } from "../../../components/ui/Field";
@@ -57,6 +57,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   const [cotizada, setCotizada] = useState("");
   // Categoría elegida que quedó pendiente de recotizar tras cambiar la ruta.
   const [pendiente, setPendiente] = useState<string | null>(null);
+  // Una vez que el usuario elige origen/destino a mano dejamos de seguir al
+  // primer tramo: manda lo que eligió.
+  const [rutaManual, setRutaManual] = useState(false);
+  // Viaje que ya venía con tarifa (edición): la ruta guardada no se toca.
+  const rutaGuardada = useRef(t.tarifa != null);
 
   const origen = t.tarifa?.origen ?? "";
   const destino = t.tarifa?.destino ?? "";
@@ -71,9 +76,9 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   // va a prestar: no ve el campo. El proveedor lo ve pero no lo cambia.
   const canSetProveedor = !isProvider && !isAgency;
 
-  // Catálogo de lugares tarifados. Al entrar, si no hay ruta elegida, la
-  // reconstruimos: de la tarifa ya guardada en el viaje si la hay, o inferida del
-  // primer y último destino.
+  // Catálogo de lugares tarifados. Al entrar, si el viaje ya tiene tarifa pero no
+  // sabemos de qué ruta es, se la pedimos al backend. La ruta de un viaje nuevo la
+  // arma el efecto de abajo a partir del primer tramo.
   useEffect(() => {
     let active = true;
     api
@@ -86,20 +91,8 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         // pedimos al backend de qué ruta es para poder marcar la selección.
         if (tarifaId != null) {
           const ruta = await api.rutaDeTarifa(tarifaId).catch(() => null);
-          if (active && ruta) {
-            set({ tarifa: { ...t.tarifa, ...ruta, modalidad } });
-            return;
-          }
+          if (active && ruta) set({ tarifa: { ...t.tarifa, ...ruta, modalidad } });
         }
-        if (!active || !t.legs.length) return;
-        set({
-          tarifa: {
-            ...t.tarifa,
-            origen: guessLugar(t.legs[0]?.origin, lg),
-            destino: guessLugar(t.legs[t.legs.length - 1]?.destination, lg),
-            modalidad,
-          },
-        });
       })
       .catch(() => {
         /* sin backend/mocks: se queda vacío */
@@ -259,7 +252,8 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     clearSeleccion({ proveedorId: id || undefined });
   };
 
-  const onRoute = (patch: { origen?: string; destino?: string }) => {
+  const onRoute = (patch: { origen?: string; destino?: string }, manual = true) => {
+    if (manual) setRutaManual(true);
     const ruta = { ...t.tarifa, ...patch };
     // Ruta incompleta (eligió "—"): no hay contra qué recotizar, se limpia.
     if (!ruta.origen || !ruta.destino) {
@@ -274,6 +268,22 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     setPendiente(t.tarifa?.categoria ?? null);
     set({ tarifa: ruta });
   };
+
+  // Viaje nuevo: la ruta tarifada es la del PRIMER tramo, el origen y el destino
+  // que cargó el usuario en la pantalla anterior. Si vuelve atrás y los cambia,
+  // la tarifa los sigue (y se recotiza sola). Deja de seguirlos en cuanto elige
+  // origen/destino a mano, y nunca pisa la ruta de un viaje ya tarifado.
+  const leg0Origen = t.legs[0]?.origin;
+  const leg0Destino = t.legs[0]?.destination;
+  useEffect(() => {
+    if (rutaManual || rutaGuardada.current || !lugares.length) return;
+    if (!leg0Origen || !leg0Destino) return;
+    const o = guessLugar(leg0Origen, lugares);
+    const d = guessLugar(leg0Destino, lugares);
+    if (o === origen && d === destino) return;
+    onRoute({ origen: o, destino: d }, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leg0Origen, leg0Destino, lugares, rutaManual]);
 
   return (
     <>
