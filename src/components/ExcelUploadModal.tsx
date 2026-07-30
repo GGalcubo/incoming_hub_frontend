@@ -3,8 +3,10 @@ import { api } from "../api/client";
 import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { cx } from "../lib/cx";
 import { validateExcelRow } from "../lib/excelValidate";
+import { hasGoogleMapsKey } from "../lib/gmaps";
 import { normalizePhone } from "../lib/phone";
 import { PlaceCombo } from "../pages/TripWizard/PlaceCombo";
+import { AvisoMock } from "./ui/AvisoMock";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { Input, Select } from "./ui/Field";
@@ -277,6 +279,14 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
           <div className={styles.intro}>
             Subí un archivo .xlsx. Vas a poder revisar y editar cada fila antes de cargar los viajes.
           </div>
+          {/* El parseo y la validación corren en el navegador (SheetJS); lo que
+              necesita a Google es la geocodificación de origen/destino. */}
+          {!hasGoogleMapsKey() && (
+            <AvisoMock>
+              No hay API key de Google Maps configurada: las direcciones del Excel se cargan como
+              texto, sin geolocalizar.
+            </AvisoMock>
+          )}
           {parsing ? (
             <div className={styles.parsing}>
               <span className={styles.spinner} />

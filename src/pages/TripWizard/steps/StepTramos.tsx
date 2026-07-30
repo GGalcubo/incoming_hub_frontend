@@ -1,3 +1,4 @@
+import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Button } from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/Field";
 import { Icon } from "../../../components/ui/Icon";
@@ -92,6 +93,15 @@ export function StepTramos({ t, set, errs }: StepProps) {
         Agregá uno o más destinos. Para llegadas/salidas se pide número de
         vuelo.
       </p>
+
+      {/* Sin API key de Google, el autocomplete cae al listado de lugares del
+          seed (data/seed PLACES) y los tramos se guardan sin coordenadas. */}
+      {!showMap && (
+        <AvisoMock>
+          No hay API key de Google Maps configurada: el buscador de lugares usa una lista fija de
+          ejemplo y los destinos se guardan sin coordenadas ni mapa.
+        </AvisoMock>
+      )}
 
       <div
         className={cx(

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
+import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Button } from "../../../components/ui/Button";
 import { Textarea } from "../../../components/ui/Field";
 import type { TripComentario } from "../../../types/domain";
@@ -71,6 +72,14 @@ export function TripComentarios({ tripId }: { tripId: string }) {
         <span>Comentarios</span>
         <span className={styles.commentsCount}>{list?.length ?? 0}</span>
       </div>
+
+      {/* El backend todavía no modela los comentarios (ver api/comentarios.ts):
+          viven en el localStorage de este navegador, así que el otro lado del
+          mostrador NO los ve. Hay que avisarlo o se usan creyendo que llegan. */}
+      <AvisoMock>
+        Los comentarios se guardan solo en este navegador: el resto del equipo todavía no los ve
+        y se pierden al cambiar de equipo o borrar los datos del sitio.
+      </AvisoMock>
 
       {list === null ? (
         <div className={styles.commentsEmpty}>Cargando comentarios…</div>

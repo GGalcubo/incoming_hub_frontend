@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { HAS_BACKEND } from "../../../api/http";
+import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Field";
 import { useMe } from "../../../hooks/useMe";
@@ -185,6 +186,17 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
               : "Cargá los minutos de espera y tus extras del viaje. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
             : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
+
+      {/* Los montos de la espera NO son un dato del servidor: salen de
+          multiplicar los minutos por el valor/minuto del tarifario de extras,
+          que todavía vive en localStorage (ver api/tarifas.ts). El resto de la
+          grilla sí se guarda. */}
+      <AvisoMock>
+        El valor por minuto con el que se calcula la espera sale del tarifario de extras, que
+        todavía no existe en el backend: está cargado solo en este navegador, así que el monto
+        puede no coincidir con el que ve el resto del equipo.
+        {HAS_BACKEND ? " Los demás rubros sí se guardan en el servidor." : ""}
+      </AvisoMock>
 
       <div className={styles.costGrid} style={gridStyle}>
         <span className={styles.costHeadCell} />

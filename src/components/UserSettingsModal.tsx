@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { MeProfile, RoleEnum } from "../api/backend";
+import { HAS_AUTH } from "../api/http";
 import type { User } from "../types/domain";
+import { AvisoMock } from "./ui/AvisoMock";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Field";
 import { Modal } from "./ui/Modal";
@@ -111,6 +113,15 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
       <div className={styles.grid}>
         {error && <div className={styles.error}>{error}</div>}
 
+        {/* Sin backend de auth el perfil no sale de /auth/me/: se arma con el
+            username y lo editado se guarda en localStorage. */}
+        {!HAS_AUTH && (
+          <AvisoMock>
+            No hay backend de usuarios: el perfil es de prueba y los cambios quedan guardados
+            solo en este navegador.
+          </AvisoMock>
+        )}
+
         <div className={`${styles.section} ${styles.sectionFirst}`}>Datos de sistema</div>
         <div className={styles.row}>
           <Field label="Usuario" hint="No editable.">
@@ -151,6 +162,10 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
         </Field>
 
         <div className={styles.section}>Cambiar contraseña</div>
+        <AvisoMock tono="pendiente">
+          El backend todavía no expone un endpoint para cambiar la contraseña: los campos están
+          deshabilitados. Pedísela a un administrador.
+        </AvisoMock>
         <Field label="Nueva contraseña" hint="Próximamente — aún no disponible.">
           <Input
             type="password"

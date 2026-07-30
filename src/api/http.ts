@@ -12,6 +12,11 @@ export const VIAJES_BASE = API_URL || AUTH_URL;
 // del tarifario y no se edita a mano) y qué sigue viniendo del mock local.
 export const HAS_BACKEND = !!VIAJES_BASE;
 
+// true cuando hay backend de autenticación. Sin él, el login es mock: entra
+// cualquier usuario/contraseña y el rol se deriva del username (ver
+// api/client.ts). El login lo avisa en pantalla.
+export const HAS_AUTH = !!AUTH_URL;
+
 const USER_STORAGE_KEY = "proxy:user";
 
 let onUnauthorized: () => void = () => {};

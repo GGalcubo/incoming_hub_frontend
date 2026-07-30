@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import { HAS_AUTH } from "../api/http";
+import { AvisoMock } from "../components/ui/AvisoMock";
 import { Button } from "../components/ui/Button";
 import { Field, Input } from "../components/ui/Field";
 import { useUser } from "../context/UserContext";
@@ -44,6 +46,16 @@ export function Login() {
 
         <div className={styles.title}>Ingresá a tu cuenta</div>
         <div className={styles.subtitle}>Plataforma interna para operadores de agencia.</div>
+
+        {/* Sin backend de autenticación el login no valida nada: entra cualquier
+            usuario y el rol sale del nombre que se escriba. */}
+        {!HAS_AUTH && (
+          <AvisoMock>
+            No hay backend configurado: entra cualquier usuario y contraseña, y el rol se deriva
+            del nombre (prov… = proveedor, agen…/cliente…/oper… = agencia, el resto = admin).
+            Todo lo que cargues queda solo en este navegador.
+          </AvisoMock>
+        )}
 
         <div className={styles.fields}>
           <Field label="Usuario" required error={err.user}>

@@ -1,0 +1,31 @@
+/* Cartel de "esto no es real". Tiene que cantar a la vista para que nadie
+   confunda un dato mock (o una función que todavía no existe) con información
+   que el backend guardó de verdad. */
+.aviso {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-solid);
+  border-radius: 10px;
+  background: var(--warning-bg);
+  color: var(--warning-fg);
+  font: 400 12px/17px Heming;
+}
+
+/* Variante para lo que no se guarda en ningún lado pero tampoco engaña con un
+   dato inventado (una función que todavía no existe): mismo formato, tono
+   neutro. */
+.avisoPendiente {
+  border-color: var(--border-strong);
+  background: var(--info-bg);
+  color: var(--info-fg);
+}
+
+.titulo {
+  flex: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

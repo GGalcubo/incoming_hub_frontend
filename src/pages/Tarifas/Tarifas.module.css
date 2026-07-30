@@ -60,27 +60,7 @@
   color: var(--fg-muted);
 }
 
-/* Aviso de datos de demo: lo que todavía no persiste en el backend y vive solo
-   en este navegador. Tiene que cantar a la vista para que nadie lo confunda con
-   información real. */
-.mockNotice {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  margin-bottom: 16px;
-  padding: 10px 12px;
-  border: 1px solid var(--warning-solid);
-  border-radius: 10px;
-  background: var(--warning-bg);
-  color: var(--warning-fg);
-  font: 400 12px/17px Heming;
-}
-
-.mockNoticeTitle {
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
+/* El aviso de datos de demo es compartido: components/ui/AvisoMock. */
 
 /* ---- tabla ---- */
 .tableWrap {

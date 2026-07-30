@@ -15,7 +15,7 @@ import type {
 } from "../types/tarifas";
 import { VEHICLE_CATEGORIAS } from "../data/tarifasSeed";
 import * as comentarios from "./comentarios";
-import { drfErrorMessage, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
+import { drfErrorMessage, HAS_AUTH, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as proveedores from "./proveedores";
 import * as tarifario from "./tarifario";
 import * as tarifas from "./tarifas";
@@ -61,7 +61,7 @@ export interface WizardIdentity {
 }
 
 const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
-const USE_AUTH_MOCK = !AUTH_URL;
+const USE_AUTH_MOCK = !HAS_AUTH;
 // Los viajes (y el guardado de la carga por Excel) usan el backend real si hay
 // base (VITE_API_URL o, por defecto, el de auth); si no, quedan en mock local.
 const USE_VIAJES_MOCK = !VIAJES_BASE;

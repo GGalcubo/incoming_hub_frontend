@@ -5,6 +5,7 @@ import { useModals } from "../context/ModalsContext";
 import { useUser } from "../context/UserContext";
 import { useMe } from "../hooks/useMe";
 import { cx } from "../lib/cx";
+import { HAS_BACKEND } from "../api/http";
 import type { RoleEnum } from "../api/backend";
 import type { User } from "../types/domain";
 import { Icon } from "./ui/Icon";
@@ -91,6 +92,17 @@ export function Topbar({ title, subtitle, actions }: TopbarProps) {
               className={styles.logoImg}
             />
           </button>
+
+          {/* Sin backend configurado no hay NADA real: viajes, pasajeros y
+              tarifas salen del seed y del localStorage de este navegador. */}
+          {!HAS_BACKEND && (
+            <span
+              className={styles.demoChip}
+              title="No hay backend configurado (VITE_API_URL vacío): los viajes, pasajeros y tarifas son datos de prueba guardados en este navegador."
+            >
+              Modo demo
+            </span>
+          )}
 
           <nav className={styles.nav}>
             {navItems.map((item) => (

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { AvisoMock } from "../../components/ui/AvisoMock";
 import { Button } from "../../components/ui/Button";
 import { Field, Input, Select } from "../../components/ui/Field";
 import { useToast } from "../../context/ToastContext";
 import type { UseMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
 import type { TarifaClienteExtras as Extras } from "../../types/tarifas";
-import { AvisoMock } from "./AvisoMock";
 import styles from "./Tarifas.module.css";
 
 // Cada fila del form: una unidad (espera/hora/km) con el valor facturado al
