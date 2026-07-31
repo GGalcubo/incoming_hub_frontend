@@ -22,7 +22,7 @@ function costo(patch: Partial<CostoViaje> = {}): CostoViaje {
     costo_otros_cliente: "0",
     costo_total_cliente: "110",
     moneda_cliente: "USD",
-    comentario: "",
+    comentarios: [],
     horas_disponibles: 0,
     updated_at: "",
     ...patch,

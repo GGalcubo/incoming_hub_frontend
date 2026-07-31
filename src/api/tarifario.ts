@@ -16,6 +16,7 @@
 // que sigue sirviendo el tarifario local mientras esas vistas no se migren.
 
 import type {
+  ComentarioCosto,
   CostoViaje,
   CostoViajePatch,
   CotizarOutput,
@@ -23,6 +24,7 @@ import type {
   Tramo,
   Zona,
 } from "./backend";
+import type { TripComentario } from "../types/domain";
 import { fetchAll, request } from "./http";
 
 // ── Catálogo de zonas ────────────────────────────────────────────────────────
@@ -84,4 +86,38 @@ export function patchCostos(
     method: "PATCH",
     body: JSON.stringify(patch),
   });
+}
+
+// ── Comentarios del costo ────────────────────────────────────────────────────
+// Cuelgan del costo del viaje, no del viaje: se leen embebidos en el GET de
+// costos y se escriben por su propio sub-recurso. El autor lo fija el backend
+// con el usuario logueado, así que la vista no lo manda.
+//
+// El backend NO devuelve el rol del autor (solo id y nombre), así que la chapita
+// de "de qué lado del mostrador vino" queda sin poner: preferimos no mostrarla
+// antes que adivinarla con el rol del que está leyendo.
+function toTripComentario(c: ComentarioCosto): TripComentario {
+  return {
+    id: String(c.id),
+    autor: c.autor_nombre || `Usuario #${c.autor}`,
+    rol: null,
+    texto: c.texto,
+    fecha: c.created_at,
+  };
+}
+
+export async function listComentariosCosto(viajeId: string | number): Promise<TripComentario[]> {
+  const costos = await getCostos(viajeId);
+  return (costos.comentarios ?? []).map(toTripComentario);
+}
+
+export async function addComentarioCosto(
+  viajeId: string | number,
+  texto: string,
+): Promise<TripComentario> {
+  const creado = await request<ComentarioCosto>(`/viajes/${viajeId}/costos/comentarios/`, {
+    method: "POST",
+    body: JSON.stringify({ texto }),
+  });
+  return toTripComentario(creado);
 }

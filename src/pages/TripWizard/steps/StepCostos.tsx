@@ -103,12 +103,12 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
 
   // Tarifa de extras del proveedor del viaje (valor por minuto de espera); si
   // todavía no tiene proveedor, las del tarifario general. Sin ella no se puede
-  // calcular la espera. El backend todavía no expone estos valores por proveedor:
-  // con backend real se usa el set general del mock.
+  // calcular la espera. El valor del proveedor sale del backend; el del cliente
+  // sigue siendo local (ver api/client.ts, getTarifasExtras).
   useEffect(() => {
     let active = true;
     api
-      .getTarifasExtras(HAS_BACKEND ? undefined : t.proveedorId)
+      .getTarifasExtras(t.proveedorId)
       .then((e) => {
         if (active) setExtras(e);
       })
@@ -187,16 +187,23 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
             : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
 
-      {/* Los montos de la espera NO son un dato del servidor: salen de
-          multiplicar los minutos por el valor/minuto del tarifario de extras,
-          que todavía vive en localStorage (ver api/tarifas.ts). El resto de la
-          grilla sí se guarda. */}
-      <AvisoMock>
-        El valor por minuto con el que se calcula la espera sale del tarifario de extras, que
-        todavía no existe en el backend: está cargado solo en este navegador, así que el monto
-        puede no coincidir con el que ve el resto del equipo.
-        {HAS_BACKEND ? " Los demás rubros sí se guardan en el servidor." : ""}
-      </AvisoMock>
+      {/* El valor/minuto de espera del PROVEEDOR ya es real; el del CLIENTE
+          sigue saliendo del set local, así que ese monto puede no coincidir con
+          el que ve el resto del equipo. Solo se avisa a quien ve esa columna. */}
+      {HAS_BACKEND ? (
+        cols.includes("cliente") && (
+          <AvisoMock>
+            El valor por minuto con el que se calcula la espera <b>del cliente</b> todavía no
+            existe en el backend: está cargado solo en este navegador. El del proveedor y el
+            resto de los rubros sí se guardan en el servidor.
+          </AvisoMock>
+        )
+      ) : (
+        <AvisoMock>
+          Sin backend configurado, los valores con los que se calcula la espera están cargados
+          solo en este navegador.
+        </AvisoMock>
+      )}
 
       <div className={styles.costGrid} style={gridStyle}>
         <span className={styles.costHeadCell} />

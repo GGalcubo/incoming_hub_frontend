@@ -12,13 +12,20 @@
 // (el backend le fuerza el `proveedor`); el admin ve todas. Acá no repetimos ese
 // chequeo: el mock lo hacía porque no había nadie más que lo hiciera.
 
-import type { CategoriaServicio, MeProfile, TarifaCRUD, Zona } from "./backend";
+import type {
+  CategoriaServicio,
+  ProveedorApi,
+  ProveedorValoresPatch,
+  TarifaCRUD,
+  Zona,
+} from "./backend";
 import { fetchAll, request } from "./http";
-import { cotizar, listZonas, zonaKey } from "./tarifario";
+import { listZonas, zonaKey } from "./tarifario";
 import type {
   Proveedor,
   TarifaBase,
   TarifaBaseInput,
+  TarifaExtras,
   VehicleCategoria,
 } from "../types/tarifas";
 
@@ -26,6 +33,7 @@ import type {
 const MONEDA = "USD";
 
 const TARIFAS_PATH = "/tarifarios/tarifas/";
+const PROVEEDORES_PATH = "/tarifarios/proveedores/";
 
 // ── Catálogos ────────────────────────────────────────────────────────────────
 // Origen/destino son ids de ZONA y la categoría de vehículo es un id de
@@ -178,52 +186,61 @@ export async function deleteTarifaBase(id: string): Promise<void> {
 }
 
 // ── Catálogo de proveedores ──────────────────────────────────────────────────
-// El backend NO expone /proveedores/. Los únicos dos lugares donde un proveedor
-// viene con NOMBRE (y no solo con id) son el perfil del usuario logueado y la
-// cotización de una ruta, así que el catálogo se arma con eso: cotizamos rutas
-// del propio tarifario y cortamos apenas tenemos nombre para todos los que
-// aparecen en las tarifas (en la práctica alcanza con una o dos llamadas).
-// El que no se resuelva —p. ej. si solo tiene tarifas sin vigencia— queda con su
-// id a la vista en vez de desaparecer del selector.
-const MAX_COTIZACIONES = 4;
-
-export async function listProveedores(me: MeProfile | null): Promise<Proveedor[]> {
-  const [c, rows] = await Promise.all([catalogo(), fetchAll<TarifaCRUD>(TARIFAS_PATH)]);
-
-  const nombres = new Map<string, string>();
-  if (me?.proveedor) nombres.set(String(me.proveedor.id), me.proveedor.nombre);
-
-  const ids = new Set(rows.map((t) => String(t.proveedor)));
-  const faltan = new Set([...ids].filter((id) => !nombres.has(id)));
-
-  // Rutas distintas del tarifario, en el formato con el que se cotiza (código de
-  // zona). Las que apuntan a una zona fuera del catálogo no se pueden cotizar.
-  const rutas: [string, string][] = [];
-  const vistas = new Set<string>();
-  for (const t of rows) {
-    const key = `${t.origen}→${t.destino}`;
-    if (vistas.has(key)) continue;
-    vistas.add(key);
-    const o = zonaDeId(t.origen, c);
-    const d = zonaDeId(t.destino, c);
-    if (o && d) rutas.push([zonaKey(o), zonaKey(d)]);
-  }
-
-  for (const [origen, destino] of rutas.slice(0, MAX_COTIZACIONES)) {
-    if (!faltan.size) break;
-    try {
-      const out = await cotizar(origen, destino);
-      for (const p of out.proveedores) {
-        nombres.set(String(p.proveedor.id), p.proveedor.nombre);
-        faltan.delete(String(p.proveedor.id));
-      }
-    } catch {
-      /* una ruta sin cotización vigente no puede romper el catálogo */
-    }
-  }
-
-  for (const id of nombres.keys()) ids.add(id);
-  return Array.from(ids)
-    .map((id) => ({ id, nombre: nombres.get(id) ?? `Proveedor #${id}` }))
+// El backend ya expone /tarifarios/proveedores/ (antes no, y el catálogo había
+// que reconstruirlo cotizando rutas del tarifario solo para descubrir nombres).
+export async function listProveedores(): Promise<Proveedor[]> {
+  const rows = await fetchAll<ProveedorApi>(PROVEEDORES_PATH);
+  return rows
+    .map((p) => ({ id: String(p.id), nombre: p.nombre }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+// ── Extras del proveedor ─────────────────────────────────────────────────────
+// El backend los guarda en el propio proveedor: `valor_espera` y
+// `valor_hora_dispo` son POR HORA y `valor_km_adicional` por km.
+//
+// ⚠️ El front modela la espera POR MINUTO (es como se carga en el viaje: minutos
+// de espera × valor). La conversión es esta constante y nada más: si se confirma
+// que el backend la guarda por minuto, se pone en 1 y listo.
+const MINUTOS_POR_HORA = 60;
+
+// La columna CLIENTE de los extras no existe en el backend (solo tiene los
+// valores del proveedor): esa mitad sigue en localStorage, ver api/tarifas.ts.
+export type ExtrasProveedor = Pick<
+  TarifaExtras,
+  "proveedorId" | "esperaProveedor" | "horaDispoProveedor" | "kmProveedor"
+>;
+
+export async function getExtrasProveedor(proveedorId: string): Promise<ExtrasProveedor> {
+  const p = await request<ProveedorApi>(`${PROVEEDORES_PATH}${proveedorId}/`);
+  return {
+    proveedorId: String(p.id),
+    esperaProveedor: num(p.valor_espera) / MINUTOS_POR_HORA,
+    horaDispoProveedor: num(p.valor_hora_dispo),
+    kmProveedor: num(p.valor_km_adicional),
+  };
+}
+
+export async function updateExtrasProveedor(
+  proveedorId: string,
+  patch: Partial<TarifaExtras>,
+): Promise<ExtrasProveedor> {
+  // Solo viajan los tres valores que el backend modela; la columna cliente se
+  // ignora acá (la guarda el mock local).
+  const body: ProveedorValoresPatch = {};
+  if (patch.esperaProveedor != null) {
+    body.valor_espera = monto(patch.esperaProveedor * MINUTOS_POR_HORA);
+  }
+  if (patch.horaDispoProveedor != null) body.valor_hora_dispo = monto(patch.horaDispoProveedor);
+  if (patch.kmProveedor != null) body.valor_km_adicional = monto(patch.kmProveedor);
+  const p = await request<ProveedorApi>(`${PROVEEDORES_PATH}${proveedorId}/`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+  return {
+    proveedorId: String(p.id),
+    esperaProveedor: num(p.valor_espera) / MINUTOS_POR_HORA,
+    horaDispoProveedor: num(p.valor_hora_dispo),
+    kmProveedor: num(p.valor_km_adicional),
+  };
 }

@@ -90,9 +90,11 @@ export function TarifasClienteExtras({ me }: { me: UseMe }) {
 
   return (
     <div className={styles.formCard}>
+      {/* Estos siguen siendo 100% mock: el backend modela los extras del
+          PROVEEDOR, pero no tiene nada equivalente del lado del cliente. */}
       <AvisoMock>
-        Los extras todavía no existen en el backend: lo que cargues acá se guarda solo en este
-        navegador y no lo ve el resto del equipo.
+        Los extras por cliente todavía no existen en el backend: lo que cargues acá se guarda
+        solo en este navegador y no lo ve el resto del equipo.
       </AvisoMock>
 
       {scope === null && (

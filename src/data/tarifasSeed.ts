@@ -6,7 +6,8 @@ import type {
   VehicleCategoria,
 } from "../types/tarifas";
 
-// Catálogo de proveedores (mock: el backend todavía no expone /proveedores/).
+// ⚠️ Catálogo de proveedores del MODO DEMO. Con backend el catálogo sale de
+// /tarifarios/proveedores/ (ver api/tarifasCrud.ts) y esto no se usa.
 // El `id` es también el USERNAME con el que ese proveedor inicia sesión: el mock
 // de auth deriva el rol del username y todo el scoping usa ese mismo id.
 export const PROVEEDORES: Proveedor[] = [

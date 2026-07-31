@@ -24,23 +24,33 @@ llegan al servidor**. Cada una está avisada en pantalla con el componente
 
 | Qué | Dónde vive | Vista que lo avisa |
 | --- | --- | --- |
-| Comentarios del viaje | `localStorage` (`proxy:tripComentarios`), ver [`api/comentarios.ts`](../src/api/comentarios.ts) | Costos del viaje → bloque *Comentarios* |
-| Extras de proveedor (espera / hora a disposición / km) | `localStorage`, ver [`api/tarifas.ts`](../src/api/tarifas.ts) | Tarifas Proveedor → solapa *Extras* |
-| Extras por cliente | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras* |
-| Monto de la espera en el viaje | se calcula con el valor/minuto de los extras de arriba | Costos del viaje |
-| Historial de modificaciones | no existe: el backend devuelve el viaje sin historial (`history: []` en `viajeToTrip`) | Viaje → paso *Historial* |
+| Extras **del cliente** (espera / hora a disposición / km) | `localStorage`, ver [`api/tarifas.ts`](../src/api/tarifas.ts) | Tarifas Proveedor → solapa *Extras*, columna Cliente |
+| Extras **por cliente** (set completo) | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras* |
+| Valor/minuto de espera **del cliente** en el viaje | sale del set local de arriba | Costos del viaje |
+| Historial de modificaciones | el backend lo guarda y lo expone en `GET /viajes/{id}/historial/`, pero el front nunca lo pide: `viajeToTrip` arma el viaje con `history: []` | Viaje → paso *Historial* |
 | Cambio de contraseña | no hay endpoint; los campos están deshabilitados | Settings de usuario |
 
-El backend tiene `valor_espera` y `valor_hora_dispo` colgando del proveedor, pero
-sin km, sin columna cliente y sin endpoint de escritura: por eso los extras siguen
-siendo locales.
+El backend modela los extras **del proveedor** (`valor_espera`,
+`valor_hora_dispo`, `valor_km_adicional`), pero no tiene equivalente de lo que se
+le factura al cliente: por eso los extras quedaron partidos al medio.
+
+⚠️ **Sin confirmar:** el front asume que `valor_espera` viene **por hora** y lo
+pasa a minutos con `MINUTOS_POR_HORA` en `api/tarifasCrud.ts`. Si el backend la
+guarda por minuto, hay que poner esa constante en 1 — mientras tanto, la espera
+del proveedor se cobra 60 veces más barato de lo que corresponde.
 
 ## 2. Real cuando hay backend
 
 - Login y sesión (JWT, refresh, `/auth/me/`), y edición del perfil (nombre,
   apellido, email).
 - Viajes: alta, edición por pestaña, cambio de estado, cancelación y baja, con
-  sus tramos y pasajeros anidados.
+  sus tramos y pasajeros anidados. La lista viene **recortada por rol** desde el
+  servidor (el front ya no filtra).
+- Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`).
+  Lo único que se pierde contra el backend es la chapita de rol del autor, que
+  el servidor no expone.
+- Extras del proveedor (espera, hora a disposición y km) y el catálogo de
+  proveedores (`/tarifarios/proveedores/`).
 - Costos del viaje: la base sale del tarifario del tramo (la calcula el servidor
   y es de solo lectura) y los rubros manuales se persisten por columna.
 - Pasajeros (`/personas/`): paginación, búsqueda y filtro por agencia, todo
@@ -81,8 +91,9 @@ backend ya publica:
   el catálogo de solicitantes (`loadWizardIdentity`, `loadPassengersAccess`),
   cuando `/auth/me/` ya devuelve `agencia` resuelta. El cruce por email solo hace
   falta para el nombre del solicitante.
-- **Scoping por proveedor de la lista de viajes.** Hoy es un filtro de front
-  (`api.listTrips`): el recorte definitivo lo tiene que hacer el servidor.
+- **El precio al cliente viaja igual al navegador del proveedor.** El recorte por
+  rol es por viaje, no por campo: el costo trae las dos columnas y la UI solo
+  esconde una. Si la regla es dura, el recorte va del lado del servidor.
 - **Unidad asignada.** La columna se muestra en la lista pero no se edita en
   ninguna pantalla; el campo (`unidad_asignada`) existe en el backend.
 - **Paginador de la lista de viajes.** Está fijo en “1 / 1”: la lista se trae

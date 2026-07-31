@@ -122,8 +122,26 @@ export interface CostoViaje {
   costo_otros_cliente: string;
   costo_total_cliente: string;
   moneda_cliente: string;
-  comentario: string;
+  // Los comentarios del costo son VARIOS y vienen embebidos acá (antes era un
+  // único campo `comentario` de texto, que el backend eliminó). Se agregan,
+  // editan y borran por /viajes/{id}/costos/comentarios/.
+  comentarios: ComentarioCosto[];
   horas_disponibles: number;
+  updated_at: string;
+}
+
+// Un comentario del costo de un viaje. El `autor` lo fija el backend con el
+// usuario logueado; solo `texto` es escribible.
+//
+// OJO: no trae el ROL del autor, solo su id y su nombre. La vista muestra una
+// chapita con el lado del mostrador (Administración / Proveedor / Agencia) y
+// contra el backend queda sin poner, porque no hay de dónde sacarla.
+export interface ComentarioCosto {
+  id: number;
+  texto: string;
+  autor: number;
+  autor_nombre: string;
+  created_at: string;
   updated_at: string;
 }
 
@@ -141,7 +159,6 @@ export interface CostoViajePatch {
   costo_estacionamiento_cliente?: string;
   costo_otros_cliente?: string;
   moneda_cliente?: string;
-  comentario?: string;
   horas_disponibles?: number;
 }
 
@@ -169,9 +186,21 @@ export interface ProveedorApi {
   id: number;
   nombre: string;
   id_proveedor_central: number | null;
-  // Valor por HORA (no por minuto) de espera y de hora a disposición.
+  // Valor por HORA (no por minuto) de espera y de hora a disposición, y valor
+  // por km adicional. Son los "extras" del proveedor: se leen acá (también
+  // vienen anidados en el viaje) y se escriben por
+  // PATCH /tarifarios/proveedores/{id}/.
   valor_espera: string | null;
   valor_hora_dispo: string | null;
+  valor_km_adicional: string | null;
+}
+
+// Cuerpo escribible de los extras del proveedor. `nombre` e `id` son read-only:
+// el admin edita cualquiera, un usuario proveedor solo el suyo.
+export interface ProveedorValoresPatch {
+  valor_espera?: string;
+  valor_hora_dispo?: string;
+  valor_km_adicional?: string;
 }
 
 // Tarifa con su categoría de servicio (tipo de vehículo) anidada, tal como sale

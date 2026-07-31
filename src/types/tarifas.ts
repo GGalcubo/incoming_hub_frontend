@@ -16,8 +16,9 @@ export interface VehicleCategoria {
 }
 
 // Un proveedor de traslados. Cada uno tiene SU tarifario (tarifas base + extras)
-// y solo puede tocar el propio. El `id` es la clave de scoping en toda la app y
-// coincide con el username del usuario proveedor (ver api/proveedores.ts).
+// y solo puede tocar el propio. El `id` es la clave de scoping en toda la app:
+// con backend es el id del proveedor; en modo mock, el username del usuario
+// proveedor (ver api/proveedores.ts).
 export interface Proveedor {
   id: string;
   nombre: string;
@@ -53,14 +54,21 @@ export type TarifaBaseInput = Omit<TarifaBase, "id">;
 
 // Set de tarifas de EXTRAS. El deck aclara "solo puede existir un set por
 // proveedor": es un único registro POR PROVEEDOR (clave `proveedorId`).
+//
+// ⚠️ MITAD Y MITAD contra el backend: los `*Proveedor` son reales (salen del
+// propio proveedor, /tarifarios/proveedores/{id}/) y los `*Cliente` NO existen
+// allá — se guardan en localStorage. api/client.ts (getTarifasExtras) devuelve
+// el set combinado.
 export interface TarifaExtras {
   proveedorId: string;
+  // OJO: por MINUTO acá; el backend lo guarda por HORA (`valor_espera`). La
+  // conversión está en MINUTOS_POR_HORA, en api/tarifasCrud.ts.
   esperaProveedor: number; // USD por minuto
-  esperaCliente: number;
+  esperaCliente: number; // ⚠️ mock
   horaDispoProveedor: number; // USD por hora de disponibilidad
-  horaDispoCliente: number;
+  horaDispoCliente: number; // ⚠️ mock
   kmProveedor: number; // USD por km adicional
-  kmCliente: number;
+  kmCliente: number; // ⚠️ mock
 }
 
 // ── Tarifario de CLIENTE ─────────────────────────────────────────────────────
@@ -69,7 +77,10 @@ export interface TarifaExtras {
 // "lo que se le factura al cliente" es `TarifaBase.tarifaCliente`.
 //
 // Extras del tarifario de cliente. Solo puede existir un set por cliente (clave
-// `clienteId`). Sigue siendo mock: el backend no los modela.
+// `clienteId`).
+//
+// ⚠️ MOCK COMPLETO, en cualquier modo: el backend modela los extras del
+// proveedor pero no tiene nada equivalente por cliente. Ver api/tarifasCliente.ts.
 export interface TarifaClienteExtras {
   clienteId: string;
   espera: number; // USD por minuto

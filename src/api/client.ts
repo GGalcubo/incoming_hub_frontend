@@ -276,30 +276,26 @@ export const api = {
     };
   },
 
-  // Lista de viajes ya con su proveedor. El proveedor logueado ve SOLO los que
-  // tiene asignados: es el mismo recorte que después habilita la edición de
-  // costos. (Con backend real esto sigue siendo un filtro de front: el scoping
-  // definitivo tiene que hacerlo el servidor cuando modele el proveedor.)
+  // Lista de viajes ya con su proveedor.
+  //
+  // El BACKEND ya recorta por rol (admin: todos; agencia: los de su agencia;
+  // proveedor: los suyos; sin agencia/proveedor asignado: ninguno), así que acá
+  // no se filtra nada: hacerlo de nuevo vaciaba la lista del proveedor cuando su
+  // perfil no traía el proveedor resuelto.
   async listTrips(): Promise<Trip[]> {
+    if (!USE_VIAJES_MOCK) return viajes.listTrips();
+    // Mock: el recorte por proveedor no lo hace nadie más.
+    await wait(150);
     const scope = proveedores.proveedorIdOf(await this.getMe().catch(() => null));
-    let list: Trip[];
-    if (USE_VIAJES_MOCK) {
-      await wait(150);
-      list = [...mockTrips];
-    } else {
-      list = await viajes.listTrips();
-    }
-    const conProveedor = list.map(withProveedor);
+    const conProveedor = mockTrips.map(withProveedor);
     return scope ? conProveedor.filter((t) => t.proveedorId === scope) : conProveedor;
   },
 
   // Catálogo de proveedores (para asignar el viaje y elegir tarifario). Con
-  // backend real sale del tarifario y del perfil del usuario (ver
-  // tarifasCrud.listProveedores): el backend no expone /proveedores/.
+  // backend sale de /tarifarios/proveedores/; sin él, del seed.
   async listProveedores(): Promise<Proveedor[]> {
-    const me = await this.getMe().catch(() => null);
-    if (USE_TARIFAS_MOCK) return proveedores.listProveedores(me);
-    return tarifasCrud.listProveedores(me);
+    if (USE_TARIFAS_MOCK) return proveedores.listProveedores(await this.getMe().catch(() => null));
+    return tarifasCrud.listProveedores();
   },
 
   // Una página del catálogo de pasajeros (búsqueda/filtro/paginación server-side).
@@ -354,7 +350,9 @@ export const api = {
       if (!t) throw new Error("Viaje no encontrado");
       return withProveedor(t);
     }
-    return withProveedor(await viajes.getTrip(id));
+    // El backend devuelve el proveedor con el viaje: no se le encima el overlay
+    // local, que podría inventarle uno viejo guardado en este navegador.
+    return viajes.getTrip(id);
   },
 
   async createTrip(trip: Partial<Trip>): Promise<Trip> {
@@ -460,14 +458,18 @@ export const api = {
 
   // ── Comentarios del viaje ──────────────────────────────────────────────────
   // Los ve y los deja cualquier rol (es el canal para discutir diferencias de
-  // costos). El autor NO lo manda la vista: se resuelve acá contra /auth/me/
-  // para que nadie pueda firmar un comentario con otro nombre.
+  // costos). Cuelgan del COSTO del viaje: se leen embebidos en el GET de costos
+  // y se escriben por su propio sub-recurso. El autor lo fija el backend con el
+  // usuario logueado, así que nadie puede firmar con otro nombre.
   async listComentarios(tripId: string): Promise<TripComentario[]> {
+    if (!USE_VIAJES_MOCK) return tarifario.listComentariosCosto(tripId);
     await wait(80);
     return comentarios.listComentarios(tripId);
   },
 
   async addComentario(tripId: string, texto: string): Promise<TripComentario> {
+    if (!USE_VIAJES_MOCK) return tarifario.addComentarioCosto(tripId, texto);
+    // Mock: el autor se resuelve acá porque no hay servidor que lo fije.
     const me = await this.getMe().catch(() => null);
     const autor = me
       ? `${me.first_name} ${me.last_name}`.trim() || me.username
@@ -504,18 +506,27 @@ export const api = {
     if (USE_TARIFAS_MOCK) return tarifas.deleteTarifaBase(id, await this.tarifaScope());
     return tarifasCrud.deleteTarifaBase(id);
   },
-  // ⚠️ MOCK: el backend no modela los extras (espera / hora a disposición / km).
-  // Tiene `valor_espera` y `valor_hora_dispo` colgando del proveedor, sin km ni
-  // columna cliente y sin endpoint para escribirlos. Hasta que los publique, esto
-  // vive en localStorage y las vistas lo avisan en pantalla.
-  getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
-    return tarifas.getTarifasExtras(proveedorId);
+  // Extras (espera / hora a disposición / km), MITAD Y MITAD:
+  //   - la columna PROVEEDOR es real: son los valores del propio proveedor
+  //     (/tarifarios/proveedores/{id}/), que además vienen anidados en el viaje;
+  //   - la columna CLIENTE no existe en el backend y sigue en localStorage.
+  // Se devuelve el set completo con la parte real pisando a la local.
+  async getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
+    const local = await tarifas.getTarifasExtras(proveedorId);
+    if (USE_TARIFAS_MOCK || !proveedorId) return local;
+    // Si el proveedor no existe (o el id no es del backend) nos quedamos con el
+    // set local: mejor mostrar algo que romper el cuadro de costos.
+    const real = await tarifasCrud.getExtrasProveedor(proveedorId).catch(() => null);
+    return real ? { ...local, ...real } : local;
   },
   async updateTarifasExtras(
     patch: Partial<TarifaExtras>,
     proveedorId: string,
   ): Promise<TarifaExtras> {
-    return tarifas.updateTarifasExtras(patch, proveedorId, await this.tarifaScope());
+    if (!USE_TARIFAS_MOCK) await tarifasCrud.updateExtrasProveedor(proveedorId, patch);
+    // La columna cliente se guarda igual en local (el backend no la modela).
+    await tarifas.updateTarifasExtras(patch, proveedorId, await this.tarifaScope());
+    return this.getTarifasExtras(proveedorId);
   },
   // Lugares (códigos de zona) y categorías de vehículo con los que se arma una
   // tarifa: catálogos del backend, o los del seed si no hay backend.
@@ -647,7 +658,9 @@ export const api = {
     return agencies.find((a) => a.id === ownAgencyId)?.nombre ?? "";
   },
 
-  // ⚠️ MOCK: igual que los extras de proveedor, el backend no los modela.
+  // ⚠️ MOCK COMPLETO (localStorage), en cualquier modo: a diferencia de los
+  // extras del proveedor, que el backend ya modela, no hay nada equivalente por
+  // cliente. Ver api/tarifasCliente.ts.
   async getTarifasClienteExtras(clienteId: string): Promise<TarifaClienteExtras> {
     // Un cliente solo puede pedir los suyos; el admin, los de cualquiera.
     const scope = await this.clienteScope();

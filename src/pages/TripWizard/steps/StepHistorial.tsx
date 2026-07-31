@@ -12,14 +12,14 @@ export function StepHistorial({ t }: { t: Trip }) {
       <h3 className={styles.h2}>Historial de modificaciones</h3>
       <p className={styles.p}>Registro cronológico de los cambios realizados sobre este viaje.</p>
 
-      {/* El backend no lleva historial: el viaje llega siempre con `history: []`
-          (ver api/viajes.ts, viajeToTrip). Sin backend, lo poco que se ve son
-          las entradas del seed. En los dos casos hay que decirlo: una pantalla
-          vacía se lee como "este viaje no se tocó nunca", que es distinto. */}
+      {/* El backend SÍ lleva historial (GET /viajes/{id}/historial/), pero el
+          front nunca lo pide: `viajeToTrip` arma el viaje con `history: []`. Por
+          eso la pantalla queda vacía aunque el viaje se haya modificado, y una
+          pantalla vacía se lee como "este viaje no se tocó nunca". */}
       {HAS_BACKEND ? (
         <AvisoMock tono="pendiente">
-          El backend todavía no registra los cambios de los viajes, así que esta pantalla queda
-          vacía aunque el viaje se haya modificado.
+          Todavía no estamos leyendo el historial que guarda el servidor, así que esta pantalla
+          queda vacía aunque el viaje se haya modificado.
         </AvisoMock>
       ) : (
         <AvisoMock>

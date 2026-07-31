@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { HAS_BACKEND } from "../../api/http";
 import { AvisoMock } from "../../components/ui/AvisoMock";
 import { Button } from "../../components/ui/Button";
 import { Field, Input, Select } from "../../components/ui/Field";
@@ -77,10 +78,21 @@ export function TarifasExtras({ me }: { me: UseMe }) {
 
   return (
     <div className={styles.formCard}>
-      <AvisoMock>
-        Los extras todavía no existen en el backend: lo que cargues acá se guarda solo en este
-        navegador y no lo ve el resto del equipo.
-      </AvisoMock>
+      {/* Los valores del PROVEEDOR ya son reales (se guardan en el proveedor);
+          la columna Cliente no existe en el backend y sigue siendo local. */}
+      {HAS_BACKEND ? (
+        showCliente && (
+          <AvisoMock>
+            La columna <b>Cliente</b> todavía no existe en el backend: esos valores se guardan
+            solo en este navegador. Los del proveedor sí se guardan en el servidor.
+          </AvisoMock>
+        )
+      ) : (
+        <AvisoMock>
+          Sin backend configurado, los extras se guardan solo en este navegador y no los ve el
+          resto del equipo.
+        </AvisoMock>
+      )}
 
       {!isProvider && (
         <Field label="Proveedor" style={{ marginBottom: 14 }}>

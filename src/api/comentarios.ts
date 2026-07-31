@@ -1,13 +1,12 @@
-// Comentarios de un viaje.
+// ⚠️ MOCK (localStorage) de los comentarios de un viaje. Solo se usa cuando NO
+// hay backend configurado (modo demo local).
 //
-// El backend todavía no los modela (el viaje no tiene ni campo ni sub-recurso
-// de comentarios), así que viven en el frontend: localStorage indexado por id
-// de viaje, igual que la asignación de proveedor (ver api/proveedores.ts). Así
-// funciona tanto contra el mock como contra el backend real, porque el id del
-// viaje es estable en los dos casos.
+// Con backend los comentarios son REALES: cuelgan del costo del viaje y se leen
+// y escriben por /viajes/{id}/costos/comentarios/ (ver api/tarifario.ts,
+// listComentariosCosto / addComentarioCosto).
 //
-// Cuando el backend publique el recurso, se reemplaza el cuerpo de estas dos
-// funciones por `request(...)` y las vistas quedan igual.
+// Lo único que este mock guarda y el backend no es el ROL del autor, con el que
+// la vista dibuja la chapita de "de qué lado del mostrador vino".
 
 import type { TripComentario } from "../types/domain";
 

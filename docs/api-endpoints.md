@@ -83,6 +83,10 @@ migrar ese mapeo al catálogo real (requiere leer `/estados/` con credenciales).
 > recalcula el costo del viaje y **resetea los ajustes manuales** (espera, peajes,
 > …), así que si además hay costos que guardar, este PATCH va primero
 > (`syncTarifaTramo` → `syncCostos`).
+>
+> ⚠️ Valida que la tarifa sea **de la misma categoría del viaje** (400 si no).
+> Ojo: el front resuelve la categoría del viaje contra `/services/` y la de la
+> tarifa contra `/categorias/`; si los ids no son los mismos, este PATCH falla.
 
 En la **lectura** el tramo trae también `origen_es_aeropuerto` / `origen_iata` y
 sus pares de destino, más `id_tramo_central`. `numero_tramo` es read-only.
@@ -97,6 +101,17 @@ viaje (`viaje.pasajeros`).
 | POST | `/tarifarios/cotizar-por-codigo/` | Ídem por **código de zona** (`{ origen, destino, fecha? }`) |
 | GET/POST | `/tarifarios/tarifas/` | CRUD de tarifas (el proveedor solo ve/edita las suyas) |
 | GET/PUT/PATCH/DELETE | `/tarifarios/tarifas/{id}/` | Detalle / editar / borrar |
+| GET | `/tarifarios/proveedores/` · `/{id}/` | **Catálogo de proveedores** (id, nombre y sus valores de extras) |
+| PATCH | `/tarifarios/proveedores/{id}/` | Extras del proveedor: `valor_espera`, `valor_hora_dispo`, `valor_km_adicional` |
+
+Los extras del proveedor se editan por ahí (`nombre` e `id` son read-only; el
+admin edita cualquiera, un usuario proveedor solo el suyo) y vienen además
+anidados en el `proveedor` del detalle del viaje.
+
+⚠️ **Unidades:** `valor_espera` y `valor_hora_dispo` son **por HORA**; el front
+modela la espera **por minuto** (así se carga en el viaje: minutos × valor). La
+conversión está en una única constante, `MINUTOS_POR_HORA` en `api/tarifasCrud.ts`
+— si se confirma que el backend guarda la espera por minuto, se pone en 1.
 
 La cotización devuelve `proveedores[] → { proveedor, tarifas[] }`, una tarifa por
 categoría de vehículo, con `precio_cliente` y `precio_proveedor`. El `id` de la
@@ -111,15 +126,10 @@ sin backend.
 - **No hay tarifario por cliente.** Hay UNA tarifa por (proveedor, origen,
   destino, categoría) con las dos columnas de precio adentro. "Tarifas Cliente"
   es la misma tabla mostrando `precio_cliente`, no un tarifario aparte.
-- **No hay extras** (espera / hora a disposición / km adicional). El proveedor
-  tiene `valor_espera` y `valor_hora_dispo` (por HORA, y solo llegan de rebote en
-  la cotización, sin endpoint para escribirlos) y no hay km ni columna cliente.
-  Las dos solapas de Extras siguen en localStorage y lo avisan en pantalla.
-- **No hay `/proveedores/`.** Los únicos lugares donde un proveedor viene con
-  NOMBRE son `/auth/me/.proveedor` y la cotización de una ruta. El catálogo del
-  selector se arma con eso (`tarifasCrud.listProveedores`): cotiza rutas del
-  propio tarifario hasta tener nombre para todos; el que no se resuelva queda
-  como `Proveedor #id`.
+- **La columna CLIENTE de los extras no existe.** El proveedor tiene sus tres
+  valores (arriba), pero no hay equivalente de lo que se le factura al cliente,
+  ni un set de extras por cliente. Esa mitad sigue en localStorage y lo avisan
+  las pantallas.
 
 Los ids de `origen`/`destino` son **zonas** (`/tarifarios/zonas/`) y el de
 `categoria_servicio` sale de `/categorias/`: el front traduce en los dos sentidos
@@ -133,12 +143,28 @@ desde su pantalla borraría el precio de venta.
 |---|---|---|
 | GET | `/viajes/{id}/costos/` | Costos del viaje (columnas **proveedor** y **cliente**) |
 | PATCH | `/viajes/{id}/costos/` | Ajustes manuales (crea el registro si no existía) |
+| POST | `/viajes/{id}/costos/comentarios/` | Agregar comentario (`{ texto }`) |
+| PATCH/DELETE | `/viajes/{id}/costos/comentarios/{id}/` | Editar texto / borrar |
 
 - La **base** (`costo_viaje_proveedor` / `costo_viaje_cliente`) sale del tarifario
   de los tramos y los **totales** los calcula el backend: ninguno se edita desde
   el front.
 - Por PATCH van solo espera, peajes, estacionamiento, otros (de las dos
-  columnas), `moneda_*`, `comentario` y `horas_disponibles`.
+  columnas), `moneda_*` y `horas_disponibles`.
+- ⚠️ Cambiar la tarifa de un tramo **resetea a 0 todos los ajustes manuales** y
+  re-deriva la base: por eso `syncTarifaTramo` corre antes que `syncCostos` y,
+  cuando la tarifa cambió, el PATCH de costos reenvía todos los rubros (`force`).
+
+### Comentarios del costo
+El viejo campo `comentario` (string único) **ya no existe**: son varios y vienen
+embebidos en el GET de costos como `comentarios[]`, con
+`{ id, texto, autor, autor_nombre, created_at, updated_at }`. El `autor` lo fija
+el backend con el usuario logueado; solo `texto` es escribible.
+
+⚠️ **No viene el ROL del autor**, solo su id y su nombre. La vista muestra una
+chapita con el lado del mostrador (Administración / Proveedor / Agencia) y contra
+el backend queda sin poner. Si se quiere recuperar, el backend tiene que
+exponerlo.
 
 ## Viajes
 | Método | Ruta | Descripción |
@@ -148,6 +174,20 @@ desde su pantalla borraría el precio de venta.
 | POST | `/viajes/bulk/` | Alta masiva todo-o-nada (lista de viajes con `id_temporal`) |
 | GET/PUT/PATCH/DELETE | `/viajes/{id}/` | Detalle / editar (solo campos del viaje) / borrar |
 | GET | `/viajes/{id}/historial/` | Historial / auditoría |
+
+### Visibilidad por rol (server-side)
+`GET /viajes/` y el detalle vienen **filtrados por el rol del usuario logueado**:
+admin ve todos; agencia (`agency_staff` / `agency_operator`) los de su agencia;
+proveedor (`provider`) los suyos; sin agencia/proveedor asignado, ninguno. Un
+detalle fuera de scope da **404** (también en `costos`, `historial`, `tarifa` y
+`comentarios`). **El front ya no filtra**: hacerlo encima vaciaba la lista del
+proveedor cuando `/auth/me/` no traía el proveedor resuelto.
+
+⚠️ El recorte es **por viaje, no por campo**: el costo del viaje sigue trayendo
+las dos columnas, así que el navegador de un proveedor recibe
+`costo_viaje_cliente` / `costo_total_cliente` aunque la UI no los muestre. Si la
+regla "el proveedor no ve el precio al cliente" es dura, el recorte lo tiene que
+hacer el backend.
 
 ### Filtros de `/viajes/` (server-side)
 `agencia`, `estado`, `estado__codigo`, `fecha_servicio`, `fecha_servicio__gte`,

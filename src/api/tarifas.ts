@@ -1,8 +1,12 @@
 // ⚠️ MOCK (localStorage) del tarifario. Solo se usa cuando NO hay backend
 // configurado (modo demo local): con backend, las pantallas de Tarifas y el
 // wizard van contra el tarifario real (api/tarifasCrud.ts y api/tarifario.ts).
-// La excepción son los EXTRAS, que el backend todavía no modela y siguen
-// saliendo de acá siempre.
+//
+// La excepción son los EXTRAS, que se usan SIEMPRE pero solo a medias: de este
+// set, con backend, sobrevive la mitad CLIENTE (`esperaCliente`,
+// `horaDispoCliente`, `kmCliente`), que el servidor no modela. La mitad
+// PROVEEDOR la pisa lo que devuelve /tarifarios/proveedores/{id}/ — ver cómo se
+// combinan en api/client.ts (getTarifasExtras).
 //
 // SCOPING: cada tarifa (base y extras) pertenece a un proveedor. Las funciones
 // de escritura reciben `scope`: el id del proveedor logueado, o `null` cuando es
