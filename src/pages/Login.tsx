@@ -7,6 +7,7 @@ import { Button } from "../components/ui/Button";
 import { Field, Input } from "../components/ui/Field";
 import { useUser } from "../context/UserContext";
 import { cx } from "../lib/cx";
+import { DEV_USERS, devUsersEnabled } from "../lib/devUsers";
 import styles from "./Login.module.css";
 
 export function Login() {
@@ -17,6 +18,21 @@ export function Login() {
   const [remember, setRemember] = useState(true);
   const [err, setErr] = useState<{ user?: string; pass?: string; form?: string }>({});
   const [loading, setLoading] = useState(false);
+  // Atajos de usuario: solo con el flag admin=1 en el navegador.
+  const [showDevUsers] = useState(devUsersEnabled);
+
+  const doLogin = async (username: string, password: string) => {
+    setLoading(true);
+    try {
+      const u = await api.login(username, password);
+      login(u, remember);
+      navigate("/viajes");
+    } catch (ex) {
+      setErr({ form: ex instanceof Error ? ex.message : "Error de autenticación" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,16 +41,14 @@ export function Login() {
     if (!pass) next.pass = "Ingresá tu contraseña";
     setErr(next);
     if (Object.keys(next).length) return;
-    setLoading(true);
-    try {
-      const u = await api.login(user, pass);
-      login(u, remember);
-      navigate("/viajes");
-    } catch (ex) {
-      setErr({ form: ex instanceof Error ? ex.message : "Error de autenticación" });
-    } finally {
-      setLoading(false);
-    }
+    await doLogin(user, pass);
+  };
+
+  const loginAs = (username: string, password: string) => {
+    setUser(username);
+    setPass(password);
+    setErr({});
+    void doLogin(username, password);
   };
 
   return (
@@ -91,6 +105,25 @@ export function Login() {
           >
             {loading ? "Ingresando…" : "Ingresar"}
           </Button>
+
+          {showDevUsers && (
+            <div className={styles.devUsers}>
+              <div className={styles.devUsersTitle}>Ingresar como</div>
+              <div className={styles.devUsersRow}>
+                {DEV_USERS.map((d) => (
+                  <Button
+                    key={d.user}
+                    kind="secondary"
+                    size="sm"
+                    disabled={loading}
+                    onClick={() => loginAs(d.user, d.pass)}
+                  >
+                    {d.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className={styles.footer}>
