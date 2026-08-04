@@ -1,6 +1,6 @@
 // Usuarios preseteados para probar cada rol sin tener que tipear credenciales.
-// Solo se muestran cuando el navegador tiene el flag `admin=1`: se activa con
-// `?admin=1` en la URL (queda guardado en localStorage) y se apaga con `?admin=0`.
+// Solo se muestran con `?admin=1` en la URL. A propósito NO se persiste: si se
+// guardara, una sola visita con el parámetro los dejaría visibles para siempre.
 const DEV_USERS_PASSWORD = "Basico2620";
 
 export interface DevUser {
@@ -18,18 +18,12 @@ export const DEV_USERS: DevUser[] = [
 
 const FLAG_KEY = "admin";
 
-// `?admin=1` prende el flag y lo persiste; `?admin=0` lo apaga. Sin parámetro,
-// vale lo último que quedó guardado.
 export function devUsersEnabled(): boolean {
   try {
-    const param = new URLSearchParams(window.location.search).get(FLAG_KEY);
-    if (param !== null) {
-      const on = param === "1" || param === "true";
-      if (on) localStorage.setItem(FLAG_KEY, "1");
-      else localStorage.removeItem(FLAG_KEY);
-      return on;
-    }
-    return localStorage.getItem(FLAG_KEY) === "1";
+    // Limpieza de la versión anterior, que sí guardaba el flag: sin esto los
+    // atajos siguen apareciendo en los navegadores que ya lo tenían escrito.
+    localStorage.removeItem(FLAG_KEY);
+    return new URLSearchParams(window.location.search).get(FLAG_KEY) === "1";
   } catch {
     return false;
   }
