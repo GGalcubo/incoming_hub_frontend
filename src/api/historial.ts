@@ -8,8 +8,34 @@
 // muestran a un operador.
 
 import type { HistorialEntrada } from "./backend";
-import { fetchAll } from "./http";
+import { request } from "./http";
 import type { HistoryChange, HistoryEntry } from "../types/domain";
+
+// ⚠️ El historial NO viene paginado: el servidor devuelve la lista pelada, aunque
+// el schema OpenAPI la declare como `PaginatedHistorialEntradaList`. Con
+// `fetchAll` la pantalla moría con "results is not iterable", así que acá se
+// aceptan las dos formas: si viene envuelta se recorre la paginación, y si viene
+// plana se usa tal cual (vale también para /solicitantes/, que sí pagina).
+interface Page<T> {
+  next: string | null;
+  results: T[];
+}
+
+async function fetchLista<T>(path: string): Promise<T[]> {
+  const sep = path.includes("?") ? "&" : "?";
+  const primera = await request<T[] | Page<T>>(`${path}${sep}page=1`);
+  if (Array.isArray(primera)) return primera;
+  const out = [...primera.results];
+  let next = primera.next;
+  let page = 2;
+  while (next) {
+    const data = await request<Page<T>>(`${path}${sep}page=${page}`);
+    out.push(...data.results);
+    next = data.next;
+    page += 1;
+  }
+  return out;
+}
 
 // ── Usuarios ─────────────────────────────────────────────────────────────────
 // La entrada del historial trae el ID del autor, no su nombre, así que hay que
@@ -28,7 +54,7 @@ let usuariosPromise: Promise<Map<number, string>> | null = null;
 
 function loadUsuarios(): Promise<Map<number, string>> {
   if (!usuariosPromise) {
-    usuariosPromise = fetchAll<UsuarioMin>("/solicitantes/")
+    usuariosPromise = fetchLista<UsuarioMin>("/solicitantes/")
       .then((us) => new Map(us.map((u) => [u.id, nombreDeUsuario(u)])))
       .catch(() => new Map<number, string>());
   }
@@ -227,7 +253,7 @@ export function entradaToHistoryEntry(
 // más antiguo). Un viaje fuera del scope del usuario da 404, igual que su detalle.
 export async function listHistorial(viajeId: string | number): Promise<HistoryEntry[]> {
   const [entradas, usuarios] = await Promise.all([
-    fetchAll<HistorialEntrada>(`/viajes/${viajeId}/historial/`),
+    fetchLista<HistorialEntrada>(`/viajes/${viajeId}/historial/`),
     loadUsuarios(),
   ]);
   return entradas.map((e) => entradaToHistoryEntry(e, usuarios));

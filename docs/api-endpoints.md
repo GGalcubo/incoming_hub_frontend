@@ -217,9 +217,10 @@ principal se marca con `es_principal` (en el alta, dentro de `pasajeros[]`).
 `puede_cancelar` es **boolean** (antes venía como string).
 
 ### Historial del viaje
-`GET /viajes/{id}/historial/` devuelve la auditoría **agregada** (paginada, del
-más reciente al más antiguo): no solo los cambios del viaje, también los de sus
-tramos, pasajeros, costos y comentarios. Cada entrada:
+`GET /viajes/{id}/historial/` devuelve la auditoría **agregada** del más reciente
+al más antiguo: no solo los cambios del viaje, también los de sus tramos,
+pasajeros, costos y comentarios. `modelo` viene en singular y capitalizado
+(`Viaje`, `Tramo`, `Pasajero`, `Costo`). Cada entrada:
 
 ```json
 {
@@ -231,6 +232,11 @@ tramos, pasajeros, costos y comentarios. Cada entrada:
   "cambios": { "estado": [1, 2], "unidad_asignada": ["", "PROXY-08"] }
 }
 ```
+
+⚠️ **No viene paginado**, aunque el schema lo declare como
+`PaginatedHistorialEntradaList`: la respuesta es la **lista pelada**, sin
+`count`/`next`/`results`. Leerlo con el `fetchAll` de `api/http.ts` rompe con
+"results is not iterable"; `api/historial.ts` acepta las dos formas.
 
 `cambios` es `{ campo: [antes, después] }` con los nombres de campo **del modelo**
 (`hora_servicio`, `costo_espera_proveedor`, …): el front los traduce en
