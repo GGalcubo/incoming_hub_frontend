@@ -162,6 +162,26 @@ export interface CostoViajePatch {
   horas_disponibles?: number;
 }
 
+// ── Historial del viaje ──────────────────────────────────────────────────────
+// Una entrada de la auditoría agregada del viaje (GET /viajes/{id}/historial/):
+// un cambio sobre el viaje o sobre alguno de sus objetos relacionados (tramo,
+// pasajero, costo, comentario). Vienen del más reciente al más antiguo.
+//
+// `cambios` es un dict `{ campo: [antes, después] }` (en el alta y la baja el
+// backend puede mandar el valor solo, sin par).
+//
+// OJO: `usuario` es el ID de quien hizo el cambio (o null si no vino de un
+// request), NO su nombre ni su rol. Para mostrar el nombre hay que resolverlo
+// aparte contra el padrón de usuarios (ver api/historial.ts).
+export interface HistorialEntrada {
+  modelo: string;
+  objeto_id: number;
+  accion: string;
+  fecha: string;
+  usuario: number | null;
+  cambios: Record<string, unknown>;
+}
+
 // ── Tarifario ────────────────────────────────────────────────────────────────
 // Zona/ubicación tarifada (aeropuerto o barrio). Es el catálogo con el que se
 // arman las rutas del tarifario: `codigo_ref` (EZE, AEP, CABA…) es la clave con
@@ -190,17 +210,27 @@ export interface ProveedorApi {
   // por km adicional. Son los "extras" del proveedor: se leen acá (también
   // vienen anidados en el viaje) y se escriben por
   // PATCH /tarifarios/proveedores/{id}/.
+  //
+  // Cada uno viene en dos columnas: el valor que cobra el proveedor y el `_cliente`
+  // que se le factura al cliente. Las mismas unidades para las dos.
   valor_espera: string | null;
   valor_hora_dispo: string | null;
   valor_km_adicional: string | null;
+  valor_espera_cliente: string | null;
+  valor_hora_dispo_cliente: string | null;
+  valor_km_adicional_cliente: string | null;
 }
 
 // Cuerpo escribible de los extras del proveedor. `nombre` e `id` son read-only:
-// el admin edita cualquiera, un usuario proveedor solo el suyo.
+// el admin edita cualquiera, un usuario proveedor solo el suyo (y de los suyos,
+// solo la columna proveedor: el precio al cliente lo pone el admin).
 export interface ProveedorValoresPatch {
   valor_espera?: string;
   valor_hora_dispo?: string;
   valor_km_adicional?: string;
+  valor_espera_cliente?: string;
+  valor_hora_dispo_cliente?: string;
+  valor_km_adicional_cliente?: string;
 }
 
 // Tarifa con su categoría de servicio (tipo de vehículo) anidada, tal como sale

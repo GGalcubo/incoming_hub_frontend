@@ -4,13 +4,12 @@
 // El PRECIO al cliente ya no vive acá: es la columna `precio_cliente` de la
 // tarifa real del backend (ver api/tarifasCrud.ts). Lo que queda son los extras.
 //
-// ESTE ES EL ÚLTIMO TARIFARIO 100% MOCK. El backend ya modela los extras del
-// PROVEEDOR (valor_espera / valor_hora_dispo / valor_km_adicional, ver
-// tarifasCrud.getExtrasProveedor) pero no tiene NADA equivalente del lado del
-// cliente: ni un set por agencia, ni una columna cliente en los del proveedor.
-// Hasta que exista, esto se guarda en el browser y las vistas lo avisan en
-// pantalla; después se reemplaza el cuerpo de estas dos funciones por
-// `request(...)` y las vistas quedan igual.
+// ESTE ES EL ÚLTIMO TARIFARIO 100% MOCK. El backend modela los extras en el
+// PROVEEDOR, con sus dos columnas (valor_espera / valor_hora_dispo /
+// valor_km_adicional y sus `*_cliente`, ver tarifasCrud.getExtrasProveedor),
+// pero no tiene un set POR AGENCIA como este. Hasta que exista, se guarda en el
+// browser y las vistas lo avisan en pantalla; después se reemplaza el cuerpo de
+// estas dos funciones por `request(...)` y las vistas quedan igual.
 //
 // SCOPING: cada set de extras pertenece a un cliente (agencia). Las funciones
 // reciben `scope`: el id del cliente logueado, o null cuando es admin (opera

@@ -401,7 +401,7 @@
   transition: border-color var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
 }
 
-.catCard:hover:not(.catCardDisabled) {
+.catCard:hover {
   border-color: var(--border-stronger);
 }
 
@@ -411,9 +411,14 @@
   box-shadow: 0 0 0 1px var(--fg-primary) inset;
 }
 
-.catCardDisabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+/* Categoría sin tarifa para la ruta: se puede elegir igual (queda a cotizar por
+   el proveedor), así que se muestra atenuada pero nunca deshabilitada. */
+.catCardSinTarifa {
+  border-style: dashed;
+}
+
+.catCardSinTarifa:not(.catCardActive) {
+  opacity: 0.75;
 }
 
 .catRadio {
@@ -465,6 +470,19 @@
   font: 600 13px/18px Heming;
   color: var(--fg-muted);
   padding: 8px 0;
+}
+
+/* Reemplaza al precio en las categorías sin tarifa. Ocupa el mismo alto que el
+   bloque precio + moneda + peajes para que la grilla no quede despareja. */
+.catACotizar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 72px;
+  padding: 0 6px;
+  font: 600 12px/16px Heming;
+  color: var(--fg-tertiary);
+  text-wrap: balance;
 }
 
 /* ---- StepResumen ---- */
@@ -638,4 +656,49 @@
 .user {
   font: 400 12px/16px Heming;
   color: var(--fg-tertiary);
+}
+
+.histError {
+  margin-bottom: 10px;
+  font: 400 12px/16px Heming;
+  color: var(--danger-fg);
+}
+
+/* Diff de la entrada: qué campo cambió y de qué valor a cuál. */
+.changes {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.change {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font: 400 12px/16px Heming;
+  color: var(--fg-secondary);
+}
+
+.changeField {
+  font-weight: 600;
+  color: var(--fg-secondary);
+}
+
+.changeField::after {
+  content: ":";
+}
+
+.changeFrom {
+  color: var(--fg-muted);
+  text-decoration: line-through;
+  overflow-wrap: anywhere;
+}
+
+.changeTo {
+  color: var(--fg-primary);
+  overflow-wrap: anywhere;
 }

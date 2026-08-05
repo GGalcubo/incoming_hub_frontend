@@ -2,7 +2,7 @@ import type { MeProfile, MeWrite, Paginated, Persona, RoleEnum } from "./backend
 import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
-import type { ExcelRow, Trip, TripComentario, TripStatus, User } from "../types/domain";
+import type { ExcelRow, HistoryEntry, Trip, TripComentario, TripStatus, User } from "../types/domain";
 import type {
   CategoriaTarifada,
   Cliente,
@@ -15,6 +15,7 @@ import type {
 } from "../types/tarifas";
 import { VEHICLE_CATEGORIAS } from "../data/tarifasSeed";
 import * as comentarios from "./comentarios";
+import * as historial from "./historial";
 import { drfErrorMessage, HAS_AUTH, request, safeFetch, setOnUnauthorized, VIAJES_BASE } from "./http";
 import * as proveedores from "./proveedores";
 import * as tarifario from "./tarifario";
@@ -478,6 +479,16 @@ export const api = {
     return comentarios.addComentario(tripId, { autor, rol: me?.role ?? null, texto });
   },
 
+  // ── Historial del viaje ────────────────────────────────────────────────────
+  // Auditoría del servidor (GET /viajes/{id}/historial/): incluye los cambios
+  // del viaje y los de sus tramos, pasajeros, costos y comentarios. Sin backend
+  // se muestra el historial de ejemplo que trae el viaje del seed.
+  async listHistorial(tripId: string): Promise<HistoryEntry[]> {
+    if (!USE_VIAJES_MOCK) return historial.listHistorial(tripId);
+    await wait(80);
+    return mockTrips.find((t) => t.id === tripId)?.history ?? [];
+  },
+
   // ── Tarifas ────────────────────────────────────────────────────────────────
   // Con backend configurado van contra el tarifario REAL (/tarifarios/tarifas/),
   // donde cada tarifa es (proveedor, origen, destino, categoría) con sus dos
@@ -506,27 +517,23 @@ export const api = {
     if (USE_TARIFAS_MOCK) return tarifas.deleteTarifaBase(id, await this.tarifaScope());
     return tarifasCrud.deleteTarifaBase(id);
   },
-  // Extras (espera / hora a disposición / km), MITAD Y MITAD:
-  //   - la columna PROVEEDOR es real: son los valores del propio proveedor
-  //     (/tarifarios/proveedores/{id}/), que además vienen anidados en el viaje;
-  //   - la columna CLIENTE no existe en el backend y sigue en localStorage.
-  // Se devuelve el set completo con la parte real pisando a la local.
+  // Extras (espera / hora a disposición / km). Las DOS columnas son reales: se
+  // guardan en el propio proveedor (/tarifarios/proveedores/{id}/, `valor_*` y
+  // `valor_*_cliente`) y además vienen anidadas en el viaje. Sin backend, o sin
+  // un proveedor al que pedírselos, caen al set local de api/tarifas.ts.
   async getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
-    const local = await tarifas.getTarifasExtras(proveedorId);
-    if (USE_TARIFAS_MOCK || !proveedorId) return local;
+    if (USE_TARIFAS_MOCK || !proveedorId) return tarifas.getTarifasExtras(proveedorId);
     // Si el proveedor no existe (o el id no es del backend) nos quedamos con el
     // set local: mejor mostrar algo que romper el cuadro de costos.
     const real = await tarifasCrud.getExtrasProveedor(proveedorId).catch(() => null);
-    return real ? { ...local, ...real } : local;
+    return real ?? tarifas.getTarifasExtras(proveedorId);
   },
   async updateTarifasExtras(
     patch: Partial<TarifaExtras>,
     proveedorId: string,
   ): Promise<TarifaExtras> {
-    if (!USE_TARIFAS_MOCK) await tarifasCrud.updateExtrasProveedor(proveedorId, patch);
-    // La columna cliente se guarda igual en local (el backend no la modela).
-    await tarifas.updateTarifasExtras(patch, proveedorId, await this.tarifaScope());
-    return this.getTarifasExtras(proveedorId);
+    if (!USE_TARIFAS_MOCK) return tarifasCrud.updateExtrasProveedor(proveedorId, patch);
+    return tarifas.updateTarifasExtras(patch, proveedorId, await this.tarifaScope());
   },
   // Lugares (códigos de zona) y categorías de vehículo con los que se arma una
   // tarifa: catálogos del backend, o los del seed si no hay backend.

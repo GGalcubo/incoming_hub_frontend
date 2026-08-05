@@ -102,11 +102,13 @@ viaje (`viaje.pasajeros`).
 | GET/POST | `/tarifarios/tarifas/` | CRUD de tarifas (el proveedor solo ve/edita las suyas) |
 | GET/PUT/PATCH/DELETE | `/tarifarios/tarifas/{id}/` | Detalle / editar / borrar |
 | GET | `/tarifarios/proveedores/` · `/{id}/` | **Catálogo de proveedores** (id, nombre y sus valores de extras) |
-| PATCH | `/tarifarios/proveedores/{id}/` | Extras del proveedor: `valor_espera`, `valor_hora_dispo`, `valor_km_adicional` |
+| PATCH | `/tarifarios/proveedores/{id}/` | Extras del proveedor: `valor_espera`, `valor_hora_dispo`, `valor_km_adicional` y sus `*_cliente` |
 
 Los extras del proveedor se editan por ahí (`nombre` e `id` son read-only; el
 admin edita cualquiera, un usuario proveedor solo el suyo) y vienen además
-anidados en el `proveedor` del detalle del viaje.
+anidados en el `proveedor` del detalle del viaje. Cada valor tiene **dos
+columnas**: `valor_x` es lo que cobra el proveedor y `valor_x_cliente` lo que se
+le factura al cliente (el rol proveedor no lo ve ni lo manda en el PATCH).
 
 ⚠️ **Unidades:** `valor_espera` y `valor_hora_dispo` son **por HORA**; el front
 modela la espera **por minuto** (así se carga en el viaje: minutos × valor). La
@@ -213,6 +215,33 @@ delegarse a estos parámetros.
 `id_viaje_persona_central`. **`viaje.pasajero_principal` ya no existe** — el
 principal se marca con `es_principal` (en el alta, dentro de `pasajeros[]`).
 `puede_cancelar` es **boolean** (antes venía como string).
+
+### Historial del viaje
+`GET /viajes/{id}/historial/` devuelve la auditoría **agregada** (paginada, del
+más reciente al más antiguo): no solo los cambios del viaje, también los de sus
+tramos, pasajeros, costos y comentarios. Cada entrada:
+
+```json
+{
+  "modelo": "Viaje",
+  "objeto_id": 42,
+  "accion": "update",
+  "fecha": "2026-07-30T14:03:11Z",
+  "usuario": 7,
+  "cambios": { "estado": [1, 2], "unidad_asignada": ["", "PROXY-08"] }
+}
+```
+
+`cambios` es `{ campo: [antes, después] }` con los nombres de campo **del modelo**
+(`hora_servicio`, `costo_espera_proveedor`, …): el front los traduce en
+[`api/historial.ts`](../src/api/historial.ts), que además esconde `id`, `viaje`,
+`created_at` y `updated_at` (ruido en toda modificación).
+
+⚠️ **`usuario` es el ID del autor, no su nombre** (y es `null` cuando el cambio no
+vino de un request HTTP). El front resuelve el nombre contra `/solicitantes/`, que
+devuelve `User`; si el rol logueado no puede listarlo, cae a “Usuario #id”. Sería
+más barato que el historial trajera el nombre, como ya hace `ComentarioCosto` con
+`autor_nombre`.
 
 ### Flujo tarifa → costos
 1. En el alta se elige la tarifa (cotización de la ruta) y se manda en el tramo:

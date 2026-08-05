@@ -1,34 +1,58 @@
+import { useEffect, useState } from "react";
+import { api } from "../../../api/client";
 import { HAS_BACKEND } from "../../../api/http";
 import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Icon } from "../../../components/ui/Icon";
 import { cx } from "../../../lib/cx";
-import type { Trip } from "../../../types/domain";
+import type { HistoryEntry, Trip } from "../../../types/domain";
 import styles from "./steps.module.css";
 
 export function StepHistorial({ t }: { t: Trip }) {
-  const entries = t.history ?? [];
+  // El historial lo sirve el backend por su propio endpoint
+  // (GET /viajes/{id}/historial/): no viene con el viaje, así que se pide acá.
+  // Sin backend, el mock devuelve el historial de ejemplo del viaje del seed.
+  const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setEntries(null);
+    setError("");
+    api
+      .listHistorial(t.id)
+      .then((h) => {
+        if (active) setEntries(h);
+      })
+      .catch((e) => {
+        if (!active) return;
+        setEntries([]);
+        setError(e instanceof Error ? e.message : "No se pudo cargar el historial.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [t.id]);
+
   return (
     <>
       <h3 className={styles.h2}>Historial de modificaciones</h3>
-      <p className={styles.p}>Registro cronológico de los cambios realizados sobre este viaje.</p>
+      <p className={styles.p}>
+        Cambios registrados sobre este viaje, del más reciente al más antiguo. Incluye los de sus
+        destinos, pasajeros y costos.
+      </p>
 
-      {/* El backend SÍ lleva historial (GET /viajes/{id}/historial/), pero el
-          front nunca lo pide: `viajeToTrip` arma el viaje con `history: []`. Por
-          eso la pantalla queda vacía aunque el viaje se haya modificado, y una
-          pantalla vacía se lee como "este viaje no se tocó nunca". */}
-      {HAS_BACKEND ? (
-        <AvisoMock tono="pendiente">
-          Todavía no estamos leyendo el historial que guarda el servidor, así que esta pantalla
-          queda vacía aunque el viaje se haya modificado.
-        </AvisoMock>
-      ) : (
+      {!HAS_BACKEND && (
         <AvisoMock>
           Sin backend configurado, el historial que se ve es de ejemplo: no se registran los
           cambios que hagas.
         </AvisoMock>
       )}
 
-      {entries.length === 0 ? (
+      {error && <div className={styles.histError}>{error}</div>}
+
+      {entries === null ? (
+        <div className={styles.emptyBox}>Cargando historial…</div>
+      ) : entries.length === 0 ? (
         <div className={styles.emptyBox}>
           Todavía no hay modificaciones registradas para este viaje.
         </div>
@@ -51,6 +75,18 @@ export function StepHistorial({ t }: { t: Trip }) {
                     <span className={styles.sep}>·</span>
                     <span className={styles.user}>{h.user}</span>
                   </div>
+                  {h.changes && h.changes.length > 0 && (
+                    <ul className={styles.changes}>
+                      {h.changes.map((c, j) => (
+                        <li key={j} className={styles.change}>
+                          <span className={styles.changeField}>{c.field}</span>
+                          <span className={styles.changeFrom}>{c.from}</span>
+                          <Icon name="arrowright" size={12} />
+                          <span className={styles.changeTo}>{c.to}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
             );

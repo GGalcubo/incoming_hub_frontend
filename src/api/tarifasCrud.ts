@@ -196,51 +196,55 @@ export async function listProveedores(): Promise<Proveedor[]> {
 }
 
 // ── Extras del proveedor ─────────────────────────────────────────────────────
-// El backend los guarda en el propio proveedor: `valor_espera` y
-// `valor_hora_dispo` son POR HORA y `valor_km_adicional` por km.
+// El backend los guarda en el propio proveedor, en dos columnas: `valor_espera`
+// y `valor_hora_dispo` son POR HORA y `valor_km_adicional` por km; los
+// `*_cliente` son lo mismo pero facturado al cliente.
 //
 // ⚠️ El front modela la espera POR MINUTO (es como se carga en el viaje: minutos
 // de espera × valor). La conversión es esta constante y nada más: si se confirma
 // que el backend la guarda por minuto, se pone en 1 y listo.
 const MINUTOS_POR_HORA = 60;
 
-// La columna CLIENTE de los extras no existe en el backend (solo tiene los
-// valores del proveedor): esa mitad sigue en localStorage, ver api/tarifas.ts.
-export type ExtrasProveedor = Pick<
-  TarifaExtras,
-  "proveedorId" | "esperaProveedor" | "horaDispoProveedor" | "kmProveedor"
->;
-
-export async function getExtrasProveedor(proveedorId: string): Promise<ExtrasProveedor> {
-  const p = await request<ProveedorApi>(`${PROVEEDORES_PATH}${proveedorId}/`);
+// El set completo (las dos columnas) sale del proveedor: el backend agregó los
+// `*_cliente`, así que los extras ya no están partidos contra localStorage.
+function toExtras(p: ProveedorApi): TarifaExtras {
   return {
     proveedorId: String(p.id),
     esperaProveedor: num(p.valor_espera) / MINUTOS_POR_HORA,
+    esperaCliente: num(p.valor_espera_cliente) / MINUTOS_POR_HORA,
     horaDispoProveedor: num(p.valor_hora_dispo),
+    horaDispoCliente: num(p.valor_hora_dispo_cliente),
     kmProveedor: num(p.valor_km_adicional),
+    kmCliente: num(p.valor_km_adicional_cliente),
   };
+}
+
+export async function getExtrasProveedor(proveedorId: string): Promise<TarifaExtras> {
+  return toExtras(await request<ProveedorApi>(`${PROVEEDORES_PATH}${proveedorId}/`));
 }
 
 export async function updateExtrasProveedor(
   proveedorId: string,
   patch: Partial<TarifaExtras>,
-): Promise<ExtrasProveedor> {
-  // Solo viajan los tres valores que el backend modela; la columna cliente se
-  // ignora acá (la guarda el mock local).
+): Promise<TarifaExtras> {
+  // Solo viaja lo que venga en el patch: la vista manda únicamente las columnas
+  // que el usuario puede editar (un proveedor nunca toca los valores cliente).
   const body: ProveedorValoresPatch = {};
   if (patch.esperaProveedor != null) {
     body.valor_espera = monto(patch.esperaProveedor * MINUTOS_POR_HORA);
   }
   if (patch.horaDispoProveedor != null) body.valor_hora_dispo = monto(patch.horaDispoProveedor);
   if (patch.kmProveedor != null) body.valor_km_adicional = monto(patch.kmProveedor);
+  if (patch.esperaCliente != null) {
+    body.valor_espera_cliente = monto(patch.esperaCliente * MINUTOS_POR_HORA);
+  }
+  if (patch.horaDispoCliente != null) {
+    body.valor_hora_dispo_cliente = monto(patch.horaDispoCliente);
+  }
+  if (patch.kmCliente != null) body.valor_km_adicional_cliente = monto(patch.kmCliente);
   const p = await request<ProveedorApi>(`${PROVEEDORES_PATH}${proveedorId}/`, {
     method: "PATCH",
     body: JSON.stringify(body),
   });
-  return {
-    proveedorId: String(p.id),
-    esperaProveedor: num(p.valor_espera) / MINUTOS_POR_HORA,
-    horaDispoProveedor: num(p.valor_hora_dispo),
-    kmProveedor: num(p.valor_km_adicional),
-  };
+  return toExtras(p);
 }

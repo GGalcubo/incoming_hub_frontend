@@ -27,6 +27,12 @@ vi.mock("../../../api/client", () => ({
     listLugaresRuta: () => Promise.resolve(["AEP", "CENTRO", "EZE"]),
     getTarifasExtras: () => Promise.resolve(null),
     rutaDeTarifa: () => Promise.resolve(null),
+    // Catálogo de categorías: es lo que se ofrece cuando la ruta no tiene tarifa.
+    listCategoriasTarifa: () =>
+      Promise.resolve([
+        { codigo: "STD", nombre: "Sedán", vehiculo: "Corolla", orden: 1 },
+        { codigo: "VAN", nombre: "Van", vehiculo: "Sprinter", orden: 2 },
+      ]),
     cotizarRuta: (...args: unknown[]) => cotizarRuta(...args),
   },
 }));
@@ -156,7 +162,7 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
     expect(seen.trip.costs.total).toBe(160);
   });
 
-  it("limpia la selección si la ruta nueva no tiene esa categoría", async () => {
+  it("si la ruta nueva no cotiza esa categoría, la deja elegida pero sin precio", async () => {
     cotizarRuta.mockImplementation((_origen: string, destino: string) =>
       Promise.resolve({
         proveedores: [{ id: "p1", nombre: "Prov 1" }],
@@ -172,14 +178,17 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
 
     await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
 
-    await waitFor(() => expect(seen.trip.cat).toBe(""));
+    // La categoría sigue elegida (queda a cotizar por el proveedor); lo que se
+    // cae es el precio y el id de la tarifa.
+    await waitFor(() => expect(seen.trip.costs.viaje).toBe(0));
+    expect(seen.trip.cat).toBe("Sedán");
+    expect(seen.trip.tarifa?.categoria).toBe("STD");
     expect(seen.trip.tarifa?.tarifaId).toBeUndefined();
-    expect(seen.trip.tarifa?.categoria).toBeUndefined();
-    expect(seen.trip.costs.viaje).toBe(0);
+    expect(seen.trip.costs.tarifaProveedor).toBeUndefined();
     expect(seen.trip.costs.total).toBe(10); // solo los peajes
   });
 
-  it("limpia la selección si el primer destino queda vacío", async () => {
+  it("deja la categoría sin precio si el primer destino queda vacío", async () => {
     cotizarRuta.mockResolvedValue({
       proveedores: [{ id: "p1", nombre: "Prov 1" }],
       opciones: [op({ tarifaId: 1 })],
@@ -190,8 +199,60 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
 
     await editarPrimerDestino(seen, { destination: "" });
 
-    await waitFor(() => expect(seen.trip.cat).toBe(""));
+    await waitFor(() => expect(seen.trip.costs.viaje).toBe(0));
+    expect(seen.trip.cat).toBe("Sedán");
     expect(seen.trip.tarifa?.tarifaId).toBeUndefined();
+  });
+
+  it("sin tarifas para la ruta, ofrece igual las categorías del catálogo", async () => {
+    cotizarRuta.mockResolvedValue({
+      proveedores: [],
+      opciones: [],
+      detalle: "No hay tarifa vigente para el tramo.",
+    });
+    const seen = setup({ ...EMPTY_TRIP, legs: [leg()] });
+
+    const card = await screen.findByRole("button", { name: /Van/ });
+    expect(card.textContent).toContain("Servicio a cotizar por el proveedor");
+    expect((card as HTMLButtonElement).disabled).toBe(false);
+
+    await act(async () => {
+      card.click();
+    });
+
+    // Se puede avanzar: el viaje queda con la categoría elegida y el costo en 0.
+    await waitFor(() => expect(seen.trip.cat).toBe("Van"));
+    expect(seen.trip.tarifa?.categoria).toBe("VAN");
+    expect(seen.trip.tarifa?.tarifaId).toBeUndefined();
+    expect(seen.trip.costs.viaje).toBe(0);
+    expect(seen.trip.costs.tarifaProveedor).toBeUndefined();
+    // Elegir una categoría sin tarifa no le asigna proveedor al viaje.
+    expect(seen.trip.proveedorId).toBeUndefined();
+  });
+
+  it("una categoría sin precio dentro de una ruta tarifada también se puede elegir", async () => {
+    cotizarRuta.mockResolvedValue({
+      proveedores: [{ id: "p1", nombre: "Prov 1" }],
+      opciones: [
+        op({ tarifaId: 1, precioCliente: 100, precioProveedor: 70 }),
+        op({ tarifaId: 4, codigo: "VAN", nombre: "Van", precioCliente: null, precioProveedor: null }),
+      ],
+      detalle: "",
+    });
+    const seen = setup({ ...EMPTY_TRIP, legs: [leg()] });
+
+    // Con la cotización ya aplicada (la card de Sedán muestra su precio), la Van
+    // sigue ofreciéndose sin precio y se puede elegir igual.
+    await screen.findByText("100");
+    const card = screen.getByRole("button", { name: /Van/ });
+    expect(card.textContent).toContain("Servicio a cotizar por el proveedor");
+    expect((card as HTMLButtonElement).disabled).toBe(false);
+    await act(async () => {
+      card.click();
+    });
+
+    await waitFor(() => expect(seen.trip.cat).toBe("Van"));
+    expect(seen.trip.tarifa?.tarifaId).toBe(4);
     expect(seen.trip.costs.viaje).toBe(0);
   });
 
@@ -207,8 +268,9 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
     });
 
     // 3 hs × 100 = 300, y la card muestra el total (no el valor de la hora).
-    const card = await screen.findByRole("button", { name: /Sedán/ });
-    expect(card.textContent).toContain("300");
+    // Se espera al precio: hasta que llega la cotización la card está "a cotizar".
+    await screen.findByText("300");
+    const card = screen.getByRole("button", { name: /Sedán/ });
     expect(card.textContent).toContain("3 hs × 100");
 
     await act(async () => {
@@ -231,7 +293,8 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
       legs: [leg({ type: "disposicion", hours: 2 })],
     });
 
-    const card = await screen.findByRole("button", { name: /Sedán/ });
+    await screen.findByText("200");
+    const card = screen.getByRole("button", { name: /Sedán/ });
     await act(async () => {
       card.click();
     });

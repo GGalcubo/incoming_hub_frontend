@@ -3,6 +3,7 @@ import { api, type TarifaOpcion } from "../../../api/client";
 import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
 import type { Trip } from "../../../types/domain";
+import type { VehicleCategoria } from "../../../types/tarifas";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
@@ -42,11 +43,34 @@ function priceOf(
   return { cliente: op.precioCliente, proveedor: op.precioProveedor };
 }
 
+// Categoría del catálogo (sin tarifa para la ruta) presentada como una opción
+// más: se puede elegir igual, con el precio en cero, y el costo se carga a mano
+// en el paso Costos. El viaje guarda la categoría por NOMBRE (`Trip.cat`), que
+// no depende del tarifario, así que una categoría sin tarifa se guarda bien.
+function opcionSinTarifa(c: VehicleCategoria, moneda: string): TarifaOpcion {
+  return {
+    proveedorId: "",
+    proveedorNombre: "",
+    codigo: c.codigo,
+    nombre: c.nombre,
+    vehiculo: c.vehiculo,
+    precioCliente: null,
+    precioProveedor: null,
+    moneda,
+  };
+}
+
 export function StepTarifa({ t, set, errs }: StepProps) {
   const { isProvider, isAgency, proveedorId } = useMe();
   const [lugares, setLugares] = useState<string[]>([]);
+  // Catálogo completo de categorías de vehículo: es lo que se ofrece cuando la
+  // ruta no tiene tarifa (o le falta alguna categoría).
+  const [catalogo, setCatalogo] = useState<VehicleCategoria[]>([]);
+  const [catalogoListo, setCatalogoListo] = useState(false);
   const [opciones, setOpciones] = useState<TarifaOpcion[]>([]);
-  const [detalle, setDetalle] = useState("");
+  // Falló el pedido de tarifas (no es lo mismo que "la ruta no tiene tarifa":
+  // eso no se avisa, las categorías se ofrecen igual a cotizar).
+  const [errorRuta, setErrorRuta] = useState(false);
   const [loading, setLoading] = useState(false);
   // Ruta a la que corresponden las opciones ya cargadas. Sirve para no recotizar
   // con las tarifas de la ruta anterior mientras la nueva está en vuelo.
@@ -100,6 +124,26 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Catálogo de categorías de vehículo. No depende de la ruta: es el que permite
+  // elegir una categoría aunque no haya tarifa vigente para el tramo.
+  useEffect(() => {
+    let active = true;
+    api
+      .listCategoriasTarifa()
+      .then((cats) => {
+        if (active) setCatalogo(cats);
+      })
+      .catch(() => {
+        /* sin catálogo: solo se ofrecen las categorías que devuelva la cotización */
+      })
+      .finally(() => {
+        if (active) setCatalogoListo(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Tarifas vigentes de la ruta elegida.
   const rutaKey = `${origen}|${destino}|${proveedorViaje}`;
   useEffect(() => {
@@ -115,12 +159,12 @@ export function StepTarifa({ t, set, errs }: StepProps) {
       .then((c) => {
         if (!active) return;
         setOpciones(c.opciones);
-        setDetalle(c.detalle);
+        setErrorRuta(false);
       })
       .catch(() => {
         if (!active) return;
         setOpciones([]);
-        setDetalle("No se pudieron cargar las tarifas de la ruta.");
+        setErrorRuta(true);
       })
       .finally(() => {
         if (!active) return;
@@ -143,6 +187,26 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   // El cliente nunca ve de qué proveedor es la tarifa.
   const showProveedorEnCard =
     !isAgency && new Set(visibles.map((o) => o.proveedorId)).size > 1;
+
+  // Lo que se ofrece en pantalla: las tarifas de la ruta, y detrás las categorías
+  // del catálogo que la ruta no cotiza. Estas últimas se pueden elegir igual (sin
+  // precio): el viaje se guarda con la categoría y el costo queda en cero para
+  // cargarlo a mano.
+  const monedaRuta = visibles.find((o) => o.moneda)?.moneda ?? t.costs.moneda ?? "USD";
+  const conTarifa = new Set(visibles.map((o) => o.codigo));
+  const cards: TarifaOpcion[] = [
+    ...visibles,
+    ...catalogo
+      .filter((c) => !conTarifa.has(c.codigo))
+      .map((c) => opcionSinTarifa(c, monedaRuta)),
+  ];
+  // Precio de una opción para el rol que está mirando (null = sin tarifa).
+  const precioDe = (op: TarifaOpcion) => {
+    const p = priceOf(op, modalidad, horas);
+    return isProvider ? p.proveedor : p.cliente;
+  };
+  const elegida = cards.find((o) => o.codigo === t.tarifa?.categoria);
+  const elegidaSinTarifa = !!elegida && precioDe(elegida) == null;
 
   const patchTarifa = (patch: Partial<NonNullable<typeof t.tarifa>>) =>
     set({ tarifa: { ...t.tarifa, ...patch } });
@@ -179,20 +243,22 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         viaje,
         total: viaje + c.espera + c.peajes + c.estacionamiento + c.otros,
         moneda: op.moneda,
-        ...(p.proveedor != null ? { tarifaProveedor: p.proveedor } : {}),
+        // Se pisa SIEMPRE (también con null): al pasar de una categoría tarifada
+        // a una sin tarifa, dejar el costo del proveedor anterior sería mentira.
+        tarifaProveedor: p.proveedor ?? undefined,
       },
     });
   };
 
   // Reaplica el precio de la categoría ya elegida (al cambiar modalidad/horas).
   const recommit = (nextModalidad: "traslado" | "horas", nextHoras: number) => {
-    const sel = visibles.find((o) => o.codigo === t.tarifa?.categoria);
+    const sel = cards.find((o) => o.codigo === t.tarifa?.categoria);
     if (!sel) return;
     commit(sel, nextModalidad, nextHoras);
   };
 
-  // Deja el viaje sin tarifa: se usa cuando la selección ya no es válida (cambio
-  // de proveedor, o categoría sin tarifa en la ruta nueva).
+  // Deja el viaje sin categoría: solo cuando la elegida no existe ni siquiera en
+  // el catálogo (no hay nada que volver a marcar).
   const clearSeleccion = (patch: Partial<Trip> = {}) => {
     const c = t.costs;
     set({
@@ -208,29 +274,45 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     });
   };
 
+  // Deja la categoría elegida pero sin precio ("a cotizar por el proveedor"): se
+  // usa cuando ya no hay ruta contra la cual cotizar. La categoría es una
+  // decisión del usuario y no depende del tarifario, así que no se pierde.
+  const clearPrecio = (patch: Partial<Trip> = {}) => {
+    const c = t.costs;
+    set({
+      tarifa: { ...t.tarifa, tarifaId: undefined },
+      costs: {
+        ...c,
+        viaje: 0,
+        tarifaProveedor: undefined,
+        total: c.espera + c.peajes + c.estacionamiento + c.otros,
+      },
+      ...patch,
+    });
+  };
+
   // Recotiza la categoría ya elegida cuando cambia la ruta: apenas llegan las
   // tarifas del nuevo origen/destino se reaplica el precio de esa misma
   // categoría (y con él el tarifaId, que es lo que se manda al backend). Si la
-  // ruta nueva no tiene esa categoría (o la tiene sin precio), se limpia para
-  // que se vuelva a elegir.
+  // ruta nueva no la cotiza, la categoría SIGUE elegida pero sin precio (queda a
+  // cotizar por el proveedor); solo se limpia si no existe ni en el catálogo.
   useEffect(() => {
-    if (!pendiente || loading || cotizada !== rutaKey) return;
-    const op = visibles.find((o) => o.codigo === pendiente);
-    const p = op ? priceOf(op, modalidad, horas) : null;
-    const precio = isProvider ? p?.proveedor : p?.cliente;
+    if (!pendiente || loading || cotizada !== rutaKey || !catalogoListo) return;
+    const op = cards.find((o) => o.codigo === pendiente);
     setPendiente(null);
-    if (op && precio != null) commit(op);
+    if (op) commit(op);
     else clearSeleccion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendiente, loading, cotizada, rutaKey, opciones]);
+  }, [pendiente, loading, cotizada, rutaKey, opciones, catalogoListo]);
 
   const setRuta = (patch: Partial<NonNullable<typeof t.tarifa>>) => {
     const ruta = { ...t.tarifa, ...patch };
     // Ruta incompleta (todavía sin destinos cargados): no hay contra qué
-    // recotizar, se limpia.
+    // cotizar, así que se cae el precio. La categoría elegida se mantiene: sin
+    // tarifa el servicio queda "a cotizar por el proveedor".
     if (!ruta.origen || !ruta.destino) {
       setPendiente(null);
-      clearSeleccion({ tarifa: { ...ruta, categoria: undefined, tarifaId: undefined } });
+      clearPrecio({ tarifa: { ...ruta, tarifaId: undefined } });
       return;
     }
     // Al cambiar la ruta cambia el precio, pero NO la categoría elegida: la
@@ -288,7 +370,8 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         {modalidad === "horas"
           ? `Horas a disposición: la tarifa es el valor de la hora, y la card muestra el total por las ${horas} hs.`
           : ""}{" "}
-        Elegí la categoría de vehículo. Montos en dólares (u$s).
+        Elegí la categoría de vehículo. Montos en dólares (u$s). Las categorías sin tarifa para
+        la ruta se pueden elegir igual: quedan a cotizar por el proveedor.
       </p>
 
       {errs.cat && !t.cat && (
@@ -297,62 +380,70 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         </div>
       )}
 
+      {/* Estado de la cotización. Nunca reemplaza a las cards: la categoría se
+          elige igual, con tarifa o sin ella. Que la ruta no tenga tarifa no se
+          avisa acá: cada card ya dice "Servicio a cotizar por el proveedor". */}
       {!origen || !destino ? (
         <div className={styles.catNoPrice}>
           Cargá el origen y el destino en el paso Destinos para ver las tarifas.
         </div>
       ) : loading ? (
         <div className={styles.catNoPrice}>Cargando tarifas…</div>
-      ) : !visibles.length ? (
-        <div className={styles.catNoPrice}>
-          {detalle || "No hay tarifas vigentes para esa ruta."}
+      ) : errorRuta ? (
+        <div className={styles.catNoPrice} style={{ color: "var(--danger-fg)" }}>
+          No se pudieron cargar las tarifas de la ruta.
         </div>
-      ) : (
-        <div className={styles.catGrid}>
-          {visibles.map((op) => {
-            const p = priceOf(op, modalidad, horas);
-            const shown = isProvider ? p.proveedor : p.cliente;
-            // Precio unitario de la tarifa (por hora en "horas a disposición"),
-            // para que se entienda de dónde sale el total de la card.
-            const unit = isProvider ? op.precioProveedor : op.precioCliente;
-            // Con backend real la selección es la tarifa concreta (dos
-            // proveedores pueden ofrecer la misma categoría); sin él, la categoría.
-            const selected =
-              op.tarifaId != null ? op.tarifaId === tarifaId : t.tarifa?.categoria === op.codigo;
-            const disabled = shown == null;
-            return (
-              <button
-                type="button"
-                key={op.tarifaId ?? `${op.proveedorId}-${op.codigo}`}
-                disabled={disabled}
-                className={cx(
-                  styles.catCard,
-                  selected && styles.catCardActive,
-                  disabled && styles.catCardDisabled,
-                )}
-                onClick={() => commit(op)}
-              >
-                <span className={cx(styles.catRadio, selected && styles.catRadioOn)} />
-                {shown != null ? (
-                  <>
-                    <span className={styles.catPrice}>{shown}</span>
-                    <span className={styles.catCurrency}>{op.moneda}</span>
-                    <span className={styles.catPeajes}>
-                      {modalidad === "horas"
-                        ? `(${horas} hs × ${unit})`
-                        : "(Incluye peajes)"}
-                    </span>
-                  </>
-                ) : (
-                  <span className={styles.catNoPrice}>Sin tarifa</span>
-                )}
-                <span className={styles.catName}>{op.nombre}</span>
-                <span className={styles.catVehiculo}>
-                  {showProveedorEnCard ? op.proveedorNombre : op.vehiculo}
-                </span>
-              </button>
-            );
-          })}
+      ) : null}
+
+      <div className={styles.catGrid}>
+        {cards.map((op) => {
+          const p = priceOf(op, modalidad, horas);
+          const shown = isProvider ? p.proveedor : p.cliente;
+          // Precio unitario de la tarifa (por hora en "horas a disposición"),
+          // para que se entienda de dónde sale el total de la card.
+          const unit = isProvider ? op.precioProveedor : op.precioCliente;
+          // Con backend real la selección es la tarifa concreta (dos proveedores
+          // pueden ofrecer la misma categoría); una categoría elegida sin tarifa
+          // no tiene id, así que se la reconoce por su código.
+          const selected =
+            t.tarifa?.categoria === op.codigo &&
+            (tarifaId == null || op.tarifaId == null || op.tarifaId === tarifaId);
+          return (
+            <button
+              type="button"
+              key={op.tarifaId ?? `${op.proveedorId}-${op.codigo}`}
+              className={cx(
+                styles.catCard,
+                selected && styles.catCardActive,
+                shown == null && styles.catCardSinTarifa,
+              )}
+              onClick={() => commit(op)}
+            >
+              <span className={cx(styles.catRadio, selected && styles.catRadioOn)} />
+              {shown != null ? (
+                <>
+                  <span className={styles.catPrice}>{shown}</span>
+                  <span className={styles.catCurrency}>{op.moneda}</span>
+                  <span className={styles.catPeajes}>
+                    {modalidad === "horas" ? `(${horas} hs × ${unit})` : "(Incluye peajes)"}
+                  </span>
+                </>
+              ) : (
+                <span className={styles.catACotizar}>Servicio a cotizar por el proveedor</span>
+              )}
+              <span className={styles.catName}>{op.nombre}</span>
+              <span className={styles.catVehiculo}>
+                {showProveedorEnCard && op.proveedorNombre ? op.proveedorNombre : op.vehiculo}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {elegidaSinTarifa && (
+        <div className={styles.catNoPrice}>
+          {elegida?.nombre}: servicio a cotizar por el proveedor. El viaje se guarda con el costo
+          en cero y se carga en el paso Costos.
         </div>
       )}
     </>

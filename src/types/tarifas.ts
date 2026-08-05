@@ -55,20 +55,20 @@ export type TarifaBaseInput = Omit<TarifaBase, "id">;
 // Set de tarifas de EXTRAS. El deck aclara "solo puede existir un set por
 // proveedor": es un único registro POR PROVEEDOR (clave `proveedorId`).
 //
-// ⚠️ MITAD Y MITAD contra el backend: los `*Proveedor` son reales (salen del
-// propio proveedor, /tarifarios/proveedores/{id}/) y los `*Cliente` NO existen
-// allá — se guardan en localStorage. api/client.ts (getTarifasExtras) devuelve
-// el set combinado.
+// Las dos columnas viven en el proveedor del backend
+// (/tarifarios/proveedores/{id}/): `valor_*` es lo que cobra el proveedor y
+// `valor_*_cliente` lo que se le factura al cliente (NUNCA visible para el rol
+// proveedor). Ver api/tarifasCrud.ts.
 export interface TarifaExtras {
   proveedorId: string;
   // OJO: por MINUTO acá; el backend lo guarda por HORA (`valor_espera`). La
   // conversión está en MINUTOS_POR_HORA, en api/tarifasCrud.ts.
   esperaProveedor: number; // USD por minuto
-  esperaCliente: number; // ⚠️ mock
+  esperaCliente: number; // USD por minuto
   horaDispoProveedor: number; // USD por hora de disponibilidad
-  horaDispoCliente: number; // ⚠️ mock
+  horaDispoCliente: number;
   kmProveedor: number; // USD por km adicional
-  kmCliente: number; // ⚠️ mock
+  kmCliente: number;
 }
 
 // ── Tarifario de CLIENTE ─────────────────────────────────────────────────────

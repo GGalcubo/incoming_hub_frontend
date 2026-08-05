@@ -105,10 +105,23 @@ export interface TripTarifa {
   horas?: number;
 }
 
+// Un campo que cambió dentro de una entrada del historial. `from` queda vacío en
+// un alta y `to` en una baja.
+export interface HistoryChange {
+  field: string;
+  from: string;
+  to: string;
+}
+
 export interface HistoryEntry {
+  // Fecha y hora ya formateadas para mostrar (el historial no se ordena ni se
+  // filtra en el front: viene armado del backend, del más reciente al más viejo).
   ts: string;
   user: string;
   action: string;
+  // Diff del cambio. Solo lo trae el historial real del backend; el del seed
+  // (modo demo) no tiene detalle.
+  changes?: HistoryChange[];
 }
 
 export interface Trip {

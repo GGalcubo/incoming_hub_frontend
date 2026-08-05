@@ -103,8 +103,8 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
 
   // Tarifa de extras del proveedor del viaje (valor por minuto de espera); si
   // todavía no tiene proveedor, las del tarifario general. Sin ella no se puede
-  // calcular la espera. El valor del proveedor sale del backend; el del cliente
-  // sigue siendo local (ver api/client.ts, getTarifasExtras).
+  // calcular la espera. Los dos valores (proveedor y cliente) salen del backend
+  // (ver api/client.ts, getTarifasExtras).
   useEffect(() => {
     let active = true;
     api

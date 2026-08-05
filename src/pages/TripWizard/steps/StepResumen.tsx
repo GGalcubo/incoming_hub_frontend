@@ -26,6 +26,8 @@ export function StepResumen({ t }: { t: Trip }) {
   // Detalle de la categoría elegida en el paso Tarifa: ruta tarifada y modalidad
   // (en "horas a disposición" el precio depende de las horas, así que se muestran).
   const tar = t.tarifa;
+  // Una categoría elegida sin tarifa para la ruta se guarda igual, con el costo
+  // en cero: se avisa acá para que nadie confirme el viaje creyéndolo cotizado.
   const catMeta = [
     tar?.origen && tar?.destino ? `${tar.origen} → ${tar.destino}` : "",
     tar?.modalidad === "horas"
@@ -33,6 +35,7 @@ export function StepResumen({ t }: { t: Trip }) {
       : tar?.categoria
         ? "Traslado"
         : "",
+    t.cat && !t.costs.viaje ? "Servicio a cotizar por el proveedor" : "",
   ]
     .filter(Boolean)
     .join(" · ");

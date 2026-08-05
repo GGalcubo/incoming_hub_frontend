@@ -24,15 +24,15 @@ llegan al servidor**. Cada una está avisada en pantalla con el componente
 
 | Qué | Dónde vive | Vista que lo avisa |
 | --- | --- | --- |
-| Extras **del cliente** (espera / hora a disposición / km) | `localStorage`, ver [`api/tarifas.ts`](../src/api/tarifas.ts) | Tarifas Proveedor → solapa *Extras*, columna Cliente |
 | Extras **por cliente** (set completo) | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras* |
-| Valor/minuto de espera **del cliente** en el viaje | sale del set local de arriba | Costos del viaje |
-| Historial de modificaciones | el backend lo guarda y lo expone en `GET /viajes/{id}/historial/`, pero el front nunca lo pide: `viajeToTrip` arma el viaje con `history: []` | Viaje → paso *Historial* |
 | Cambio de contraseña | no hay endpoint; los campos están deshabilitados | Settings de usuario |
 
-El backend modela los extras **del proveedor** (`valor_espera`,
-`valor_hora_dispo`, `valor_km_adicional`), pero no tiene equivalente de lo que se
-le factura al cliente: por eso los extras quedaron partidos al medio.
+Los extras del proveedor ya **no** están partidos al medio: el backend agregó la
+columna cliente (`valor_espera_cliente`, `valor_hora_dispo_cliente`,
+`valor_km_adicional_cliente`), así que las dos columnas de *Tarifas Proveedor →
+Extras* —y el valor/minuto de espera del cliente en los costos del viaje— salen
+del servidor. Lo que sigue sin equivalente es un set de extras **por agencia**
+(*Tarifas Cliente*).
 
 ⚠️ **Sin confirmar:** el front asume que `valor_espera` viene **por hora** y lo
 pasa a minutos con `MINUTOS_POR_HORA` en `api/tarifasCrud.ts`. Si el backend la
@@ -49,8 +49,13 @@ del proveedor se cobra 60 veces más barato de lo que corresponde.
 - Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`).
   Lo único que se pierde contra el backend es la chapita de rol del autor, que
   el servidor no expone.
-- Extras del proveedor (espera, hora a disposición y km) y el catálogo de
-  proveedores (`/tarifarios/proveedores/`).
+- Historial del viaje (`/viajes/{id}/historial/`): auditoría agregada del viaje y
+  de sus tramos, pasajeros, costos y comentarios, con el diff de cada cambio. El
+  autor viene como **ID**, así que el nombre se resuelve contra `/solicitantes/`
+  (si el rol no puede listarlo, queda como “Usuario #id”).
+- Extras del proveedor (espera, hora a disposición y km), en sus **dos**
+  columnas (proveedor y cliente), y el catálogo de proveedores
+  (`/tarifarios/proveedores/`).
 - Costos del viaje: la base sale del tarifario del tramo (la calcula el servidor
   y es de solo lectura) y los rubros manuales se persisten por columna.
 - Pasajeros (`/personas/`): paginación, búsqueda y filtro por agencia, todo

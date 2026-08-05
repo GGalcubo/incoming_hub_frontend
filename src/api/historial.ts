@@ -1,0 +1,234 @@
+// Historial / auditoría de un viaje (GET /viajes/{id}/historial/) traducido al
+// modelo del front (`HistoryEntry`).
+//
+// El backend devuelve un renglón por cambio, del más reciente al más antiguo,
+// con el modelo tocado (viaje, tramo, pasajero, costo, comentario), la acción
+// (insert/update/delete) y el diff campo por campo. Acá se le pone nombre en
+// castellano a todo eso: los nombres crudos del modelo de datos no se le
+// muestran a un operador.
+
+import type { HistorialEntrada } from "./backend";
+import { fetchAll } from "./http";
+import type { HistoryChange, HistoryEntry } from "../types/domain";
+
+// ── Usuarios ─────────────────────────────────────────────────────────────────
+// La entrada del historial trae el ID del autor, no su nombre, así que hay que
+// resolverlo contra el padrón (/solicitantes/ devuelve Users). Se cachea por
+// sesión; si el rol logueado no tiene permiso para listarlo, el catálogo queda
+// vacío y cada autor se muestra como "Usuario #id" (mejor eso que romper la
+// pantalla por un 403).
+interface UsuarioMin {
+  id: number;
+  username: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+let usuariosPromise: Promise<Map<number, string>> | null = null;
+
+function loadUsuarios(): Promise<Map<number, string>> {
+  if (!usuariosPromise) {
+    usuariosPromise = fetchAll<UsuarioMin>("/solicitantes/")
+      .then((us) => new Map(us.map((u) => [u.id, nombreDeUsuario(u)])))
+      .catch(() => new Map<number, string>());
+  }
+  return usuariosPromise;
+}
+
+function nombreDeUsuario(u: UsuarioMin): string {
+  return `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim() || u.username;
+}
+
+// ── Etiquetas ────────────────────────────────────────────────────────────────
+// De qué objeto del viaje habla la entrada. La clave es el nombre del modelo
+// normalizado (sin app, sin guiones bajos, en minúscula): no sabemos con qué
+// forma exacta lo manda el backend, así que se aceptan las variantes probables y
+// lo desconocido se muestra tal cual vino.
+const MODELO_LABEL: Record<string, string> = {
+  viaje: "viaje",
+  tramo: "tramo",
+  pasajero: "pasajero",
+  pasajeroviaje: "pasajero",
+  viajepasajero: "pasajero",
+  persona: "pasajero",
+  costo: "costos",
+  costoviaje: "costos",
+  comentario: "comentario",
+  comentariocosto: "comentario",
+};
+
+const ACCION_LABEL: Record<string, string> = {
+  insert: "Alta",
+  create: "Alta",
+  created: "Alta",
+  update: "Modificación",
+  updated: "Modificación",
+  delete: "Baja",
+  deleted: "Baja",
+};
+
+// Nombres de campo del backend → etiqueta de pantalla. Cubre los campos del
+// viaje, del tramo y del costo; lo que no esté se muestra prolijado
+// ("hora_servicio" → "Hora servicio").
+const CAMPO_LABEL: Record<string, string> = {
+  // Viaje
+  numero_viaje: "Nº de viaje",
+  referencia_externa: "Referencia",
+  agencia: "Agencia",
+  solicitante: "Solicitante",
+  categoria_servicio: "Categoría",
+  proveedor: "Proveedor",
+  estado: "Estado",
+  fecha_servicio: "Fecha del servicio",
+  hora_servicio: "Hora del servicio",
+  tipo_servicio: "Tipo de servicio",
+  cantidad_pasajeros: "Cantidad de pasajeros",
+  cantidad_valijas: "Valijas",
+  observaciones: "Observaciones",
+  observaciones_chofer: "Observaciones del chofer",
+  datos_vuelo: "Datos de vuelo",
+  unidad_asignada: "Unidad asignada",
+  puede_modificar: "Se puede modificar",
+  horas_minimas_cancelacion: "Horas mínimas de cancelación",
+  sincronizado_central: "Sincronizado con central",
+  fecha_sincronizacion: "Fecha de sincronización",
+  error_sincronizacion: "Error de sincronización",
+  creado_por: "Creado por",
+  modificado_por: "Modificado por",
+  // Tramo
+  numero_tramo: "Nº de tramo",
+  origen_direccion: "Origen",
+  origen_lugar_nombre: "Origen (lugar)",
+  origen_latitud: "Latitud de origen",
+  origen_longitud: "Longitud de origen",
+  origen_es_aeropuerto: "Origen es aeropuerto",
+  origen_iata: "IATA de origen",
+  destino_direccion: "Destino",
+  destino_lugar_nombre: "Destino (lugar)",
+  destino_latitud: "Latitud de destino",
+  destino_longitud: "Longitud de destino",
+  destino_es_aeropuerto: "Destino es aeropuerto",
+  destino_iata: "IATA de destino",
+  distancia_km: "Distancia (km)",
+  duracion_estimada_minutos: "Duración estimada (min)",
+  tarifa: "Tarifa",
+  // Costos
+  costo_viaje_proveedor: "Viaje (proveedor)",
+  costo_espera_proveedor: "Espera (proveedor)",
+  costo_peajes_proveedor: "Peajes (proveedor)",
+  costo_estacionamiento_proveedor: "Estacionamiento (proveedor)",
+  costo_otros_proveedor: "Otros (proveedor)",
+  costo_total_proveedor: "Total (proveedor)",
+  moneda_proveedor: "Moneda (proveedor)",
+  costo_viaje_cliente: "Viaje (cliente)",
+  costo_espera_cliente: "Espera (cliente)",
+  costo_peajes_cliente: "Peajes (cliente)",
+  costo_estacionamiento_cliente: "Estacionamiento (cliente)",
+  costo_otros_cliente: "Otros (cliente)",
+  costo_total_cliente: "Total (cliente)",
+  moneda_cliente: "Moneda (cliente)",
+  horas_disponibles: "Horas a disposición",
+  // Pasajeros / comentarios
+  persona: "Pasajero",
+  nombre: "Nombre",
+  telefono: "Teléfono",
+  dni: "DNI",
+  email: "Email",
+  es_principal: "Pasajero principal",
+  texto: "Texto",
+  autor: "Autor",
+};
+
+// Campos que no aportan nada al leer el historial: la clave primaria, el FK al
+// propio viaje y las marcas de tiempo que cambian en TODA modificación.
+const CAMPOS_OCULTOS = new Set(["id", "viaje", "created_at", "updated_at"]);
+
+function normalizar(s: string): string {
+  return s.split(".").pop()!.replace(/[_\s-]/g, "").toLowerCase();
+}
+
+function campoLabel(campo: string): string {
+  const label = CAMPO_LABEL[campo];
+  if (label) return label;
+  const limpio = campo.replace(/_/g, " ");
+  return limpio.charAt(0).toUpperCase() + limpio.slice(1);
+}
+
+function accionLabel(entrada: HistorialEntrada): string {
+  const modelo = MODELO_LABEL[normalizar(entrada.modelo)] ?? entrada.modelo;
+  const accion = ACCION_LABEL[entrada.accion.toLowerCase()];
+  if (!accion) {
+    // Acción desconocida: se muestra cruda antes que inventarle un nombre.
+    return `${entrada.accion} · ${modelo}`;
+  }
+  return `${accion} de ${modelo}`;
+}
+
+// Valor de un campo listo para mostrar. El backend manda JSON crudo (números,
+// booleanos, nulls, ids de FK), no texto.
+function valorLabel(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Sí" : "No";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+}
+
+// `cambios` es `{ campo: [antes, después] }`. En el alta y en la baja el valor
+// puede venir solo (sin par): ahí queda como "después" si es un alta y como
+// "antes" si es una baja.
+function toChanges(entrada: HistorialEntrada): HistoryChange[] {
+  const esBaja = normalizar(entrada.accion) === "delete";
+  const out: HistoryChange[] = [];
+  for (const [campo, valor] of Object.entries(entrada.cambios ?? {})) {
+    if (CAMPOS_OCULTOS.has(campo)) continue;
+    const par = Array.isArray(valor);
+    const antes = par ? valor[0] : esBaja ? valor : null;
+    const despues = par ? valor[1] : esBaja ? null : valor;
+    // Un "cambio" que no cambió nada (mismo antes y después) es ruido.
+    if (valorLabel(antes) === valorLabel(despues)) continue;
+    out.push({ field: campoLabel(campo), from: valorLabel(antes), to: valorLabel(despues) });
+  }
+  return out;
+}
+
+function fmtFecha(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+// Exportada para poder testear la traducción sin tocar la red.
+export function entradaToHistoryEntry(
+  e: HistorialEntrada,
+  usuarios: Map<number, string>,
+): HistoryEntry {
+  // Sin usuario: el cambio no vino de un request (import, tarea programada o
+  // consola del backend).
+  const user =
+    e.usuario == null
+      ? "Sistema"
+      : (usuarios.get(e.usuario) ?? `Usuario #${e.usuario}`);
+  const changes = toChanges(e);
+  return {
+    ts: fmtFecha(e.fecha),
+    user,
+    action: accionLabel(e),
+    ...(changes.length ? { changes } : {}),
+  };
+}
+
+// Historial completo del viaje, ya ordenado por el backend (del más reciente al
+// más antiguo). Un viaje fuera del scope del usuario da 404, igual que su detalle.
+export async function listHistorial(viajeId: string | number): Promise<HistoryEntry[]> {
+  const [entradas, usuarios] = await Promise.all([
+    fetchAll<HistorialEntrada>(`/viajes/${viajeId}/historial/`),
+    loadUsuarios(),
+  ]);
+  return entradas.map((e) => entradaToHistoryEntry(e, usuarios));
+}

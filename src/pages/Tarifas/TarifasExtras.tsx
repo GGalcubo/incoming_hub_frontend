@@ -10,12 +10,15 @@ import type { UseMe } from "../../hooks/useMe";
 import type { TarifaExtras } from "../../types/tarifas";
 import styles from "./Tarifas.module.css";
 
+// Los montos del set (todo menos el dueño): las claves editables del form.
+type MontoKey = Exclude<keyof TarifaExtras, "proveedorId">;
+
 // Cada fila del form: una unidad (espera/hora/km) con su valor proveedor y cliente.
 interface ExtraRow {
   label: string;
   unit: string;
-  provKey: keyof TarifaExtras;
-  cliKey: keyof TarifaExtras;
+  provKey: MontoKey;
+  cliKey: MontoKey;
 }
 
 const ROWS: ExtraRow[] = [
@@ -73,21 +76,24 @@ export function TarifasExtras({ me }: { me: UseMe }) {
     return <div className={styles.empty}>Cargando extras…</div>;
   }
 
-  const set = (key: keyof TarifaExtras, value: number) =>
-    setForm((f) => (f ? { ...f, [key]: value } : f));
+  const set = (key: MontoKey, value: number) => setForm((f) => (f ? { ...f, [key]: value } : f));
+
+  // Se manda SOLO lo que este usuario puede editar: así un proveedor nunca toca
+  // los valores cliente (que ni ve) y el PATCH deja lo demás como estaba.
+  const patchEditable = (f: TarifaExtras): Partial<TarifaExtras> => {
+    const patch: Partial<TarifaExtras> = { proveedorId: f.proveedorId };
+    for (const r of ROWS) {
+      if (showProveedor && canEdit) patch[r.provKey] = f[r.provKey];
+      if (showCliente && isAdmin) patch[r.cliKey] = f[r.cliKey];
+    }
+    return patch;
+  };
 
   return (
     <div className={styles.formCard}>
-      {/* Los valores del PROVEEDOR ya son reales (se guardan en el proveedor);
-          la columna Cliente no existe en el backend y sigue siendo local. */}
-      {HAS_BACKEND ? (
-        showCliente && (
-          <AvisoMock>
-            La columna <b>Cliente</b> todavía no existe en el backend: esos valores se guardan
-            solo en este navegador. Los del proveedor sí se guardan en el servidor.
-          </AvisoMock>
-        )
-      ) : (
+      {/* Las dos columnas son reales: se guardan en el proveedor (`valor_*` y
+          `valor_*_cliente`). Solo queda el aviso del modo sin backend. */}
+      {!HAS_BACKEND && (
         <AvisoMock>
           Sin backend configurado, los extras se guardan solo en este navegador y no los ve el
           resto del equipo.
@@ -127,7 +133,7 @@ export function TarifasExtras({ me }: { me: UseMe }) {
                 min={0}
                 step="0.01"
                 disabled={!canEdit}
-                value={(form[r.provKey] as number) || ""}
+                value={form[r.provKey] || ""}
                 onChange={(e) => set(r.provKey, Number(e.target.value))}
               />
             </Field>
@@ -139,7 +145,7 @@ export function TarifasExtras({ me }: { me: UseMe }) {
                 min={0}
                 step="0.01"
                 disabled={!isAdmin}
-                value={(form[r.cliKey] as number) || ""}
+                value={form[r.cliKey] || ""}
                 onChange={(e) => set(r.cliKey, Number(e.target.value))}
               />
             </Field>
@@ -153,7 +159,7 @@ export function TarifasExtras({ me }: { me: UseMe }) {
             kind="primary"
             icon="check"
             disabled={saveMut.isPending}
-            onClick={() => saveMut.mutate(form)}
+            onClick={() => saveMut.mutate(patchEditable(form))}
           >
             Guardar cambios
           </Button>
