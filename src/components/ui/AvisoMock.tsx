@@ -6,9 +6,9 @@ import styles from "./AvisoMock.module.css";
 //   "demo"      → el dato existe y se puede editar, pero no persiste en el
 //                 backend: vive en localStorage y se pierde al cambiar de
 //                 navegador o de máquina (los extras del lado cliente).
-//   "pendiente" → la funcionalidad no existe todavía, o el front no la usa: no
-//                 hay dato que mostrar ni nada que se pierda (historial,
-//                 cambio de contraseña).
+//   "pendiente" → la funcionalidad no existe todavía en el backend: lo que se
+//                 cargue no llega a ningún lado (el valor del viaje editado a
+//                 mano, que el servidor no acepta).
 //
 // El inventario completo de qué es real y qué no está en docs/mock-status.md.
 export type TonoAviso = "demo" | "pendiente";

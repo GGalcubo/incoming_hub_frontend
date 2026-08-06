@@ -65,6 +65,12 @@ export interface TripCosts {
   // Costo del proveedor para el tramo base (u$s). Se guarda aparte de `viaje`
   // (que es el precio al cliente) para no exponerlo nunca al cliente.
   tarifaProveedor?: number;
+  // El monto base (`viaje`/`tarifaProveedor`) lo escribió una persona en el paso
+  // Costos, no la cotización. Mientras esté en true, el paso Cotización NO lo
+  // pisa con el precio del tarifario: solo vuelve a calcularlo si se elige una
+  // categoría (que es cambiar de tarifa a propósito). Es de sesión: no se
+  // persiste, así que al reabrir el viaje el monto guardado es el que manda.
+  viajeManual?: boolean;
   // Extras del lado PROVEEDOR: lo que el proveedor cobra por cada rubro, contra
   // los campos de arriba (`peajes`, `estacionamiento`, `otros`), que son lo que
   // se le factura al cliente. Van en columnas separadas porque cada rol ve (y

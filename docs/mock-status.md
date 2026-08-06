@@ -25,7 +25,7 @@ llegan al servidor**. Cada una está avisada en pantalla con el componente
 | Qué | Dónde vive | Vista que lo avisa |
 | --- | --- | --- |
 | Extras **por cliente** (set completo) | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras*, hoy **oculta** (ver abajo) |
-| Cambio de contraseña | no hay endpoint; los campos están deshabilitados | Settings de usuario |
+| Valor del **viaje** corregido a mano | solo en memoria: el PATCH lo manda pero el backend lo ignora | Viaje → paso *Costos* |
 
 Los extras del proveedor ya **no** están partidos al medio: el backend agregó la
 columna cliente (`valor_espera_cliente`, `valor_hora_dispo_cliente`,
@@ -41,18 +41,29 @@ tabla ya le muestra al admin las dos columnas. El código sigue en
 ella queda escondido el único acceso a los extras por agencia de la tabla de
 arriba.
 
-⚠️ **Sin confirmar:** el front asume que `valor_espera` viene **por hora** y lo
-pasa a minutos con `MINUTOS_POR_HORA` en `api/tarifasCrud.ts`. Si el backend la
-guarda por minuto, hay que poner esa constante en 1 — mientras tanto, la espera
-del proveedor se cobra 60 veces más barato de lo que corresponde.
+El valor del **viaje** (la base del costo) se puede corregir a mano en el paso
+Costos, que es la única forma de ponerle precio a un viaje cuya ruta no cotiza.
+El monto se manda en el PATCH pero el backend lo ignora: la base la deriva del
+tarifario del tramo. La pantalla lo avisa. Ver el detalle y el pedido pendiente en
+[`api-endpoints.md`](./api-endpoints.md#costos-del-viaje).
+
+✅ **Confirmado (05/08/2026, contra `/api/schema/`):** `valor_espera` y
+`valor_espera_cliente` son **por hora** ("Valor por hora de espera del
+proveedor"), así que la conversión `MINUTOS_POR_HORA` de `api/tarifasCrud.ts` es
+correcta y no hay que tocar nada.
 
 ## 2. Real cuando hay backend
 
-- Login y sesión (JWT, refresh, `/auth/me/`), y edición del perfil (nombre,
-  apellido, email).
+- Login y sesión (JWT, refresh, `/auth/me/`), edición del perfil (nombre,
+  apellido, email) y **cambio de contraseña**
+  (`POST /auth/change-password/`, pide la actual, mínimo 8 caracteres). La sesión
+  no se corta: los tokens que ya tiene el navegador siguen valiendo.
 - Viajes: alta, edición por pestaña, cambio de estado, cancelación y baja, con
   sus tramos y pasajeros anidados. La lista viene **recortada por rol** desde el
-  servidor (el front ya no filtra).
+  servidor (el front ya no filtra), **filtrada por día** (`fecha_servicio`) y
+  **paginada**: se pide una página por vez y el paginador usa el `count`/`next`
+  de DRF. Los contadores de "hoy / mañana" del encabezado son dos consultas
+  aparte, porque son de otros días.
 - Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`).
   Lo único que se pierde contra el backend es la chapita de rol del autor, que
   el servidor no expone.
@@ -63,8 +74,10 @@ del proveedor se cobra 60 veces más barato de lo que corresponde.
 - Extras del proveedor (espera, hora a disposición y km), en sus **dos**
   columnas (proveedor y cliente), y el catálogo de proveedores
   (`/tarifarios/proveedores/`).
-- Costos del viaje: la base sale del tarifario del tramo (la calcula el servidor
-  y es de solo lectura) y los rubros manuales se persisten por columna.
+- Costos del viaje: los rubros manuales se persisten por columna. La base sale
+  del tarifario del tramo (la calcula el servidor), y si se la corrige a mano el
+  monto viaja en el PATCH — falta confirmar que el backend acepte escribir
+  `costo_viaje_*`, ver [`api-endpoints.md`](./api-endpoints.md).
 - Pasajeros (`/personas/`): paginación, búsqueda y filtro por agencia, todo
   server-side.
 - Catálogos: agencias, categorías de servicio y solicitantes.
@@ -72,12 +85,13 @@ del proveedor se cobra 60 veces más barato de lo que corresponde.
   `/tarifarios/tarifas/`, con el scoping por proveedor hecho en el servidor. Es
   **una sola** tarifa por (proveedor, ruta, categoría) con los dos precios
   adentro, y al admin se le muestran las dos columnas en la misma tabla: por eso
-  *Tarifas Cliente* salió de la nav (la pantalla sigue en `/tarifas/cliente`).
+  *Tarifas Cliente* quedó oculta (la ruta redirige acá).
 - Cotización de la ruta en el wizard: zonas y tarifas vigentes del servidor.
 - Asignación viaje → proveedor: viene con el viaje (`viaje.proveedor`).
 - Carga por Excel: el parseo y la validación corren en el navegador (SheetJS) y
-  después reusan el mismo `POST /viajes/` que el wizard. No hay endpoint de
-  Excel en el backend, y no hace falta.
+  el alta va en lote por `POST /viajes/bulk/` — una sola llamada, **todo o
+  nada**, con los errores devueltos fila por fila. No hay endpoint de Excel en el
+  backend, y no hace falta.
 
 ## 3. Mock solo sin backend (`VITE_API_URL` vacío)
 
@@ -109,5 +123,6 @@ backend ya publica:
   esconde una. Si la regla es dura, el recorte va del lado del servidor.
 - **Unidad asignada.** La columna se muestra en la lista pero no se edita en
   ninguna pantalla; el campo (`unidad_asignada`) existe en el backend.
-- **Paginador de la lista de viajes.** Está fijo en “1 / 1”: la lista se trae
-  entera y filtra por fecha en el cliente.
+- **Estado y búsqueda de la lista de viajes.** Filtran solo la página cargada. El
+  backend los soporta (`estado__codigo`, `search`, `ordering`), pero mandarlos al
+  servidor depende de migrar antes el mapeo de estados.

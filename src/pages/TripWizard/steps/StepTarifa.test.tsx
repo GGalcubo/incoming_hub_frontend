@@ -306,6 +306,70 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
     expect(seen.trip.tarifa?.horas).toBe(5);
   });
 
+  // El monto base se puede escribir a mano en el paso Costos (es la única forma
+  // de ponerle precio a un viaje que la ruta no cotiza). Desde ahí la cotización
+  // no lo recalcula sola: solo vuelve a hacerlo si se elige una categoría.
+  describe("monto cargado a mano", () => {
+    const TRIP_MANUAL: Trip = {
+      ...TRIP_CON_TARIFA,
+      costs: { ...TRIP_CON_TARIFA.costs, viaje: 500, total: 510, viajeManual: true },
+    };
+
+    it("recotizar por cambio de ruta no lo pisa, pero sí actualiza la tarifa", async () => {
+      cotizarRuta.mockImplementation((_origen: string, destino: string) =>
+        Promise.resolve({
+          proveedores: [{ id: "p1", nombre: "Prov 1" }],
+          opciones:
+            destino === "CENTRO"
+              ? [op({ tarifaId: 1, precioCliente: 100, precioProveedor: 70 })]
+              : [op({ tarifaId: 2, precioCliente: 150, precioProveedor: 90 })],
+          detalle: "",
+        }),
+      );
+      const seen = setup(TRIP_MANUAL);
+      await waitFor(() => expect(cotizarRuta).toHaveBeenCalled());
+
+      await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
+
+      await waitFor(() => expect(seen.trip.tarifa?.tarifaId).toBe(2));
+      expect(seen.trip.costs.viaje).toBe(500);
+      expect(seen.trip.costs.viajeManual).toBe(true);
+    });
+
+    it("elegir una categoría vuelve a tomar el precio del tarifario", async () => {
+      cotizarRuta.mockResolvedValue({
+        proveedores: [{ id: "p1", nombre: "Prov 1" }],
+        opciones: [op({ tarifaId: 1, precioCliente: 100, precioProveedor: 70 })],
+        detalle: "",
+      });
+      const seen = setup(TRIP_MANUAL);
+      await screen.findByText("100");
+
+      await act(async () => {
+        screen.getByRole("button", { name: /Sedán/ }).click();
+      });
+
+      await waitFor(() => expect(seen.trip.costs.viaje).toBe(100));
+      expect(seen.trip.costs.tarifaProveedor).toBe(70);
+      expect(seen.trip.costs.viajeManual).toBe(false);
+    });
+
+    it("se conserva aunque la ruta se quede sin cotizar", async () => {
+      cotizarRuta.mockResolvedValue({
+        proveedores: [{ id: "p1", nombre: "Prov 1" }],
+        opciones: [op({ tarifaId: 1 })],
+        detalle: "",
+      });
+      const seen = setup(TRIP_MANUAL);
+      await waitFor(() => expect(cotizarRuta).toHaveBeenCalled());
+
+      await editarPrimerDestino(seen, { destination: "" });
+
+      await waitFor(() => expect(seen.trip.tarifa?.tarifaId).toBeUndefined());
+      expect(seen.trip.costs.viaje).toBe(500);
+    });
+  });
+
   it("no pisa la selección con las tarifas de la ruta anterior", async () => {
     // La cotización de la ruta vieja resuelve DESPUÉS que la de la nueva.
     const resolvers: Array<() => void> = [];

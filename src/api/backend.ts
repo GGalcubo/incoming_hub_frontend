@@ -145,10 +145,23 @@ export interface ComentarioCosto {
   updated_at: string;
 }
 
-// Ajustes manuales de los costos (PATCH /viajes/{id}/costos/). NO incluye la base
-// del tarifario (`costo_viaje_*`) ni los totales: los resuelve el backend. Si el
-// viaje todavía no tiene costo, el PATCH lo crea.
+// Ajustes manuales de los costos (PATCH /viajes/{id}/costos/). Los totales los
+// resuelve el backend y no se mandan. Si el viaje todavía no tiene costo, el
+// PATCH lo crea.
+//
+// La base (`costo_viaje_*`) la calcula el servidor con la tarifa del tramo. Se
+// manda igual cuando el usuario la escribió a mano en el paso Costos
+// (`TripCosts.viajeManual`), porque sin eso un viaje cuya ruta no cotiza no tiene
+// forma de tener precio.
+//
+// ⚠️ HOY NO LA GUARDA: el serializer del PATCH (`PatchedCostoViajeUpdate`) no
+// incluye esos campos y DRF los ignora en silencio —el propio schema dice "los
+// setea recalcular_costo_viaje"—, así que el monto se ve en pantalla y se pierde
+// al releer el viaje (la vista lo avisa). Se mandan igual para que el día que el
+// backend los acepte funcione sin tocar nada.
 export interface CostoViajePatch {
+  costo_viaje_proveedor?: string;
+  costo_viaje_cliente?: string;
   costo_espera_proveedor?: string;
   costo_peajes_proveedor?: string;
   costo_estacionamiento_proveedor?: string;
@@ -414,14 +427,24 @@ export interface MeProfile {
   proveedor?: ProveedorApi | null;
 }
 
-// Cuerpo editable del perfil (PATCH /auth/me/). El backend no expone endpoint
-// para cambiar contraseña ni permite editar el rol del propio usuario.
+// Cuerpo editable del perfil (PATCH /auth/me/). El rol no se edita desde acá; la
+// contraseña va por su propio endpoint (ver ChangePasswordWrite).
 export interface MeWrite {
   username?: string;
   email?: string;
   first_name?: string;
   last_name?: string;
   phone?: string;
+}
+
+// Cambio de contraseña del usuario logueado (POST /auth/change-password/). Pide
+// la contraseña actual; la nueva tiene un mínimo de 8 caracteres. Responde 200
+// sin cuerpo. Los tokens de la sesión NO se renuevan: siguen valiendo.
+export const PASSWORD_MIN_LEN = 8;
+
+export interface ChangePasswordWrite {
+  password_actual: string;
+  password_nueva: string;
 }
 
 // Cuerpo escribible de un tramo standalone (POST/PATCH /tramos/, usado al

@@ -22,8 +22,26 @@ describe("api (modo mock)", () => {
   it("listTrips devuelve una copia del seed", async () => {
     const a = await api.listTrips();
     const b = await api.listTrips();
-    expect(a.length).toBeGreaterThan(0);
-    expect(a).not.toBe(b); // copia, no la misma referencia
+    expect(a.trips.length).toBeGreaterThan(0);
+    expect(a.trips).not.toBe(b.trips); // copia, no la misma referencia
+  });
+
+  // La lista se pide por día y por página (contra el backend eso lo resuelve el
+  // servidor; acá, el mock).
+  it("listTrips pagina y filtra por fecha", async () => {
+    const todos = await api.listTrips();
+    expect(todos.page).toBe(1);
+    expect(todos.trips.length).toBeLessThanOrEqual(todos.count);
+    // Una página más allá del final viene vacía, pero el total no cambia.
+    const lejos = await api.listTrips({ page: todos.pages + 5 });
+    expect(lejos.trips).toHaveLength(0);
+    expect(lejos.count).toBe(todos.count);
+
+    const fecha = todos.trips[0]!.date;
+    const delDia = await api.listTrips({ date: fecha });
+    expect(delDia.trips.length).toBeGreaterThan(0);
+    expect(delDia.trips.every((t) => t.date === fecha)).toBe(true);
+    expect(delDia.count).toBe(await api.countTrips(fecha));
   });
 
   it("createTrip agrega un viaje con id e estado por defecto", async () => {
@@ -32,8 +50,8 @@ describe("api (modo mock)", () => {
     expect(created.id).toMatch(/^RX-/);
     expect(created.est).toBe("PENDIENTE");
     const after = await api.listTrips();
-    expect(after.length).toBe(before.length + 1);
-    expect(after[0].id).toBe(created.id);
+    expect(after.count).toBe(before.count + 1);
+    expect(after.trips[0].id).toBe(created.id);
   });
 
   it("cancelTrip marca el viaje como CANCELADO con el motivo", async () => {
@@ -66,6 +84,6 @@ describe("api (modo mock)", () => {
     expect(res.count).toBe(1);
     expect(res.errors).toHaveLength(0);
     const after = await api.listTrips();
-    expect(after.length).toBe(before.length + 1);
+    expect(after.count).toBe(before.count + 1);
   });
 });

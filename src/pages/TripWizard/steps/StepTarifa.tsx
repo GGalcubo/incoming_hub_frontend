@@ -217,14 +217,22 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   // proveedor (nunca se muestra al cliente). Con backend real estos montos son
   // una previsualización: la base definitiva la recalcula el servidor con la
   // tarifa del tramo.
+  //
+  // `elegida` distingue las dos formas de llegar acá. En true (clic en una card)
+  // el precio se recalcula siempre: elegir categoría ES pedir el precio de esa
+  // categoría, y deja de valer lo que se hubiera cargado a mano. En false son los
+  // recálculos automáticos (cambió la ruta, la modalidad o las horas), que
+  // respetan el monto que se escribió en el paso Costos.
   const commit = (
     op: TarifaOpcion,
     nextModalidad: "traslado" | "horas" = modalidad,
     nextHoras: number = horas,
+    elegida = false,
   ) => {
     const p = priceOf(op, nextModalidad, nextHoras);
-    const viaje = p.cliente ?? 0;
     const c = t.costs;
+    const conservarMonto = !!c.viajeManual && !elegida;
+    const viaje = conservarMonto ? c.viaje : (p.cliente ?? 0);
     set({
       cat: op.nombre,
       // Elegir la tarifa define el proveedor del viaje.
@@ -245,7 +253,9 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         moneda: op.moneda,
         // Se pisa SIEMPRE (también con null): al pasar de una categoría tarifada
         // a una sin tarifa, dejar el costo del proveedor anterior sería mentira.
-        tarifaProveedor: p.proveedor ?? undefined,
+        tarifaProveedor: conservarMonto ? c.tarifaProveedor : (p.proveedor ?? undefined),
+        // Elegir categoría devuelve el monto al tarifario: se va la marca de manual.
+        viajeManual: conservarMonto,
       },
     });
   };
@@ -258,7 +268,8 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   };
 
   // Deja el viaje sin categoría: solo cuando la elegida no existe ni siquiera en
-  // el catálogo (no hay nada que volver a marcar).
+  // el catálogo (no hay nada que volver a marcar). Sin categoría no hay viaje que
+  // valorizar, así que el monto se cae aunque estuviera cargado a mano.
   const clearSeleccion = (patch: Partial<Trip> = {}) => {
     const c = t.costs;
     set({
@@ -268,6 +279,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         ...c,
         viaje: 0,
         tarifaProveedor: undefined,
+        viajeManual: false,
         total: c.espera + c.peajes + c.estacionamiento + c.otros,
       },
       ...patch,
@@ -276,9 +288,15 @@ export function StepTarifa({ t, set, errs }: StepProps) {
 
   // Deja la categoría elegida pero sin precio ("a cotizar por el proveedor"): se
   // usa cuando ya no hay ruta contra la cual cotizar. La categoría es una
-  // decisión del usuario y no depende del tarifario, así que no se pierde.
+  // decisión del usuario y no depende del tarifario, así que no se pierde. El
+  // monto cargado a mano tampoco: es justo el caso para el que existe (viaje sin
+  // cotización, con el precio puesto en el paso Costos).
   const clearPrecio = (patch: Partial<Trip> = {}) => {
     const c = t.costs;
+    if (c.viajeManual) {
+      set({ tarifa: { ...t.tarifa, tarifaId: undefined }, ...patch });
+      return;
+    }
     set({
       tarifa: { ...t.tarifa, tarifaId: undefined },
       costs: {
@@ -417,7 +435,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
                 selected && styles.catCardActive,
                 shown == null && styles.catCardSinTarifa,
               )}
-              onClick={() => commit(op)}
+              onClick={() => commit(op, modalidad, horas, true)}
             >
               <span className={cx(styles.catRadio, selected && styles.catRadioOn)} />
               {shown != null ? (

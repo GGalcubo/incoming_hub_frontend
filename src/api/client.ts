@@ -1,4 +1,11 @@
-import type { MeProfile, MeWrite, Paginated, Persona, RoleEnum } from "./backend";
+import type {
+  ChangePasswordWrite,
+  MeProfile,
+  MeWrite,
+  Paginated,
+  Persona,
+  RoleEnum,
+} from "./backend";
 import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { AGENCIES, CATEGORIES, SEED_TRIPS } from "../data/seed";
 import { decodeJwt, mockJwt } from "../lib/jwt";
@@ -71,6 +78,10 @@ const USE_VIAJES_MOCK = !VIAJES_BASE;
 const USE_TARIFAS_MOCK = !VIAJES_BASE;
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+// Tamaño de página del mock. El backend real no publica el suyo (no hay
+// `page_size` en el schema): la lista se guía por `count`/`next` de DRF.
+const MOCK_PAGE_SIZE = 20;
 
 // Persistimos los viajes mock en localStorage para que sobrevivan a un refresh
 // del navegador. Sin esto, cada recarga reinicia al seed y "se pierde" lo guardado.
@@ -179,6 +190,15 @@ function withProveedor(t: Trip): Trip {
   return asignado ? { ...t, proveedorId: asignado } : t;
 }
 
+// Mock: los viajes que este usuario puede ver, opcionalmente los de un solo día.
+// Con backend real esto lo hace el servidor (recorte por rol + `fecha_servicio`).
+async function mockTripsVisibles(date?: string): Promise<Trip[]> {
+  const scope = proveedores.proveedorIdOf(await api.getMe().catch(() => null));
+  let out = mockTrips.map(withProveedor);
+  if (scope) out = out.filter((t) => t.proveedorId === scope);
+  return date ? out.filter((t) => t.date === date) : out;
+}
+
 function persistProveedor(t: Trip): Trip {
   if (!USE_VIAJES_MOCK) return t;
   proveedores.setAsignacion(t.id, t.proveedorId);
@@ -236,6 +256,22 @@ export const api = {
     });
   },
 
+  // Cambio de contraseña del usuario logueado. La sesión no se corta: los tokens
+  // que ya tiene el navegador siguen siendo válidos. Sin backend de auth no hay
+  // contraseña que cambiar (entra cualquiera), así que se simula.
+  async changePassword(actual: string, nueva: string): Promise<void> {
+    if (USE_AUTH_MOCK) {
+      await wait(250);
+      if (!actual) throw new Error("Ingresá tu contraseña actual.");
+      return;
+    }
+    const body: ChangePasswordWrite = { password_actual: actual, password_nueva: nueva };
+    await request<void>("/auth/change-password/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
   async listCategorias(): Promise<string[]> {
     if (USE_VIAJES_MOCK) {
       await wait(100);
@@ -277,19 +313,34 @@ export const api = {
     };
   },
 
-  // Lista de viajes ya con su proveedor.
+  // Una página de la lista de viajes, ya con su proveedor. El día y la página los
+  // resuelve el servidor (ver viajes.listTrips): la lista NO se trae entera.
   //
   // El BACKEND ya recorta por rol (admin: todos; agencia: los de su agencia;
   // proveedor: los suyos; sin agencia/proveedor asignado: ninguno), así que acá
   // no se filtra nada: hacerlo de nuevo vaciaba la lista del proveedor cuando su
   // perfil no traía el proveedor resuelto.
-  async listTrips(): Promise<Trip[]> {
-    if (!USE_VIAJES_MOCK) return viajes.listTrips();
-    // Mock: el recorte por proveedor no lo hace nadie más.
+  async listTrips(q: viajes.TripsQuery = {}): Promise<viajes.TripsPage> {
+    if (!USE_VIAJES_MOCK) return viajes.listTrips(q);
+    // Mock: el recorte por proveedor, el filtro por día y el corte por página no
+    // los hace nadie más.
     await wait(150);
-    const scope = proveedores.proveedorIdOf(await this.getMe().catch(() => null));
-    const conProveedor = mockTrips.map(withProveedor);
-    return scope ? conProveedor.filter((t) => t.proveedorId === scope) : conProveedor;
+    const todos = await mockTripsVisibles(q.date);
+    const page = Math.max(1, q.page ?? 1);
+    const start = (page - 1) * MOCK_PAGE_SIZE;
+    return {
+      trips: todos.slice(start, start + MOCK_PAGE_SIZE),
+      count: todos.length,
+      page,
+      pages: Math.max(1, Math.ceil(todos.length / MOCK_PAGE_SIZE)),
+    };
+  },
+
+  // Cuántos viajes hay un día (los contadores de "hoy / mañana" del encabezado).
+  async countTrips(date: string): Promise<number> {
+    if (!USE_VIAJES_MOCK) return viajes.countTrips(date);
+    await wait(80);
+    return (await mockTripsVisibles(date)).length;
   },
 
   // Catálogo de proveedores (para asignar el viaje y elegir tarifario). Con
@@ -435,26 +486,47 @@ export const api = {
     return geocodeRows(rows);
   },
 
-  // Crea los viajes seleccionados del Excel reusando createTrip (el mismo
-  // pipeline que el wizard: un único POST /viajes/ con pasajeros y tramos
-  // anidados). La agencia y el solicitante salen de la identidad del usuario.
+  // Crea los viajes seleccionados del Excel con el mismo pipeline que el wizard
+  // (pasajeros y tramos anidados en el alta). La agencia y el solicitante salen
+  // de la identidad del usuario.
+  //
+  // Contra el backend va en LOTE (`POST /viajes/bulk/`): una sola llamada, todo o
+  // nada, con los errores devueltos por fila. Antes se creaba de a un viaje y una
+  // fila mala dejaba la importación por la mitad. Sin backend se sigue creando
+  // uno por uno contra el mock, donde sí puede haber éxito parcial.
   async importExcelRows(
     rows: ExcelRow[],
   ): Promise<{ count: number; errors: { row: number; message: string }[] }> {
     const identity = await this.getWizardIdentity();
     const agc = identity.ownAgency ?? identity.agencies[0] ?? "";
     const solicitante = identity.solicitante;
-    let count = 0;
-    const errors: { row: number; message: string }[] = [];
-    for (const r of rows) {
-      try {
-        await this.createTrip(viajes.excelRowToTrip(r, agc, solicitante));
-        count += 1;
-      } catch (e) {
-        errors.push({ row: r.row, message: e instanceof Error ? e.message : String(e) });
+
+    if (USE_VIAJES_MOCK) {
+      let count = 0;
+      const errors: { row: number; message: string }[] = [];
+      for (const r of rows) {
+        try {
+          await this.createTrip(viajes.excelRowToTrip(r, agc, solicitante));
+          count += 1;
+        } catch (e) {
+          errors.push({ row: r.row, message: e instanceof Error ? e.message : String(e) });
+        }
       }
+      return { count, errors };
     }
-    return { count, errors };
+
+    // El `id_temporal` es el número de fila del Excel: es lo que después se le
+    // muestra al usuario ("Fila 7: …").
+    const res = await viajes.createTripsBulk(
+      rows.map((r) => ({
+        idTemporal: String(r.row),
+        trip: viajes.excelRowToTrip(r, agc, solicitante),
+      })),
+    );
+    return {
+      count: res.creados,
+      errors: res.errores.map((e) => ({ row: Number(e.idTemporal) || 0, message: e.message })),
+    };
   },
 
   // ── Comentarios del viaje ──────────────────────────────────────────────────

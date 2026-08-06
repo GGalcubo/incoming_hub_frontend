@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { MeProfile, RoleEnum } from "../api/backend";
+import { PASSWORD_MIN_LEN, type MeProfile, type RoleEnum } from "../api/backend";
 import { HAS_AUTH } from "../api/http";
 import type { User } from "../types/domain";
 import { AvisoMock } from "./ui/AvisoMock";
@@ -13,7 +13,8 @@ interface UserSettingsModalProps {
   open: boolean;
   user: User | null;
   onClose: () => void;
-  onSave: () => void;
+  // El mensaje depende de qué se guardó (perfil, o perfil + contraseña).
+  onSave: (mensaje: string) => void;
 }
 
 const ROLE_LABELS: Record<RoleEnum, string> = {
@@ -36,7 +37,10 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
   // Datos de sistema (solo lectura): el backend no permite editarlos desde aquí.
   const [username, setUsername] = useState("");
   const [role, setRole] = useState<RoleEnum | null>(null);
-  // Cambio de contraseña: el backend no expone endpoint, son campos mockup.
+  // Cambio de contraseña: va por su propio endpoint (POST /auth/change-password/)
+  // y pide la actual. Es opcional: si los tres campos quedan vacíos, Guardar solo
+  // actualiza el perfil.
+  const [passActual, setPassActual] = useState("");
   const [pass, setPass] = useState("");
   const [passConfirm, setPassConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -46,6 +50,7 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setPassActual("");
     setPass("");
     setPassConfirm("");
     setForm(EMPTY_FORM);
@@ -69,10 +74,24 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
   const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  // El cambio de contraseña es opcional: con los tres campos vacíos, Guardar solo
+  // actualiza el perfil.
+  const cambiaPass = !!(passActual || pass || passConfirm);
+
   const handleSave = async () => {
-    if (pass && pass !== passConfirm) {
-      setError("Las contraseñas no coinciden");
-      return;
+    if (cambiaPass) {
+      if (!passActual) {
+        setError("Ingresá tu contraseña actual.");
+        return;
+      }
+      if (pass.length < PASSWORD_MIN_LEN) {
+        setError(`La contraseña nueva necesita al menos ${PASSWORD_MIN_LEN} caracteres.`);
+        return;
+      }
+      if (pass !== passConfirm) {
+        setError("Las contraseñas no coinciden");
+        return;
+      }
     }
     setSaving(true);
     setError(null);
@@ -82,7 +101,16 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
         last_name: form.last_name,
         email: form.email,
       });
-      onSave();
+      // La contraseña va después y en su propio endpoint: si falla (la actual no
+      // es la que era), el perfil ya quedó guardado y el modal sigue abierto con
+      // el error, así que se reintenta solo esa parte.
+      if (cambiaPass) {
+        await api.changePassword(passActual, pass);
+        setPassActual("");
+        setPass("");
+        setPassConfirm("");
+      }
+      onSave(cambiaPass ? "Perfil y contraseña actualizados" : "Perfil actualizado");
       onClose();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "No se pudieron guardar los cambios");
@@ -162,30 +190,46 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
         </Field>
 
         <div className={styles.section}>Cambiar contraseña</div>
-        <AvisoMock tono="pendiente">
-          El backend todavía no expone un endpoint para cambiar la contraseña: los campos están
-          deshabilitados. Pedísela a un administrador.
-        </AvisoMock>
-        <Field label="Nueva contraseña" hint="Próximamente — aún no disponible.">
+        {/* Sin backend de auth entra cualquiera con cualquier clave: no hay
+            contraseña real que cambiar y el formulario es de mentira. */}
+        {!HAS_AUTH && (
+          <AvisoMock>
+            El login es de prueba (entra cualquier usuario con cualquier contraseña), así que
+            cambiarla no tiene efecto.
+          </AvisoMock>
+        )}
+        <Field label="Contraseña actual" hint="Dejá los tres campos vacíos si no la vas a cambiar.">
           <Input
             type="password"
-            value={pass}
-            onChange={(e) => setPass(e.target.value)}
+            value={passActual}
+            onChange={(e) => setPassActual(e.target.value)}
             placeholder="••••••••"
-            autoComplete="new-password"
-            disabled
+            autoComplete="current-password"
+            disabled={loading}
           />
         </Field>
-        <Field label="Confirmar contraseña">
-          <Input
-            type="password"
-            value={passConfirm}
-            onChange={(e) => setPassConfirm(e.target.value)}
-            placeholder="••••••••"
-            autoComplete="new-password"
-            disabled
-          />
-        </Field>
+        <div className={styles.row}>
+          <Field label="Nueva contraseña" hint={`Mínimo ${PASSWORD_MIN_LEN} caracteres.`}>
+            <Input
+              type="password"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              disabled={loading}
+            />
+          </Field>
+          <Field label="Confirmar contraseña">
+            <Input
+              type="password"
+              value={passConfirm}
+              onChange={(e) => setPassConfirm(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="new-password"
+              disabled={loading}
+            />
+          </Field>
+        </div>
       </div>
     </Modal>
   );

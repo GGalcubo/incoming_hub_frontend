@@ -29,7 +29,7 @@ import type {
   ViajePersonaWrite,
   ViajeWrite,
 } from "./backend";
-import { fetchAll, request } from "./http";
+import { ApiError, drfErrorMessage, fetchAll, request } from "./http";
 import { patchCostos, setTramoTarifa } from "./tarifario";
 
 // ── Estados ────────────────────────────────────────────────────────────────
@@ -624,9 +624,67 @@ export function excelRowToTrip(r: ExcelRow, agc: string, solicitante: string): T
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
-export async function listTrips(): Promise<Trip[]> {
-  const [catalogs, viajes] = await Promise.all([loadCatalogs(), fetchAll<Viaje>("/viajes/")]);
-  return viajes.map((v) => viajeToTrip(v, catalogs));
+
+// Una página de la lista de viajes. `count` es el total del filtro (todas las
+// páginas), no el de esta.
+export interface TripsPage {
+  trips: Trip[];
+  count: number;
+  page: number;
+  pages: number;
+}
+
+export interface TripsQuery {
+  // Día a mostrar (YYYY-MM-DD). Lo filtra el SERVIDOR: antes se traían todos los
+  // viajes página por página y se filtraba en el navegador, así que cada carga
+  // bajaba el historial entero para mostrar un día.
+  date?: string;
+  page?: number;
+}
+
+// Total de páginas. Con `next` cargado, `results.length` ES el tamaño de página
+// del backend (no lo publica el schema ni deja elegirlo), así que el total sale
+// exacto; sin `next` estamos en la última y no hay nada más que contar.
+function totalPages(data: Paginated<unknown>, page: number): number {
+  if (!data.next) return page;
+  return Math.max(page + 1, Math.ceil(data.count / Math.max(data.results.length, 1)));
+}
+
+export async function listTrips(q: TripsQuery = {}): Promise<TripsPage> {
+  const pedida = Math.max(1, q.page ?? 1);
+  const traer = async (page: number) => {
+    const params = new URLSearchParams({ page: String(page) });
+    if (q.date) params.set("fecha_servicio", q.date);
+    return request<Paginated<Viaje>>(`/viajes/?${params}`);
+  };
+
+  const catalogs = await loadCatalogs();
+  let page = pedida;
+  let data: Paginated<Viaje>;
+  try {
+    data = await traer(page);
+  } catch (e) {
+    // DRF responde 404 "Invalid page" cuando la página se fue de rango (cambió
+    // el día, se borraron viajes). En vez de dejar la lista vacía con un error,
+    // se vuelve a la primera; quien llama se entera por el `page` devuelto.
+    if (!(e instanceof ApiError && e.status === 404) || pedida === 1) throw e;
+    page = 1;
+    data = await traer(page);
+  }
+  return {
+    trips: data.results.map((v) => viajeToTrip(v, catalogs)),
+    count: data.count,
+    page,
+    pages: totalPages(data, page),
+  };
+}
+
+// Cuántos viajes hay un día, para los contadores de "hoy / mañana". Se usa solo
+// el `count` de la respuesta paginada: el backend no acepta `page_size`, así que
+// igual manda la primera página de resultados y se descarta.
+export async function countTrips(date: string): Promise<number> {
+  const data = await request<Paginated<Viaje>>(`/viajes/?fecha_servicio=${date}`);
+  return data.count;
 }
 
 export async function getTrip(id: string): Promise<Trip> {
@@ -649,6 +707,53 @@ export async function createTrip(trip: Trip): Promise<Trip> {
     body: JSON.stringify(payload),
   });
   return getTrip(String(created.id));
+}
+
+// Alta en LOTE (`POST /viajes/bulk/`), la que usa la carga por Excel. Cada viaje
+// lleva el mismo payload que el alta individual más un `id_temporal` que pone el
+// front (acá, el número de fila del Excel) para poder correlacionar la respuesta.
+//
+// Es TODO O NADA: si una fila no valida, el backend no crea ninguna y contesta
+// 400 con `{ errores: [{ id_temporal, errores }] }`. Eso es lo que se devuelve
+// acá fila por fila, en vez de la importación a medio hacer que dejaba el alta de
+// a un viaje por vez.
+interface LoteError {
+  id_temporal?: string;
+  errores?: unknown;
+}
+
+export async function createTripsBulk(
+  items: { idTemporal: string; trip: Trip }[],
+): Promise<{ creados: number; errores: { idTemporal: string; message: string }[] }> {
+  if (!items.length) return { creados: 0, errores: [] };
+  const catalogs = await loadCatalogs();
+  const payload = items.map(({ idTemporal, trip }) => {
+    const viaje = buildViajePayload(trip, catalogs);
+    const tramos = buildTramosInput(trip);
+    if (tramos.length) viaje.tramos = tramos;
+    return { ...viaje, id_temporal: idTemporal };
+  });
+
+  try {
+    // El 201 trae `{ creados: [{ id_temporal, viaje }] }`. Si algún día cambia de
+    // forma, no se pierde el alta: se cuentan los que se mandaron.
+    const res = await request<{ creados?: unknown[] }>("/viajes/bulk/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return { creados: res?.creados?.length ?? items.length, errores: [] };
+  } catch (e) {
+    const body = e instanceof ApiError && e.status === 400 ? e.body : null;
+    const lista = (body as { errores?: LoteError[] } | null)?.errores;
+    if (!Array.isArray(lista) || !lista.length) throw e;
+    return {
+      creados: 0,
+      errores: lista.map((item, i) => ({
+        idTemporal: item.id_temporal ?? items[i]?.idTemporal ?? "",
+        message: drfErrorMessage(item.errores, "No se pudo crear el viaje."),
+      })),
+    };
+  }
 }
 
 // Campos del viaje que el wizard edita, comparados contra el estado actual del
@@ -835,8 +940,9 @@ async function syncTarifaTramo(trip: Trip, existing: Tramo[]): Promise<boolean> 
 }
 
 // Ajustes manuales de los costos (espera, peajes, estacionamiento, otros de las
-// dos columnas, moneda y horas a disposición). NO se mandan la base ni los
-// totales: los calcula el backend a partir de la tarifa del tramo.
+// dos columnas, moneda y horas a disposición). Los totales no se mandan: los
+// calcula el backend. La base tampoco, salvo que la hayan escrito a mano (ver
+// abajo): normalmente sale de la tarifa del tramo.
 //
 // Solo viajan los rubros que cambiaron contra el estado del servidor, así una
 // edición del proveedor no toca los montos del cliente (ni al revés).
@@ -880,6 +986,26 @@ function diffCostosPatch(t: Trip, current: CostoViaje | null, force: boolean): C
     t.tarifa?.modalidad === "horas" ? Math.max(0, Math.round(t.tarifa.horas ?? 0)) : 0;
   if (force || (current ? current.horas_disponibles !== horas : horas !== 0)) {
     out.horas_disponibles = horas;
+  }
+
+  // Base escrita a mano en el paso Costos: es la única que viaja, y va SIN el
+  // `force` (que existe para reenviar los ajustes después de cambiar la tarifa).
+  // Un monto que sale del tarifario lo calcula el servidor y no tiene sentido
+  // pisárselo con la previsualización del wizard.
+  //
+  // El front guarda la base ya multiplicada por las horas a disposición y el
+  // backend la guarda plana (ver costoToTripCosts), así que se divide al mandar.
+  // Con horas > 1 el redondeo a dos decimales puede correr algún centavo al
+  // releer el viaje.
+  if (c.viajeManual) {
+    const porHora = horas > 0 ? horas : 1;
+    const base: { campo: "costo_viaje_cliente" | "costo_viaje_proveedor"; valor: number }[] = [
+      { campo: "costo_viaje_cliente", valor: +(c.viaje / porHora).toFixed(2) },
+      { campo: "costo_viaje_proveedor", valor: +((c.tarifaProveedor ?? 0) / porHora).toFixed(2) },
+    ];
+    for (const { campo, valor } of base) {
+      if (current ? num(current[campo]) !== valor : valor !== 0) out[campo] = money(valor);
+    }
   }
   return out;
 }

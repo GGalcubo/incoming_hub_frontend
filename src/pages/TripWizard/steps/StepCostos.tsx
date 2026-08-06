@@ -85,11 +85,10 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   // agencia (cliente) es solo lectura.
   const canEditCol = (col: Col) =>
     !cerrado && (isAdmin || (isProvider && col === "proveedor" && esPropio));
-  // El tramo base sale del tarifario elegido en el paso Tarifa. Contra el backend
-  // real lo calcula el servidor a partir de la tarifa del tramo y no se edita a
-  // mano: para cambiarlo hay que elegir otra tarifa. Sin backend, el admin lo
-  // corrige acá.
-  const canEditBase = !cerrado && isAdmin && !HAS_BACKEND;
+  // El tramo base sale del tarifario (paso Cotización), pero se puede corregir a
+  // mano como cualquier otro rubro: es la única forma de ponerle precio a un
+  // viaje que la ruta no cotiza ("a cotizar por el proveedor"). Editarlo marca el
+  // costo como manual y la cotización deja de pisarlo (ver TripCosts.viajeManual).
   const canEditAlgo = cols.some(canEditCol);
 
   // Minutos de espera. El backend guarda el MONTO, no los minutos: cuando el
@@ -128,6 +127,13 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   // Actualiza un rubro y recalcula los dos totales (cliente y proveedor).
   const setCost = (key: NumKey, value: number) => {
     set({ costs: withTotals({ ...c, [key]: value } as TripCosts) });
+  };
+
+  // Tocar el monto base es decir "este viaje vale esto", así que además de
+  // guardarlo lo marcamos como manual: desde ahí la cotización no lo recalcula
+  // sola (solo vuelve a hacerlo si se elige una categoría en el paso Cotización).
+  const setBase = (key: NumKey, value: number) => {
+    set({ costs: withTotals({ ...c, [key]: value, viajeManual: true } as TripCosts) });
   };
 
   // Carga los minutos de espera y calcula los dos montos a partir del valor/
@@ -182,14 +188,26 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
           ? "Este viaje está asignado a otro proveedor: solo podés cargar los costos de los viajes propios."
           : canEditAlgo
             ? isAdmin
-              ? "Cargá los minutos de espera y los extras de cada columna: lo que se le factura al cliente y lo que cobra el proveedor. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
-              : "Cargá los minutos de espera y tus extras del viaje. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
+              ? "Cargá el valor del viaje, los minutos de espera y los extras de cada columna: lo que se le factura al cliente y lo que cobra el proveedor. El valor del viaje viene del tarifario y se puede corregir. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
+              : "Cargá el valor del viaje, los minutos de espera y tus extras. El valor del viaje viene del tarifario y se puede corregir. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
             : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
 
       {/* El valor/minuto de espera del PROVEEDOR ya es real; el del CLIENTE
           sigue saliendo del set local, así que ese monto puede no coincidir con
           el que ve el resto del equipo. Solo se avisa a quien ve esa columna. */}
+      {/* El monto base editado a mano NO lo guarda el backend: el PATCH de costos
+          (PatchedCostoViajeUpdate) no acepta `costo_viaje_*`, los deriva del
+          tarifario de los tramos. Se manda igual —DRF ignora los campos que no
+          modela— así que el día que los acepte esto funciona sin tocar nada. */}
+      {HAS_BACKEND && c.viajeManual && (
+        <AvisoMock tono="pendiente">
+          El valor del viaje cargado a mano <b>no se guarda en el servidor</b>: el backend lo
+          calcula con la tarifa del tramo y todavía no acepta que se lo edite. Sirve para ver el
+          total correcto ahora, pero al recargar el viaje vuelve el monto del tarifario.
+        </AvisoMock>
+      )}
+
       {HAS_BACKEND ? (
         cols.includes("cliente") && (
           <AvisoMock>
@@ -213,18 +231,28 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
           </span>
         ))}
 
-        {/* Tramo base: precio de la categoría según el tarifario. */}
-        <span className={cx(styles.costCell, styles.costLabel)}>{BASE_ROW.label}</span>
+        {/* Tramo base: arranca con el precio de la categoría según el tarifario y
+            se puede corregir a mano (imprescindible cuando la ruta no cotiza). */}
+        <span className={cx(styles.costCell, styles.costLabel)}>
+          {BASE_ROW.label}
+          {canEditAlgo && (
+            <span className={styles.esperaHint}>
+              {c.viajeManual
+                ? "Monto cargado a mano: la cotización ya no lo recalcula."
+                : "Sale del tarifario. Si lo editás, queda fijo."}
+            </span>
+          )}
+        </span>
         {cols.map((col) => (
           <span key={col} className={cx(styles.costCell, styles.costCellNum)}>
-            {canEditBase ? (
+            {canEditCol(col) ? (
               <Input
                 type="number"
                 min={0}
                 step="0.01"
                 className={styles.costInput}
                 value={valueOf(BASE_ROW[col]) || ""}
-                onChange={(e) => setCost(BASE_ROW[col], Number(e.target.value))}
+                onChange={(e) => setBase(BASE_ROW[col], Number(e.target.value))}
               />
             ) : (
               <span className={styles.tnum}>{fmt(valueOf(BASE_ROW[col]))}</span>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { STATUSES, TODAY, TOMORROW } from "../data/seed";
 import type { Trip, TripStatus } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
@@ -11,14 +11,24 @@ import { copyTableTsv, downloadTableXls } from "../lib/exportTable";
 import styles from "./TripsList.module.css";
 
 interface TripsListProps {
+  // Los viajes de la página que se está mirando: ya vienen del servidor
+  // filtrados por `dateFilter` y cortados por página (ver App).
   trips: Trip[];
   onOpen: (t: Trip) => void;
   onCopy: (msg: string) => void;
   onExport: (msg: string) => void;
   onChangeStatus: (t: Trip, est: TripStatus) => void;
   isOperator?: boolean;
-  // Cuando cambia, la lista salta a esa fecha (p. ej. tras sincronizar Excel).
-  dateFocus?: { date: string } | null;
+  // Día que se está mirando. Es del componente de arriba porque es lo que se le
+  // pide al backend; cambiarlo dispara una carga nueva.
+  dateFilter: string;
+  onDateChange: (date: string) => void;
+  // Paginación del servidor. `count` es el total del día (todas las páginas).
+  page: number;
+  pages: number;
+  count: number;
+  onPageChange: (page: number) => void;
+  loading?: boolean;
 }
 
 type SortKey = keyof Trip | "id" | "pasajero";
@@ -156,14 +166,14 @@ export function TripsList({
   onExport,
   onChangeStatus,
   isOperator = false,
-  dateFocus,
+  dateFilter,
+  onDateChange,
+  page,
+  pages,
+  count,
+  onPageChange,
+  loading = false,
 }: TripsListProps) {
-  const [dateFilter, setDateFilter] = useState<string>(TODAY);
-
-  // Al sincronizar viajes desde Excel, saltar al día de esos viajes para que se vean.
-  useEffect(() => {
-    if (dateFocus?.date) setDateFilter(dateFocus.date);
-  }, [dateFocus]);
   const dateInputRef = useRef<HTMLInputElement>(null);
   const [statusFilter, setStatusFilter] = useState<TripStatus[]>([]);
   const [q, setQ] = useState("");
@@ -176,6 +186,12 @@ export function TripsList({
 
   const cols = isOperator ? OPERATOR_COLS : ADMIN_COLS;
 
+  // Estado y búsqueda filtran SOLO la página cargada: el backend los soporta
+  // (`estado__codigo`, `search`), pero mandarlos al servidor depende de migrar
+  // antes el mapeo de estados (hoy son ids 1–9 a mano). Lo mismo el orden.
+  //
+  // El filtro por fecha lo hace el servidor; se repite acá para que un viaje
+  // recién creado en OTRO día no se cuele en la lista antes de la recarga.
   const filtered = useMemo(() => {
     let r = trips.filter((t) => t.date === dateFilter);
     if (statusFilter.length) r = r.filter((t) => statusFilter.includes(t.est));
@@ -378,7 +394,7 @@ export function TripsList({
           ].map((o) => (
             <button
               key={o.id}
-              onClick={() => setDateFilter(o.id)}
+              onClick={() => onDateChange(o.id)}
               className={cx(styles.segBtn, dateFilter === o.id && styles.segBtnActive)}
             >
               {o.l}
@@ -405,7 +421,7 @@ export function TripsList({
             type="date"
             value={dateFilter}
             onChange={(e) => {
-              if (e.target.value) setDateFilter(e.target.value);
+              if (e.target.value) onDateChange(e.target.value);
             }}
             className={styles.hiddenDate}
             aria-hidden="true"
@@ -493,7 +509,10 @@ export function TripsList({
 
       <div className={styles.footer}>
         <div className={styles.count}>
-          <span className={styles.countNum}>{filtered.length}</span> viajes ·{" "}
+          {/* Se muestran las filas de esta página y, si el día tiene más, el
+              total: "12 de 47 viajes". */}
+          <span className={styles.countNum}>{filtered.length}</span>
+          {count > filtered.length ? ` de ${count}` : ""} viajes ·{" "}
           {dateFilter === TODAY
             ? "Hoy"
             : dateFilter === TOMORROW
@@ -501,11 +520,25 @@ export function TripsList({
               : fmtDateLong(dateFilter)}
         </div>
         <div className={styles.pager}>
-          <button disabled title="Anterior" className={styles.pageBtn} aria-label="Anterior">
+          <button
+            disabled={loading || page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            title="Anterior"
+            className={styles.pageBtn}
+            aria-label="Anterior"
+          >
             <Icon name="chevleft" size={14} />
           </button>
-          <span className={styles.pageNum}>1 / 1</span>
-          <button disabled title="Siguiente" className={styles.pageBtn} aria-label="Siguiente">
+          <span className={styles.pageNum}>
+            {page} / {pages}
+          </span>
+          <button
+            disabled={loading || page >= pages}
+            onClick={() => onPageChange(page + 1)}
+            title="Siguiente"
+            className={styles.pageBtn}
+            aria-label="Siguiente"
+          >
             <Icon name="chevright" size={14} />
           </button>
         </div>

@@ -200,9 +200,10 @@ export async function listProveedores(): Promise<Proveedor[]> {
 // y `valor_hora_dispo` son POR HORA y `valor_km_adicional` por km; los
 // `*_cliente` son lo mismo pero facturado al cliente.
 //
-// ⚠️ El front modela la espera POR MINUTO (es como se carga en el viaje: minutos
-// de espera × valor). La conversión es esta constante y nada más: si se confirma
-// que el backend la guarda por minuto, se pone en 1 y listo.
+// El front modela la espera POR MINUTO (es como se carga en el viaje: minutos de
+// espera × valor) y el backend la guarda POR HORA: el schema lo dice explícito
+// ("Valor por hora de espera del proveedor" / "…cobrado al cliente", verificado
+// el 05/08/2026). La conversión es esta constante y nada más.
 const MINUTOS_POR_HORA = 60;
 
 // El set completo (las dos columnas) sale del proveedor: el backend agregó los

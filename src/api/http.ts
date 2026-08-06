@@ -66,6 +66,21 @@ export async function safeFetch(input: string, init?: RequestInit): Promise<Resp
   }
 }
 
+// Error HTTP con el cuerpo de la respuesta a mano. El mensaje ya viene aplanado
+// para mostrar, pero hay endpoints (el alta en lote) cuyo 400 trae un detalle
+// estructurado que quien llama necesita recorrer. Extiende Error, así que los
+// `instanceof Error` de siempre lo siguen tomando.
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 async function parseError(res: Response): Promise<never> {
   let body: unknown = null;
   try {
@@ -73,7 +88,11 @@ async function parseError(res: Response): Promise<never> {
   } catch {
     /* respuesta sin cuerpo JSON (p. ej. un 500 que devuelve HTML) */
   }
-  throw new Error(drfErrorMessage(body, `${res.status} ${res.statusText}`));
+  throw new ApiError(
+    drfErrorMessage(body, `${res.status} ${res.statusText}`),
+    res.status,
+    body,
+  );
 }
 
 // Llamada autenticada contra el backend de viajes. `path` arranca con "/".
@@ -93,7 +112,11 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) await parseError(res);
   if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+  // Hay endpoints que responden 200 sin cuerpo (p. ej. el cambio de contraseña):
+  // `res.json()` a secas reventaría con un SyntaxError.
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 // Página de DRF (page-number pagination). Se declara acá para que los módulos de

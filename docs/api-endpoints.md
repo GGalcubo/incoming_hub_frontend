@@ -6,9 +6,11 @@
 - **Auth:** JWT (SimpleJWT). `POST /auth/login/` → `{ access, refresh }`. El resto requiere `Authorization: Bearer <access>`.
 
 > ⚠️ **No existen endpoints de Excel.** No hay `/trips/excel/parse` ni `/trips/excel/sync`.
-> La carga por Excel debe: (1) parsear el `.xlsx` en el frontend y (2) crear cada
-> viaje con `POST /viajes/` (que ahora acepta pasajeros **y tramos** anidados en
-> el mismo POST). Para alta masiva todo-o-nada existe además `POST /viajes/bulk/`.
+> La carga por Excel (1) parsea el `.xlsx` en el frontend y (2) crea los viajes con
+> `POST /viajes/bulk/`: alta en lote todo-o-nada, con pasajeros **y tramos**
+> anidados igual que el alta individual, más un `id_temporal` por viaje (el front
+> manda el número de fila) para mapear los errores de vuelta a la planilla.
+> El alta de a uno (`POST /viajes/`) es la que usa el wizard.
 
 ## Auth
 | Método | Ruta | Descripción |
@@ -17,6 +19,11 @@
 | POST | `/auth/register/` | Crear usuario (email, username, password, role) |
 | POST | `/auth/refresh/` | Renovar access con refresh |
 | GET/PUT/PATCH | `/auth/me/` | Perfil del usuario autenticado |
+| POST | `/auth/change-password/` | Cambio de contraseña (`{ password_actual, password_nueva }`, mínimo 8) |
+
+El cambio de contraseña responde **200 sin cuerpo** y no renueva los tokens: la
+sesión sigue viva con el `access` que ya tenía el navegador. Lo usa el modal de
+Settings, donde es opcional (con los campos vacíos solo se guarda el perfil).
 
 ### Roles (`RoleEnum`)
 ```
@@ -149,11 +156,17 @@ desde su pantalla borraría el precio de venta.
 | POST | `/viajes/{id}/costos/comentarios/` | Agregar comentario (`{ texto }`) |
 | PATCH/DELETE | `/viajes/{id}/costos/comentarios/{id}/` | Editar texto / borrar |
 
+- Los **totales** los calcula el backend y no se mandan nunca.
 - La **base** (`costo_viaje_proveedor` / `costo_viaje_cliente`) sale del tarifario
-  de los tramos y los **totales** los calcula el backend: ninguno se edita desde
-  el front.
-- Por PATCH van solo espera, peajes, estacionamiento, otros (de las dos
-  columnas), `moneda_*` y `horas_disponibles`.
+  de los tramos. El paso Costos deja corregirla a mano (imprescindible cuando la
+  ruta no cotiza) y la manda en el PATCH, pero ⚠️ **el backend todavía no la
+  acepta**: el serializer del PATCH (`PatchedCostoViajeUpdate`, verificado en
+  `/api/schema/` el 05/08/2026) no incluye esos campos y DRF los ignora en
+  silencio — "los setea `recalcular_costo_viaje`", dice el propio schema. La vista
+  lo avisa y el monto se pierde al releer el viaje. **Pedido al backend:**
+  aceptarlos en ese serializer.
+- Por PATCH van espera, peajes, estacionamiento, otros (de las dos columnas),
+  `moneda_*`, `horas_disponibles` y la base solo si se editó a mano.
 - ⚠️ Cambiar la tarifa de un tramo **resetea a 0 todos los ajustes manuales** y
   re-deriva la base: por eso `syncTarifaTramo` corre antes que `syncCostos` y,
   cuando la tarifa cambió, el PATCH de costos reenvía todos los rubros (`force`).
@@ -173,6 +186,7 @@ exponerlo.
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/viajes/` | Listar (filtros: fecha, estado, pasajero, origen/destino, sync, tipo) |
+| GET | `/viajes/?fecha_servicio=&page=` | Lo que usa la lista: un día, una página |
 | POST | `/viajes/` | **Crear viaje con pasajeros y tramos anidados** (una sola llamada) |
 | POST | `/viajes/bulk/` | Alta masiva todo-o-nada (lista de viajes con `id_temporal`) |
 | GET/PUT/PATCH/DELETE | `/viajes/{id}/` | Detalle / editar (solo campos del viaje) / borrar |
@@ -198,14 +212,27 @@ hacer el backend.
 `pasajeros__persona__nombre__icontains`, `tramos__origen_direccion__icontains`,
 `tramos__destino_direccion__icontains`, `ordering`, `page`.
 
-⚠️ **Pendiente:** `listTrips` hace `fetchAll("/viajes/")` y se trae la tabla
-completa paginando en el cliente. El filtrado y la búsqueda de la grilla deberían
-delegarse a estos parámetros.
+`listTrips` usa `fecha_servicio` + `page`: **una página de un día**, no la tabla
+entera (antes hacía `fetchAll("/viajes/")` y filtraba por fecha en el navegador).
+El paginador se guía por `count` y `next`; el tamaño de página lo fija el backend
+y no hay `page_size` para pedirlo distinto. Si la página se va de rango, DRF
+responde **404 "Invalid page"** y `listTrips` reintenta en la primera, devolviendo
+en `page` cuál sirvió.
+
+⚠️ **Pendiente:** el filtro por estado, la búsqueda y el orden de la grilla siguen
+en el cliente sobre la página cargada. Delegarlos a `estado__codigo`, `search` y
+`ordering` requiere migrar antes el mapeo de estados (hoy son ids 1–9 a mano).
 
 ### Creación vs. modificación
 - **Crear** (`POST /viajes/`): los `pasajeros` y los `tramos` van **anidados en el
   mismo POST**. El backend crea las Personas (fija el principal) y los tramos en
   una sola llamada. Ver `createTrip` / `buildViajePayload` / `buildTramosInput`.
+- **Crear en lote** (`POST /viajes/bulk/`): lista de viajes con la misma forma que
+  el alta individual más `id_temporal`. Es **todo o nada**: 201 con
+  `{ creados: [{ id_temporal, viaje }] }`, o 400 con
+  `{ errores: [{ id_temporal, errores }] }` y **ningún** viaje creado. Lo usa la
+  carga por Excel (`createTripsBulk` → `importExcelRows`), que manda el número de
+  fila como `id_temporal` para mostrar "Fila 7: …".
 - **Modificar**: van **separados**. `PATCH /viajes/{id}/` toca solo campos del
   viaje; los tramos se sincronizan vía `/tramos/` (`syncTramos`) y los pasajeros
   vía `/pasajeros-viaje/` (`syncPasajeros`), incluyendo desasociar/borrar.

@@ -26,18 +26,34 @@ export function App() {
   const [loading, setLoading] = useState(false);
   // Vista reducida para todo el que no es admin (operador de agencia y proveedor).
   const isOperator = role != null && role !== "admin";
-  // Señal para que la lista salte a la fecha de los viajes recién cargados.
-  // Objeto nuevo en cada import para forzar el efecto aunque la fecha repita.
-  const [dateFocus, setDateFocus] = useState<{ date: string } | null>(null);
+  // El día y la página que se están mirando viven acá, no en la lista: son lo que
+  // se le pide al servidor (antes se bajaban TODOS los viajes y la lista filtraba
+  // por fecha en el navegador).
+  const [dateFilter, setDateFilter] = useState<string>(TODAY);
+  const [page, setPage] = useState(1);
+  const [pageInfo, setPageInfo] = useState({ count: 0, pages: 1 });
+  const [dayCounts, setDayCounts] = useState({ today: 0, tomorrow: 0 });
+  // Se incrementa para forzar una recarga (alta de un viaje, import de Excel).
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const verDia = (date: string) => {
+    setDateFilter(date);
+    setPage(1);
+  };
 
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     setLoading(true);
     api
-      .listTrips()
-      .then((list) => {
-        if (!cancelled) setTrips(list);
+      .listTrips({ date: dateFilter, page })
+      .then((res) => {
+        if (cancelled) return;
+        setTrips(res.trips);
+        setPageInfo({ count: res.count, pages: res.pages });
+        // La página pedida podía estar fuera de rango (se borraron viajes, quedó
+        // vieja): la API devuelve cuál sirvió y el estado se acomoda a eso.
+        if (res.page !== page) setPage(res.page);
       })
       .catch((err) => {
         if (!cancelled) {
@@ -51,7 +67,25 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [user, flash]);
+  }, [user, flash, dateFilter, page, reloadKey]);
+
+  // Contadores del encabezado. Van aparte de la lista porque son de OTROS días:
+  // con la lista paginada por día, "hoy" y "mañana" ya no se pueden contar sobre
+  // lo que hay cargado.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    Promise.all([api.countTrips(TODAY), api.countTrips(TOMORROW)])
+      .then(([today, tomorrow]) => {
+        if (!cancelled) setDayCounts({ today, tomorrow });
+      })
+      .catch(() => {
+        /* los contadores son informativos: si fallan, la lista sigue andando */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, reloadKey]);
 
   const saveTrip = async (t: Trip, mode: "new" | "edit"): Promise<Trip> => {
     let saved: Trip;
@@ -70,6 +104,9 @@ export function App() {
     setTrips((prev) =>
       mode === "new" ? [saved, ...prev] : prev.map((x) => (x.id === saved.id ? saved : x)),
     );
+    // Un viaje nuevo puede caer en otro día o en otra página: se recarga lo que
+    // corresponde al filtro actual en vez de quedarse con el agregado a mano.
+    if (mode === "new") setReloadKey((k) => k + 1);
     flash(
       mode === "new"
         ? `Servicio Guardado #${saved.id}`
@@ -79,14 +116,14 @@ export function App() {
     return saved;
   };
 
-  // Tras cargar viajes desde el Excel: recargamos la lista para que aparezcan al
-  // instante y saltamos a la fecha más temprana de lo cargado (sin tener que
-  // cambiar el filtro a mano).
+  // Tras cargar viajes desde el Excel: saltamos a la fecha más temprana de lo
+  // cargado (sin tener que cambiar el filtro a mano) y recargamos la lista para
+  // que aparezcan al instante.
   const onExcelImported = async (n: number, dates: string[]) => {
-    const list = await api.listTrips();
-    setTrips(list);
     const earliest = dates.filter(Boolean).sort()[0];
-    if (earliest) setDateFocus({ date: earliest });
+    if (earliest) verDia(earliest);
+    else setPage(1);
+    setReloadKey((k) => k + 1);
     flash(`${n} viaje${n === 1 ? "" : "s"} creado${n === 1 ? "" : "s"}`, "success");
   };
 
@@ -127,7 +164,13 @@ export function App() {
               loading={loading}
               onChangeStatus={changeStatus}
               isOperator={isOperator}
-              dateFocus={dateFocus}
+              dateFilter={dateFilter}
+              onDateChange={verDia}
+              page={page}
+              pages={pageInfo.pages}
+              count={pageInfo.count}
+              onPageChange={setPage}
+              dayCounts={dayCounts}
             />
           }
         />
@@ -210,25 +253,37 @@ function TripsListRoute({
   loading,
   onChangeStatus,
   isOperator,
-  dateFocus,
+  dateFilter,
+  onDateChange,
+  page,
+  pages,
+  count,
+  onPageChange,
+  dayCounts,
 }: {
   trips: Trip[];
   loading: boolean;
   onChangeStatus: (t: Trip, est: TripStatus) => Promise<Trip>;
   isOperator: boolean;
-  dateFocus: { date: string } | null;
+  dateFilter: string;
+  onDateChange: (date: string) => void;
+  page: number;
+  pages: number;
+  count: number;
+  onPageChange: (page: number) => void;
+  dayCounts: { today: number; tomorrow: number };
 }) {
   const navigate = useNavigate();
   const { flash } = useToast();
-  const todayCount = trips.filter((t) => t.date === TODAY).length;
-  const tomorrowCount = trips.filter((t) => t.date === TOMORROW).length;
 
   return (
     <>
       <Topbar
         title="Viajes"
         subtitle={
-          loading ? "Cargando…" : `${todayCount} para hoy · ${tomorrowCount} para mañana`
+          loading
+            ? "Cargando…"
+            : `${dayCounts.today} para hoy · ${dayCounts.tomorrow} para mañana`
         }
       />
       <TripsList
@@ -238,7 +293,13 @@ function TripsListRoute({
         onExport={(msg) => flash(msg)}
         onChangeStatus={onChangeStatus}
         isOperator={isOperator}
-        dateFocus={dateFocus}
+        dateFilter={dateFilter}
+        onDateChange={onDateChange}
+        page={page}
+        pages={pages}
+        count={count}
+        onPageChange={onPageChange}
+        loading={loading}
       />
     </>
   );
