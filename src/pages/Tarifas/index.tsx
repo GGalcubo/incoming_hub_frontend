@@ -49,7 +49,8 @@ function TarifasLayout({
 }
 
 // Tarifario de PROVEEDOR: lo que cuesta cada traslado según quién lo presta.
-// Solo admin y proveedor: la agencia no llega acá (la ruta la redirige).
+// Solo admin y proveedor: la agencia entra por TarifasClientePage (la ruta la
+// redirige).
 export function TarifasProveedorPage() {
   const me = useMe();
 
@@ -67,10 +68,28 @@ export function TarifasProveedorPage() {
   );
 }
 
-// No hay una pantalla de "Tarifas Cliente" aparte: es el MISMO tarifario mirado
-// del otro lado del mostrador (una tarifa por proveedor/ruta/categoría, con los
-// dos precios adentro) y la tabla de proveedor ya le muestra al admin las dos
-// columnas. App.tsx redirige /tarifas/cliente acá para no romper links viejos.
+// Tarifario del CLIENTE: lo que la agencia paga por cada traslado. NO es otro
+// tarifario — es el MISMO (una tarifa por proveedor/ruta/categoría, con los dos
+// precios adentro) mirado del otro lado del mostrador: solo la columna cliente,
+// solo tarifas vigentes y sin poder tocar nada. El recorte lo hacen
+// TarifasBase/TarifasExtras según el rol, no esta pantalla.
 //
-// Con ella se fue lo último que quedaba de extras POR AGENCIA, que no existían en
-// el backend y vivían en el localStorage del navegador.
+// Al admin no se la mostramos: su tabla de proveedor ya trae las dos columnas.
+// App.tsx manda a admin/proveedor de /tarifas/cliente a /tarifas/proveedor.
+export function TarifasClientePage() {
+  const me = useMe();
+
+  return (
+    <TarifasLayout
+      title="Tarifario"
+      subtitle="Precios vigentes por destino y extras. Solo consulta."
+      base={<TarifasBase me={me} />}
+      extras={<TarifasExtras me={me} />}
+    />
+  );
+}
+
+// Lo que esta pantalla NO tiene son los extras POR AGENCIA (espera / hora a
+// disposición / km facturados a cada cliente): no existen en el backend, y lo
+// único que había era un set guardado en el localStorage del navegador. Los
+// extras que se ven acá son los del proveedor, columna cliente.

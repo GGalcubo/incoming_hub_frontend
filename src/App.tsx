@@ -12,7 +12,7 @@ import { useEstados } from "./hooks/useEstados";
 import { useMe } from "./hooks/useMe";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
-import { TarifasProveedorPage } from "./pages/Tarifas";
+import { TarifasClientePage, TarifasProveedorPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
 import type { Trip, TripStatus } from "./types/domain";
@@ -22,12 +22,16 @@ export function App() {
   const { user } = useUser();
   const { flash } = useToast();
   const { excelOpen, closeExcel } = useModals();
-  const { role, isProvider } = useMe();
+  const { role, isProvider, isAgency } = useMe();
   const { metaOf } = useEstados();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   // Vista reducida para todo el que no es admin (operador de agencia y proveedor).
   const isOperator = role != null && role !== "admin";
+  // Cada lado del mostrador tiene SU tarifario: la agencia el de cliente (solo
+  // lectura), admin y proveedor el de proveedor. Es el destino de /tarifas y al
+  // que se manda a quien entre por la puerta que no le toca.
+  const tarifasHome = isAgency ? "/tarifas/cliente" : "/tarifas/proveedor";
   // El día y la página que se están mirando viven acá, no en la lista: son lo que
   // se le pide al servidor (antes se bajaban TODOS los viajes y la lista filtraba
   // por fecha en el navegador).
@@ -214,27 +218,33 @@ export function App() {
             </>
           }
         />
-        {/* La agencia no entra a ningún tarifario: no ve ni el costo del proveedor
-            ni el precio al cliente. El proveedor solo ve el suyo. */}
+        {/* El tarifario de proveedor muestra el costo: la agencia no entra (se la
+            manda al suyo). El proveedor ve solo el suyo, sin el precio cliente. */}
         <Route
           path="/tarifas/proveedor"
           element={
-            <RoleRoute allow={["admin", "provider"]}>
+            <RoleRoute allow={["admin", "provider"]} redirect={tarifasHome}>
               <TarifasProveedorPage />
             </RoleRoute>
           }
         />
-        {/* "Tarifas Cliente" está OCULTO: es la misma tarifa que la de proveedor
-            (una sola por proveedor/ruta/categoría, con los dos precios adentro) y
-            al admin la tabla de proveedor ya le muestra las dos columnas, así que
-            la pantalla aparte sobraba. Queda el redirect para no romper links
-            viejos; la pantalla sigue en pages/Tarifas si hay que revivirla. */}
-        <Route path="/tarifas/cliente" element={<Navigate to="/tarifas/proveedor" replace />} />
+        {/* El tarifario del cliente es la MISMA tabla con la columna cliente y sin
+            edición: es para la agencia. Al admin no le hace falta —la de proveedor
+            ya le muestra las dos columnas—, así que a él y al proveedor se los
+            manda ahí (eso también cubre los links viejos a /tarifas/cliente). */}
+        <Route
+          path="/tarifas/cliente"
+          element={
+            <RoleRoute allow={["agency_staff", "agency_operator"]} redirect="/tarifas/proveedor">
+              <TarifasClientePage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="/tarifas"
           element={
-            <RoleRoute allow={["admin", "provider"]}>
-              <Navigate to="/tarifas/proveedor" replace />
+            <RoleRoute allow={["admin", "provider", "agency_staff", "agency_operator"]}>
+              <Navigate to={tarifasHome} replace />
             </RoleRoute>
           }
         />

@@ -142,10 +142,17 @@ de Tarifas (`api/tarifasCrud.ts`).
 
 ### Lo que este CRUD NO modela
 - **No hay tarifario por cliente.** Hay UNA tarifa por (proveedor, origen,
-  destino, categoría) con las dos columnas de precio adentro. "Tarifas Cliente"
-  era la misma tabla mostrando `precio_cliente`, no un tarifario aparte: por eso
-  no hay pantalla propia (`/tarifas/cliente` redirige) y el admin ve las dos
-  columnas en *Tarifas Proveedor*.
+  destino, categoría) con las dos columnas de precio adentro. El *Tarifario* que
+  ve la agencia (`/tarifas/cliente`) es esta misma tabla mostrando solo
+  `precio_cliente`, de solo lectura y sin las tarifas inactivas — no es otro
+  endpoint ni otro modelo. Al admin no se le muestra: en *Tarifas Proveedor* ya
+  tiene las dos columnas, así que `/tarifas/cliente` lo redirige (igual que al
+  proveedor).
+
+  ⚠️ **Falta confirmar el permiso del backend**: `GET /tarifarios/tarifas/` y
+  `/tarifarios/proveedores/` con un usuario `agency_staff` / `agency_operator`.
+  Si el servidor no los deja pasar, la pantalla muestra el error del backend (no
+  inventa precios) y hay que habilitarles la lectura.
 - **No hay extras POR AGENCIA.** Los extras del proveedor sí traen sus dos
   columnas (`valor_x` y `valor_x_cliente`, arriba), pero no existe un set por
   cliente. El front ya no lo ofrece: la pantalla que lo editaba guardaba en

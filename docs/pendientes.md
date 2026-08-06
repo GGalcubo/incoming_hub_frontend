@@ -12,7 +12,8 @@ hace hoy, en [`limitaciones.md`](./limitaciones.md).
 
 Verificado el **06/08/2026**. Los puntos **1 a 5** salieron de respuestas
 concretas de la API (con usuario admin y con `proveedor1`), no del schema: cada
-uno trae cómo reproducirlo. Los **6 a 8** salen de `/api/schema/`.
+uno trae cómo reproducirlo. Los **6 a 8** salen de `/api/schema/`. El **9** es lo
+único sin probar: no tenemos un usuario de agencia a mano.
 
 ## 1. Para el backend — datos mal cargados o config faltante
 
@@ -43,3 +44,9 @@ precio al cliente" se cumple **solo de vista**, y se ve en la pestaña Network.
 | 6 | **Poder escribir el monto base del viaje.** `PATCH /viajes/{id}/costos/` usa `PatchedCostoViajeUpdate`, que no incluye `costo_viaje_proveedor` ni `costo_viaje_cliente`. Hay que hacerlos escribibles y que `recalcular_costo_viaje` no los pise si vinieron a mano (ojo: `PATCH /tramos/{id}/tarifa/` hoy resetea los ajustes manuales). | Un viaje cuya ruta no tiene tarifa **no puede tener precio**. Se carga en pantalla, se ve en el total y se pierde al recargar: DRF descarta los campos que no declara, sin error. El front ya lo manda: funciona el día que el servidor lo acepte. |
 | 7 | **Extras por agencia** (espera, hora a disposición y km facturados a cada cliente). No hay modelo: los extras solo existen por proveedor, y `Agencia` no tiene ningún campo de tarifa. | La funcionalidad hoy **no existe**: se eliminó del front porque vivía en el `localStorage` de un navegador. No vuelve hasta que el backend la modele. |
 | 8 | **Rol del autor en los comentarios.** `ComentarioCosto` expone `autor` y `autor_nombre`, no el rol. | La chapita de Administración / Proveedor / Agencia queda sin poner en cada comentario: preferimos no mostrarla antes que deducirla mal. |
+
+## 4. Para el backend — por confirmar
+
+| # | Qué confirmar | Por qué importa |
+|---|---|---|
+| 9 | **Lectura del tarifario con un usuario de agencia.** `GET /tarifarios/tarifas/` y `GET /tarifarios/proveedores/` (+ `/zonas/` y `/categorias/`, que la pantalla necesita para traducir los ids) con `agency_staff` / `agency_operator`. | Es lo que alimenta el *Tarifario* de la agencia (`/tarifas/cliente`), la pantalla nueva donde el cliente consulta cuánto sale cada traslado. Si el servidor le responde 403, la pantalla muestra el error —no inventa precios— y la función queda muerta hasta que se le habilite la lectura. Probarlo es entrar con un usuario de agencia y abrir *Tarifario*. |

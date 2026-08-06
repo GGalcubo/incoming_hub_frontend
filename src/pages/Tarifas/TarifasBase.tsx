@@ -37,8 +37,13 @@ export function TarifasBase({ me }: { me: UseMe }) {
   const showCliente = !isProvider;
   const showProveedor = !isAgency;
   // El proveedor ve solo su tarifario (el filtro lo aplica el backend): la
-  // columna "Proveedor" sobra. Para admin/agencia distingue una fila de otra.
+  // columna "Proveedor" sobra. Para admin/agencia distingue una fila de otra
+  // (la misma ruta y categoría cotiza distinto según quién la preste).
   const showDueno = !isProvider;
+  // La agencia consulta precios, no administra el tarifario: una tarifa dada de
+  // baja no es un precio que pueda pagar, así que no la ve (ni la columna de
+  // estado, que sin filas inactivas no dice nada).
+  const soloVigentes = isAgency;
 
   const [origenFilter, setOrigenFilter] = useState("");
   const [destinoFilter, setDestinoFilter] = useState("");
@@ -100,11 +105,12 @@ export function TarifasBase({ me }: { me: UseMe }) {
     () =>
       tarifas.filter(
         (t) =>
+          (!soloVigentes || t.activo) &&
           (!origenFilter || t.origen === origenFilter) &&
           (!destinoFilter || t.destino === destinoFilter) &&
           (!duenoFilter || t.proveedorId === duenoFilter),
       ),
-    [tarifas, origenFilter, destinoFilter, duenoFilter],
+    [tarifas, soloVigentes, origenFilter, destinoFilter, duenoFilter],
   );
 
   const openNew = () => {
@@ -131,7 +137,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
     "minmax(110px, 1.2fr)", // categoría
     ...(showProveedor ? ["minmax(90px, 0.9fr)"] : []),
     ...(showCliente ? ["minmax(90px, 0.9fr)"] : []),
-    "88px", // estado
+    ...(soloVigentes ? [] : ["88px"]), // estado
     ...(canEdit ? ["96px"] : []),
   ].join(" ");
 
@@ -182,7 +188,7 @@ export function TarifasBase({ me }: { me: UseMe }) {
           <div className={styles.th}>Categoría</div>
           {showProveedor && <div className={cx(styles.th, styles.num)}>Proveedor</div>}
           {showCliente && <div className={cx(styles.th, styles.num)}>Cliente</div>}
-          <div className={styles.th}>Estado</div>
+          {!soloVigentes && <div className={styles.th}>Estado</div>}
           {canEdit && <div className={cx(styles.th, styles.num)}>Acciones</div>}
         </div>
 
@@ -207,11 +213,13 @@ export function TarifasBase({ me }: { me: UseMe }) {
               {showCliente && (
                 <div className={cx(styles.td, styles.num)}>u$s {t.tarifaCliente}</div>
               )}
-              <div className={styles.td}>
-                <span className={cx(styles.badge, t.activo ? styles.badgeOn : styles.badgeOff)}>
-                  {t.activo ? "Activa" : "Inactiva"}
-                </span>
-              </div>
+              {!soloVigentes && (
+                <div className={styles.td}>
+                  <span className={cx(styles.badge, t.activo ? styles.badgeOn : styles.badgeOff)}>
+                    {t.activo ? "Activa" : "Inactiva"}
+                  </span>
+                </div>
+              )}
               {canEdit && (
                 <div className={styles.tdActions}>
                   <button

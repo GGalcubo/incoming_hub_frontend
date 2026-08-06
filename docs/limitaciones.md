@@ -47,8 +47,8 @@ para ese viaje. Por eso `viajeManual` no necesita persistirse. Lo fija el test
 
 Los **extras por agencia** (espera / hora a disposición / km facturados a cada
 cliente) ya no existen en el front: no hay modelo en el backend y lo único que
-había era un set guardado en el `localStorage` de un navegador. La pantalla que
-los editaba se eliminó junto con *Tarifas Cliente*.
+había era un set guardado en el `localStorage` de un navegador. Los extras que la
+agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
 
 ## Lo que es real
 
@@ -83,8 +83,13 @@ los editaba se eliminó junto con *Tarifas Cliente*.
 - Tarifario base (Tarifas Proveedor → *Tarifas por destino*): ABM contra
   `/tarifarios/tarifas/`, con el scoping por proveedor hecho en el servidor. Es
   **una sola** tarifa por (proveedor, ruta, categoría) con los dos precios
-  adentro, y al admin se le muestran las dos columnas en la misma tabla: por eso
-  no hay una pantalla *Tarifas Cliente* aparte (`/tarifas/cliente` redirige).
+  adentro, y la tabla se recorta por rol: el admin ve las dos columnas y edita;
+  el proveedor, solo su costo; la **agencia**, en su *Tarifario*
+  (`/tarifas/cliente`), solo lo que paga —sin el costo del proveedor, sin las
+  tarifas dadas de baja y sin poder editar nada—. Lo fijan los tres casos de
+  [`TarifasBase.test.tsx`](../src/pages/Tarifas/TarifasBase.test.tsx). Falta
+  confirmar que el backend deje leer esos endpoints con un usuario de agencia
+  (ver [`api-endpoints.md`](./api-endpoints.md#lo-que-este-crud-no-modela)).
 - Cotización de la ruta en el wizard: zonas y tarifas vigentes del servidor.
 - Asignación viaje → proveedor: viene con el viaje (`viaje.proveedor`).
 - Carga por Excel: el parseo y la validación corren en el navegador (SheetJS) y
