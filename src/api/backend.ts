@@ -25,6 +25,22 @@ export interface Agencia {
   fecha_creacion: string;
 }
 
+// Estado de un viaje (GET /estados/). `viaje.estado` es el ID de una de estas
+// filas: es la ÚNICA clave confiable. El `codigo` NO sirve como clave —  hay dos
+// que colisionan al normalizar ("No " = No Show y "NO " = NO SHOW +) y varios no
+// coinciden con el enum que el propio backend declara en el schema (ver
+// docs/pendientes.md).
+export interface Estado {
+  id: number;
+  codigo: string;
+  nombre: string;
+  color: string | null;
+  // true ⇒ el viaje ya no puede cambiar de estado desde el Hub.
+  es_final: boolean;
+  // false ⇒ estado interno de la central, no se muestra en el Hub.
+  visible_agencia: boolean;
+}
+
 export interface CategoriaServicio {
   id: number;
   id_categoria_central: number | null;

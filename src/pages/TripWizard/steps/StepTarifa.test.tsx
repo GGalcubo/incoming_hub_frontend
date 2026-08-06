@@ -307,15 +307,19 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
   });
 
   // El monto base se puede escribir a mano en el paso Costos (es la única forma
-  // de ponerle precio a un viaje que la ruta no cotiza). Desde ahí la cotización
-  // no lo recalcula sola: solo vuelve a hacerlo si se elige una categoría.
+  // de ponerle precio a un viaje que la ruta no cotiza). Lo que lo pisa es todo
+  // lo que cambie de qué tarifa se está hablando: elegir otra categoría o cambiar
+  // la RUTA. Cambiar solo la modalidad o las horas lo respeta.
   describe("monto cargado a mano", () => {
     const TRIP_MANUAL: Trip = {
       ...TRIP_CON_TARIFA,
       costs: { ...TRIP_CON_TARIFA.costs, viaje: 500, total: 510, viajeManual: true },
     };
 
-    it("recotizar por cambio de ruta no lo pisa, pero sí actualiza la tarifa", async () => {
+    // Decisión del usuario (06/08/2026): "si se cambia la ruta está bien que pise
+    // el valor". Antes se conservaba, pero solo mientras no se recargara el viaje
+    // (`viajeManual` no se persiste), así que la misma acción daba dos resultados.
+    it("recotizar por cambio de ruta pisa el monto con la tarifa nueva", async () => {
       cotizarRuta.mockImplementation((_origen: string, destino: string) =>
         Promise.resolve({
           proveedores: [{ id: "p1", nombre: "Prov 1" }],
@@ -332,8 +336,9 @@ describe("StepTarifa — la cotización sale del primer destino", () => {
       await editarPrimerDestino(seen, { destination: "Aeroparque Jorge Newbery" });
 
       await waitFor(() => expect(seen.trip.tarifa?.tarifaId).toBe(2));
-      expect(seen.trip.costs.viaje).toBe(500);
-      expect(seen.trip.costs.viajeManual).toBe(true);
+      expect(seen.trip.costs.viaje).toBe(150);
+      expect(seen.trip.costs.tarifaProveedor).toBe(90);
+      expect(seen.trip.costs.viajeManual).toBe(false);
     });
 
     it("elegir una categoría vuelve a tomar el precio del tarifario", async () => {

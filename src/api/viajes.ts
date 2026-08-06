@@ -2,10 +2,12 @@
 // esquema del backend (`Viaje` + catálogos). Toda la lógica de red de viajes
 // vive acá; client.ts solo expone la fachada que consumen las vistas.
 
+import { SIN_ESTADO } from "../types/domain";
 import type {
   ExcelRow,
   Leg,
   LegType,
+  StatusMeta,
   Trip,
   TripCosts,
   TripStatus,
@@ -14,6 +16,7 @@ import type {
 import type {
   Agencia,
   CategoriaServicio,
+  Estado,
   CostoViaje,
   CostoViajePatch,
   MeProfile,
@@ -33,34 +36,41 @@ import { ApiError, drfErrorMessage, fetchAll, request } from "./http";
 import { patchCostos, setTramoTarifa } from "./tarifario";
 
 // ── Estados ────────────────────────────────────────────────────────────────
-// El backend expone `estado` como entero. Este mapeo sigue el orden del catálogo
-// de producto (data/catalogos STATUSES). Si el backend usa otros IDs, ajustar solo
-// esta tabla.
+// `Trip.est` ES el id de `/estados/`: no hay traducción. Lo que la UI necesita
+// (nombre, color, si es final) sale del catálogo, no de constantes del front.
 //
-// PENDIENTE: el backend YA publica el catálogo real en `GET /estados/`
-// (`{ id, codigo, nombre, color, es_final, visible_agencia }`, 15 códigos: NUE,
-// PRE, ASI, CON, PRO, FIN, CER, ELI, CAN, NSH, MOD, CXL, CLX, REV, WEB). Hay que
-// migrar a él: acá cualquier id fuera de 1–9 cae silenciosamente a PENDIENTE.
-const ESTADO_TO_STATUS: Record<number, TripStatus> = {
-  1: "PENDIENTE",
-  2: "CONFIRMADO",
-  3: "EN_CURSO",
-  4: "FINALIZADO",
-  5: "CANCELADO",
-  6: "NO_SHOW",
-  7: "REPROGRAMADO",
-  8: "EN_ESPERA",
-  9: "MODIFICADO",
-};
-const STATUS_TO_ESTADO: Record<TripStatus, number> = Object.fromEntries(
-  Object.entries(ESTADO_TO_STATUS).map(([id, st]) => [st, Number(id)]),
-) as Record<TripStatus, number>;
+// Códigos con los que el front tiene que reconocer estados CONCRETOS, porque hay
+// acciones atadas a ellos. Se resuelven contra el catálogo por código
+// normalizado (trim + mayúsculas): los del backend vienen con casing irregular y
+// espacios al final ("No ", "Pre"). Ninguno de estos cuatro colisiona; ojo que
+// "No " (No Show) y "NO " (NO SHOW +) sí colisionarían entre sí.
+export const CODIGO_ESTADO = {
+  NUEVO: "NUE",
+  FINALIZADO: "FIN",
+  MODIFICADO: "MOD",
+  CANCELADO: "CAN",
+} as const;
 
-function estadoToStatus(estado: number): TripStatus {
-  return ESTADO_TO_STATUS[estado] ?? "PENDIENTE";
+const normCodigo = (s: string) => s.trim().toUpperCase();
+
+// Id del estado con ese código, o null si el backend no lo tiene cargado.
+export function estadoIdPorCodigo(estados: Estado[], codigo: string): number | null {
+  const target = normCodigo(codigo);
+  return estados.find((e) => normCodigo(e.codigo) === target)?.id ?? null;
 }
-function statusToEstado(status: TripStatus): number {
-  return STATUS_TO_ESTADO[status] ?? 1;
+
+// Catálogo listo para la UI. Se ordena por id, que es el orden operativo del
+// flujo (Nuevo → Pre-Asignado → Asignado → …), y se dejan afuera los estados
+// internos de la central (`visible_agencia: false`).
+export function estadosToStatusMeta(estados: Estado[]): StatusMeta[] {
+  return estados
+    .filter((e) => e.visible_agencia)
+    .sort((a, b) => a.id - b.id)
+    .map((e) => ({ id: e.id, codigo: e.codigo, label: e.nombre, color: e.color, esFinal: e.es_final }));
+}
+
+export async function listEstados(): Promise<StatusMeta[]> {
+  return estadosToStatusMeta((await loadCatalogs()).estados);
 }
 
 // ── Tipo de servicio ⟷ tipo de tramo ────────────────────────────────────────
@@ -85,6 +95,7 @@ export interface Catalogs {
   agencies: Agencia[];
   categorias: CategoriaServicio[];
   solicitantes: Solicitante[];
+  estados: Estado[];
 }
 
 let catalogsPromise: Promise<Catalogs> | null = null;
@@ -95,11 +106,13 @@ export function loadCatalogs(): Promise<Catalogs> {
       fetchAll<Agencia>("/agencies/"),
       fetchAll<CategoriaServicio>("/services/"),
       fetchAll<Solicitante>("/agencies/solicitantes/"),
+      fetchAll<Estado>("/estados/"),
     ])
-      .then(([agencies, categorias, solicitantes]) => ({
+      .then(([agencies, categorias, solicitantes, estados]) => ({
         agencies,
         categorias,
         solicitantes,
+        estados,
       }))
       .catch((err) => {
         catalogsPromise = null; // permite reintentar tras un fallo
@@ -147,9 +160,11 @@ export async function listAgenciasMin(): Promise<AgenciaMin[]> {
 
 // Acceso a la vista de pasajeros según el rol: el admin ve todas las agencias y
 // puede filtrar libremente; el no-admin queda restringido a su propia agencia.
-// La agencia propia se infiere cruzando el email del perfil con los solicitantes,
-// igual que loadWizardIdentity. PENDIENTE: `/auth/me/` ya devuelve `agencia`
-// resuelta, así que esta inferencia (y su fetchAll de solicitantes) sobra.
+//
+// La agencia propia sale de `/auth/me/.agencia`, que el backend ya devuelve
+// RESUELTA (objeto `Agencia` completo). Antes se infería cruzando el email del
+// perfil contra el catálogo de solicitantes: además de traerse el padrón entero,
+// fallaba en silencio si el email del usuario no coincidía con el del contacto.
 export interface PassengersAccess {
   isAdmin: boolean;
   agencies: AgenciaMin[];
@@ -159,18 +174,7 @@ export interface PassengersAccess {
 export async function loadPassengersAccess(me: MeProfile): Promise<PassengersAccess> {
   const isAdmin = me.role === "admin";
   const agencies = await listAgenciasMin();
-  let ownAgencyId: number | null = null;
-  if (!isAdmin) {
-    const email = (me.email ?? "").trim().toLowerCase();
-    if (email) {
-      const solicitantes = await fetchAll<Solicitante>("/agencies/solicitantes/");
-      const mySol = solicitantes.find(
-        (s) => (s.email ?? "").trim().toLowerCase() === email,
-      );
-      ownAgencyId = mySol?.agencia ?? null;
-    }
-  }
-  return { isAdmin, agencies, ownAgencyId };
+  return { isAdmin, agencies, ownAgencyId: isAdmin ? null : (me.agencia?.id ?? null) };
 }
 
 // Nombres de categorías de servicio activas, ordenadas, para poblar el dropdown
@@ -184,9 +188,10 @@ export async function listCategorias(): Promise<string[]> {
 }
 
 // Identidad para el wizard: lista de agencias y la agencia propia del usuario
-// logueado. La agencia propia se infiere cruzando el email del perfil con el
-// catálogo de solicitantes. PENDIENTE: `/auth/me/` ya devuelve `agencia` resuelta;
-// el cruce por email solo hace falta para `ownSolicitante`.
+// logueado. La agencia sale de `/auth/me/.agencia` (el backend la devuelve
+// resuelta). El cruce por email contra el catálogo de solicitantes quedó SOLO
+// para `ownSolicitante`, que es lo único que ese catálogo sabe y `/auth/me/` no:
+// el nombre del usuario tal como figura como contacto de la agencia.
 export interface WizardIdentity {
   agencies: string[];
   ownAgency: string | null;
@@ -206,7 +211,8 @@ export async function loadWizardIdentity(me: MeProfile): Promise<WizardIdentity>
   const mySol = email
     ? c.solicitantes.find((s) => (s.email ?? "").trim().toLowerCase() === email)
     : undefined;
-  const ag = mySol ? c.agencies.find((a) => a.id === mySol.agencia) : undefined;
+  // La agencia propia la da el perfil; el solicitante, el catálogo.
+  const ag = me.agencia ? c.agencies.find((a) => a.id === me.agencia?.id) : undefined;
 
   const solicitantesByAgency: Record<string, string[]> = {};
   for (const a of activeAgencies) {
@@ -346,10 +352,19 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     passengers.push({ firstName: "", lastName: "", phone: "", email: undefined });
 
   const costs = costoToTripCosts(v.costo);
+  // El paso Cotización identifica la categoría elegida por su CÓDIGO
+  // (`tarifa.categoria`), no por el nombre: es la clave con la que compara contra
+  // las cards. Hay que reconstruirlo del `categoria_servicio` del viaje —
+  // `t.cat` (el nombre) no le sirve. Sin esto la card no queda marcada al reabrir
+  // el viaje y, peor, todos los recálculos de precio quedan muertos: tanto
+  // `recommit` como la recotización al cambiar la ruta buscan la card por este
+  // código y no encuentran ninguna.
+  const categoriaCodigo = categoria?.codigo || undefined;
   const tarifa: TripTarifa | undefined =
-    tarifaId != null || horasDispo > 0
+    tarifaId != null || horasDispo > 0 || categoriaCodigo
       ? {
           ...(tarifaId != null ? { tarifaId } : {}),
+          ...(categoriaCodigo ? { categoria: categoriaCodigo } : {}),
           ...(horasDispo > 0 ? { modalidad: "horas" as const, horas: horasDispo } : {}),
         }
       : undefined;
@@ -363,7 +378,7 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
     cat: categoria?.nombre ?? "",
     ori: legs[0]?.origin ?? "",
     dst: legs[legs.length - 1]?.destination ?? "",
-    est: estadoToStatus(v.estado),
+    est: v.estado,
     agc: agencia ? agencyName(agencia) : "",
     ref: v.referencia_externa ?? "",
     obs: v.observaciones ?? "",
@@ -610,7 +625,7 @@ export function excelRowToTrip(r: ExcelRow, agc: string, solicitante: string): T
     cat: r.cat,
     ori: legs[0]?.origin ?? "",
     dst: legs[legs.length - 1]?.destination ?? "",
-    est: "PENDIENTE",
+    est: SIN_ESTADO,
     agc,
     ref: "",
     obs: r.obs ?? "",
@@ -640,6 +655,14 @@ export interface TripsQuery {
   // bajaba el historial entero para mostrar un día.
   date?: string;
   page?: number;
+  // Id de estado (`/estados/`). Se filtra por ID y no por `estado__codigo`: ese
+  // otro filtro valida contra un enum de códigos en mayúsculas que NO coincide
+  // con los que tiene cargados la tabla, así que devuelve 0 para casi todos.
+  estado?: number | null;
+  // Nº de viaje o referencia externa (`search` del backend).
+  qViaje?: string;
+  // Nombre del pasajero. Va por su propio filtro: `search` no lo cubre.
+  qPasajero?: string;
 }
 
 // Total de páginas. Con `next` cargado, `results.length` ES el tamaño de página
@@ -655,6 +678,11 @@ export async function listTrips(q: TripsQuery = {}): Promise<TripsPage> {
   const traer = async (page: number) => {
     const params = new URLSearchParams({ page: String(page) });
     if (q.date) params.set("fecha_servicio", q.date);
+    if (q.estado != null) params.set("estado", String(q.estado));
+    if (q.qViaje?.trim()) params.set("search", q.qViaje.trim());
+    if (q.qPasajero?.trim()) {
+      params.set("pasajeros__persona__nombre__icontains", q.qPasajero.trim());
+    }
     return request<Paginated<Viaje>>(`/viajes/?${params}`);
   };
 
@@ -786,8 +814,7 @@ function diffViajePatch(t: Trip, c: Catalogs, current: Viaje): Partial<ViajeWrit
     out.proveedor = proveedor;
   }
 
-  const estado = statusToEstado(t.est);
-  if (estado !== current.estado) out.estado = estado;
+  if (t.est !== current.estado) out.estado = t.est;
 
   if (t.date !== current.fecha_servicio) out.fecha_servicio = t.date;
 
@@ -805,6 +832,10 @@ function diffViajePatch(t: Trip, c: Catalogs, current: Viaje): Partial<ViajeWrit
 
   const vuelo = firstLeg?.flight ?? "";
   if (vuelo !== (current.datos_vuelo ?? "")) out.datos_vuelo = vuelo;
+
+  // `unidad_asignada` NO se manda: es readOnly en el schema (la asigna la
+  // central al sincronizar). Mandarla sería tirarla a la basura en silencio,
+  // porque DRF descarta los campos que no declara.
 
   return out;
 }
@@ -838,14 +869,29 @@ export async function setStatus(id: string, est: TripStatus): Promise<Trip> {
     loadCatalogs(),
     request<Viaje>(`/viajes/${id}/`, {
       method: "PATCH",
-      body: JSON.stringify({ estado: statusToEstado(est) }),
+      body: JSON.stringify({ estado: est }),
     }),
   ]);
   return viajeToTrip(updated, catalogs);
 }
 
+// Cancelar = pasar el viaje al estado "Cancelado" del backend y dejar el motivo
+// en las observaciones.
+//
+// ⚠️ El estado tiene que EXISTIR en /estados/. El schema del backend declara el
+// código `CAN` ("Cancelado") pero la tabla no lo tiene cargado (van del id 1 al
+// 18 y falta el 11). Antes esto no se notaba porque el front mandaba un id fijo
+// —el 5— que en el backend es "En Progreso": cancelar dejaba el viaje EN CURSO.
+// Ahora, si el estado no está, la acción falla y lo dice, que es lo correcto:
+// no hay otro estado al que mandarlo sin inventar una regla de negocio.
 export async function cancelTrip(id: string, reason: string): Promise<Trip> {
   const catalogs = await loadCatalogs();
+  const cancelado = estadoIdPorCodigo(catalogs.estados, CODIGO_ESTADO.CANCELADO);
+  if (cancelado == null) {
+    throw new Error(
+      'El backend no tiene cargado el estado "Cancelado": pedí que lo agreguen a /estados/ (código CAN).',
+    );
+  }
   const current = await request<Viaje>(`/viajes/${id}/`);
   const observaciones =
     (current.observaciones ?? "") +
@@ -854,7 +900,7 @@ export async function cancelTrip(id: string, reason: string): Promise<Trip> {
     reason;
   const updated = await request<Viaje>(`/viajes/${id}/`, {
     method: "PATCH",
-    body: JSON.stringify({ estado: statusToEstado("CANCELADO"), observaciones }),
+    body: JSON.stringify({ estado: cancelado, observaciones }),
   });
   return viajeToTrip(updated, catalogs);
 }

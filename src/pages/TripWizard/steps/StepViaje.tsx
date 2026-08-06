@@ -122,7 +122,7 @@ export function StepViaje({ t, set, errs, mode }: StepProps) {
         <Field label="Fecha" required error={errs.date}>
           <Input type="date" value={t.date} onChange={(e) => set({ date: e.target.value })} />
         </Field>
-        <Field label="Hora" required error={errs.time} span={2}>
+        <Field label="Hora" required error={errs.time}>
           <Input
             type="time"
             lang="es-ES"
@@ -130,6 +130,12 @@ export function StepViaje({ t, set, errs, mode }: StepProps) {
             value={t.time}
             onChange={(e) => set({ time: e.target.value })}
           />
+        </Field>
+        {/* Solo lectura a propósito: `unidad_asignada` es readOnly en el backend
+            (la pone la central al sincronizar). Se muestra igual porque es dato
+            del viaje y hasta ahora solo se veía en la lista. */}
+        <Field label="Unidad asignada" hint="La asigna la central. No se edita desde acá.">
+          <Input value={t.unit || "—"} disabled readOnly />
         </Field>
       </div>
     </>

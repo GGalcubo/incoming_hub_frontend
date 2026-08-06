@@ -4,6 +4,8 @@ import { Field, Textarea } from "../../components/ui/Field";
 import { Icon } from "../../components/ui/Icon";
 import { Modal } from "../../components/ui/Modal";
 import { StatusPicker } from "../../components/ui/StatusPicker";
+import { CODIGO_ESTADO } from "../../api/viajes";
+import { useEstados } from "../../hooks/useEstados";
 import { useIsMobile } from "../../hooks/useIsMobile";
 import { cx } from "../../lib/cx";
 import { hasGoogleMapsKey } from "../../lib/gmaps";
@@ -41,6 +43,7 @@ export function TripWizard({
   onCancelTrip,
 }: TripWizardProps) {
   const isMobile = useIsMobile();
+  const { idPorCodigo } = useEstados();
   const stepsBase: StepDef[] = [
     { id: "viaje", label: "Viaje" },
     { id: "pasajeros", label: "Pasajeros" },
@@ -111,6 +114,20 @@ export function TripWizard({
     return Object.keys(e).length === 0;
   };
 
+  // Estados a los que el wizard ata acciones. Salen del catálogo del backend: si
+  // alguno no está cargado, la acción se deshabilita en vez de mandar otro.
+  // "Cancelado" (CAN) hoy NO existe en /estados/ — ver docs/pendientes.md.
+  const canceladoId = idPorCodigo(CODIGO_ESTADO.CANCELADO);
+  const modificadoId = idPorCodigo(CODIGO_ESTADO.MODIFICADO);
+  const esCancelado = canceladoId != null && t.est === canceladoId;
+  // Sin estado "Cancelado" en el backend no hay a dónde mandar el viaje, así que
+  // el botón no se ofrece: antes mandaba un id fijo que allá es "En Progreso".
+  const puedeCancelar = canceladoId != null;
+  // Al guardar una edición el viaje pasa a "Modificado", salvo que ya esté
+  // cancelado (ahí no se lo revive).
+  const marcarModificado = (trip: Trip): Trip =>
+    esCancelado || modificadoId == null ? trip : { ...trip, est: modificadoId };
+
   const advance = () => setStepIdx((i) => Math.min(i + 1, stepsBase.length - 1));
 
   const next = async () => {
@@ -119,7 +136,7 @@ export function TripWizard({
     // pierde nada si el usuario abandona antes de llegar al final. Si el guardado
     // falla no avanzamos para que el usuario lo reintente.
     if (mode === "edit" && onStepSave && dirty && !saving) {
-      const tripToSave: Trip = t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" };
+      const tripToSave: Trip = marcarModificado(t);
       setSaving(true);
       try {
         await onStepSave(tripToSave);
@@ -147,7 +164,7 @@ export function TripWizard({
                 </span>
                 <span className={styles.mStepName}>· {step.label}</span>
               </div>
-              {mode === "edit" && t.est !== "CANCELADO" && onCancelTrip && (
+              {mode === "edit" && !esCancelado && puedeCancelar && onCancelTrip && (
                 <button
                   onClick={() => setShowCancel(true)}
                   title="Cancelar viaje"
@@ -225,7 +242,7 @@ export function TripWizard({
             })}
 
             <div className={styles.spacer} />
-            {mode === "edit" && t.est !== "CANCELADO" && (
+            {mode === "edit" && !esCancelado && puedeCancelar && (
               <Button kind="danger" icon="x" onClick={() => setShowCancel(true)}>
                 Cancelar viaje
               </Button>
@@ -320,9 +337,10 @@ export function TripWizard({
                 kind="dangerSolid"
                 disabled={!cancelReason.trim()}
                 onClick={() => {
+                  // El estado lo resuelve la API (api/viajes cancelTrip): acá
+                  // solo va el motivo, que se anexa a las observaciones.
                   onCancelTrip({
                     ...t,
-                    est: "CANCELADO",
                     obs: t.obs + (t.obs ? " · " : "") + "Cancelado: " + cancelReason,
                   });
                   setShowCancel(false);
@@ -361,7 +379,7 @@ export function TripWizard({
                 disabled={saving}
                 onClick={() => {
                   setShowSaveConfirm(false);
-                  handleSave(t.est === "CANCELADO" ? t : { ...t, est: "MODIFICADO" });
+                  handleSave(marcarModificado(t));
                 }}
               >
                 Sí, continuar

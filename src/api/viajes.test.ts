@@ -1,8 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { CostoViaje, Tramo, Viaje } from "./backend";
-import { viajeToTrip, type Catalogs } from "./viajes";
+import type { CategoriaServicio, CostoViaje, Estado, Tramo, Viaje } from "./backend";
+import {
+  CODIGO_ESTADO,
+  estadoIdPorCodigo,
+  estadosToStatusMeta,
+  viajeToTrip,
+  type Catalogs,
+} from "./viajes";
 
-const CATALOGS: Catalogs = { agencies: [], categorias: [], solicitantes: [] };
+const CATALOGS: Catalogs = { agencies: [], categorias: [], solicitantes: [], estados: [] };
+
+// Catálogo con la misma forma que /services/ (ids y códigos reales del backend).
+const CATEGORIAS: CategoriaServicio[] = [
+  { id: 1, id_categoria_central: 1, codigo: "STD", nombre: "Auto Std", descripcion: "", activo: true, orden: 1 },
+  { id: 2, id_categoria_central: 2, codigo: "EJEC", nombre: "Ejecutivo", descripcion: "", activo: true, orden: 2 },
+];
+const CON_CATEGORIAS: Catalogs = { ...CATALOGS, categorias: CATEGORIAS };
 
 function costo(patch: Partial<CostoViaje> = {}): CostoViaje {
   return {
@@ -93,5 +106,77 @@ describe("viajeToTrip — horas a disposición", () => {
     expect(t.costs.total).toBe(110);
     expect(t.legs[0].hours).toBeUndefined();
     expect(t.tarifa?.modalidad).toBeUndefined();
+  });
+});
+
+// El paso Cotización marca la card y recotiza buscando por el CÓDIGO de la
+// categoría (`tarifa.categoria`). Si no se reconstruye al leer el viaje, la card
+// no queda seleccionada y ningún recálculo de precio encuentra qué recotizar.
+describe("viajeToTrip — categoría elegida", () => {
+  it("reconstruye el código de la categoría desde categoria_servicio", () => {
+    const t = viajeToTrip(viaje({ categoria_servicio: 2 }), CON_CATEGORIAS);
+    expect(t.cat).toBe("Ejecutivo");
+    expect(t.tarifa?.categoria).toBe("EJEC");
+    expect(t.tarifa?.tarifaId).toBe(5);
+  });
+
+  it("la deja marcada aunque el viaje no tenga tarifa (alta por Excel)", () => {
+    const sinTarifa = viaje({
+      categoria_servicio: 1,
+      tramos: [{ ...(viaje().tramos![0] as Tramo), tarifa: null }],
+    });
+    const t = viajeToTrip(sinTarifa, CON_CATEGORIAS);
+    expect(t.tarifa?.categoria).toBe("STD");
+    expect(t.tarifa?.tarifaId).toBeUndefined();
+  });
+
+  it("sin categoría en el catálogo no inventa un código", () => {
+    const t = viajeToTrip(viaje({ categoria_servicio: 99 }), CON_CATEGORIAS);
+    expect(t.cat).toBe("");
+    expect(t.tarifa?.categoria).toBeUndefined();
+  });
+});
+
+// El catálogo de estados es del BACKEND. Estas filas son las reales de
+// /estados/ (06/08/2026), incluidos sus defectos: casing irregular, espacios al
+// final y dos códigos que colisionan al normalizar ("No " / "NO ").
+const ESTADOS: Estado[] = [
+  { id: 1, codigo: "NUE", nombre: "Nuevo", color: "#273740", es_final: false, visible_agencia: true },
+  { id: 6, codigo: "Fin", nombre: "Finalizado", color: "#273740", es_final: false, visible_agencia: true },
+  { id: 7, codigo: "Cer", nombre: "Cerrado", color: "#273740", es_final: true, visible_agencia: true },
+  { id: 9, codigo: "No ", nombre: "No Show", color: "#F5B041", es_final: false, visible_agencia: true },
+  { id: 10, codigo: "MOD", nombre: "MOD", color: "#F5B041", es_final: false, visible_agencia: true },
+  { id: 13, codigo: "NO ", nombre: "NO SHOW +", color: "#d3d3d3", es_final: true, visible_agencia: true },
+  { id: 99, codigo: "INT", nombre: "Interno", color: null, es_final: false, visible_agencia: false },
+];
+
+describe("estados: catálogo del backend", () => {
+  it("resuelve el id por código ignorando casing y espacios", () => {
+    expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.FINALIZADO)).toBe(6);
+    expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.MODIFICADO)).toBe(10);
+    expect(estadoIdPorCodigo(ESTADOS, "nue")).toBe(1);
+  });
+
+  // Hoy la tabla del backend no tiene "Cancelado" (declara el código CAN en el
+  // schema pero la fila no está). Sin él, cancelar tiene que fallar, no mandar
+  // otro estado: es lo que hacía antes y dejaba el viaje "En Progreso".
+  it("devuelve null si el backend no tiene ese estado cargado", () => {
+    expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.CANCELADO)).toBeNull();
+  });
+
+  it("deja afuera los estados internos de la central y ordena por id", () => {
+    const metas = estadosToStatusMeta(ESTADOS);
+    expect(metas.map((m) => m.id)).toEqual([1, 6, 7, 9, 10, 13]);
+    expect(metas.find((m) => m.label === "Interno")).toBeUndefined();
+  });
+
+  it("marca como final solo los que el backend marca (Cerrado sí, Finalizado no)", () => {
+    const metas = estadosToStatusMeta(ESTADOS);
+    expect(metas.find((m) => m.id === 7)?.esFinal).toBe(true);
+    expect(metas.find((m) => m.id === 6)?.esFinal).toBe(false);
+  });
+
+  it("el estado del viaje es el id del backend, sin traducir", () => {
+    expect(viajeToTrip(viaje({ estado: 13 }), CATALOGS).est).toBe(13);
   });
 });

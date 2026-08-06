@@ -12,7 +12,7 @@ import type {
 } from "./backend";
 import type { PassengersAccess, PersonasQuery } from "./viajes";
 import { decodeJwt } from "../lib/jwt";
-import type { ExcelRow, HistoryEntry, Trip, TripStatus, User } from "../types/domain";
+import type { ExcelRow, HistoryEntry, StatusMeta, Trip, TripStatus, User } from "../types/domain";
 import type {
   Proveedor,
   TarifaBase,
@@ -118,6 +118,12 @@ export const api = {
 
   async listCategorias(): Promise<string[]> {
     return viajes.listCategorias();
+  },
+
+  // Catálogo de estados del viaje. Es la fuente de la etiqueta y el color de cada
+  // estado: el front no tiene una lista propia (ver hooks/useEstados).
+  async listEstados(): Promise<StatusMeta[]> {
+    return viajes.listEstados();
   },
 
   // Datos de identidad para el wizard: agencias disponibles, agencia propia del

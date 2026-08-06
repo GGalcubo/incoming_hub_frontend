@@ -77,9 +77,11 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   const [cotizada, setCotizada] = useState("");
   // Categoría elegida que quedó pendiente de recotizar tras cambiar la ruta.
   const [pendiente, setPendiente] = useState<string | null>(null);
-  // Viaje que ya venía con tarifa (edición): se respeta la ruta con la que se
+  // Viaje que ya venía con TARIFA (edición): se respeta la ruta con la que se
   // guardó en vez de rearmarla. Pasa a false si el backend no sabe cuál era.
-  const [rutaFija, setRutaFija] = useState(t.tarifa != null);
+  // Mira el `tarifaId`, no `t.tarifa`: el objeto existe también cuando lo único
+  // que se pudo reconstruir es la categoría, y ahí no hay ruta que respetar.
+  const [rutaFija, setRutaFija] = useState(t.tarifa?.tarifaId != null);
 
   const origen = t.tarifa?.origen ?? "";
   const destino = t.tarifa?.destino ?? "";
@@ -220,20 +222,23 @@ export function StepTarifa({ t, set, errs }: StepProps) {
   // una previsualización: la base definitiva la recalcula el servidor con la
   // tarifa del tramo.
   //
-  // `elegida` distingue las dos formas de llegar acá. En true (clic en una card)
-  // el precio se recalcula siempre: elegir categoría ES pedir el precio de esa
-  // categoría, y deja de valer lo que se hubiera cargado a mano. En false son los
-  // recálculos automáticos (cambió la ruta, la modalidad o las horas), que
-  // respetan el monto que se escribió en el paso Costos.
+  // `reprecia` decide qué pasa con un monto cargado a mano en el paso Costos.
+  // En true el precio vuelve SIEMPRE al del tarifario, y es lo que corresponde
+  // en los dos casos que cambian de qué tarifa estamos hablando: elegir una card
+  // (elegir categoría ES pedir el precio de esa categoría) y cambiar la RUTA
+  // (decisión del usuario: si cambia la ruta, está bien que pise el valor).
+  //
+  // En false —cambió la modalidad o las horas, misma tarifa— se respeta el monto
+  // escrito a mano: ahí el usuario fijó un precio absoluto para este viaje.
   const commit = (
     op: TarifaOpcion,
     nextModalidad: "traslado" | "horas" = modalidad,
     nextHoras: number = horas,
-    elegida = false,
+    reprecia = false,
   ) => {
     const p = priceOf(op, nextModalidad, nextHoras);
     const c = t.costs;
-    const conservarMonto = !!c.viajeManual && !elegida;
+    const conservarMonto = !!c.viajeManual && !reprecia;
     const viaje = conservarMonto ? c.viaje : (p.cliente ?? 0);
     set({
       cat: op.nombre,
@@ -320,7 +325,9 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     if (!pendiente || loading || cotizada !== rutaKey || !catalogoListo) return;
     const op = cards.find((o) => o.codigo === pendiente);
     setPendiente(null);
-    if (op) commit(op);
+    // Cambió la ruta ⇒ el precio se rehace con la tarifa nueva, aunque el monto
+    // estuviera cargado a mano.
+    if (op) commit(op, modalidad, horas, true);
     else clearSeleccion();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendiente, loading, cotizada, rutaKey, opciones, catalogoListo]);
@@ -393,9 +400,6 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         Elegí la categoría de vehículo. Montos en dólares (u$s). Las categorías sin tarifa para
         la ruta se pueden elegir igual: quedan a cotizar por el proveedor.
       </p>
-
-      {/* Con backend las tarifas salen de /tarifarios/cotizar/; sin él, del
-          tarifario de prueba de este navegador. */}
 
       {errs.cat && !t.cat && (
         <div className={styles.catNoPrice} style={{ color: "var(--danger-fg)" }}>

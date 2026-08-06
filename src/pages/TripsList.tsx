@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { STATUSES, TODAY, TOMORROW } from "../data/catalogos";
+import { TODAY, TOMORROW } from "../data/catalogos";
+import { useEstados } from "../hooks/useEstados";
 import type { Trip, TripStatus } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -19,6 +20,14 @@ interface TripsListProps {
   onExport: (msg: string) => void;
   onChangeStatus: (t: Trip, est: TripStatus) => void;
   isOperator?: boolean;
+  // Filtros que resuelve el SERVIDOR (viven arriba porque son parte de lo que se
+  // le pide): estado, nº de viaje y nombre de pasajero.
+  estadoFilter: TripStatus | null;
+  onEstadoChange: (est: TripStatus | null) => void;
+  qViaje: string;
+  onQViajeChange: (q: string) => void;
+  qPasajero: string;
+  onQPasajeroChange: (q: string) => void;
   // Día que se está mirando. Es del componente de arriba porque es lo que se le
   // pide al backend; cambiarlo dispara una carga nueva.
   dateFilter: string;
@@ -34,10 +43,6 @@ interface TripsListProps {
 type SortKey = keyof Trip | "id" | "pasajero";
 
 type Column = [SortKey, string, number | null];
-
-const STATUS_LABEL: Record<TripStatus, string> = Object.fromEntries(
-  STATUSES.map((s) => [s.id, s.label]),
-) as Record<TripStatus, string>;
 
 // Columnas para admin: vista completa (la columna "Observaciones" revela el
 // celular del pasajero al hacer click).
@@ -92,7 +97,7 @@ function sortValue(t: Trip, key: SortKey): string | number {
   return (v as string | number) ?? "";
 }
 
-function cellText(key: SortKey, t: Trip): string {
+function cellText(key: SortKey, t: Trip, statusLabel: (id: TripStatus) => string): string {
   switch (key) {
     case "id":
       return t.id;
@@ -109,7 +114,7 @@ function cellText(key: SortKey, t: Trip): string {
     case "pax":
       return String(t.pax);
     case "est":
-      return STATUS_LABEL[t.est] ?? t.est;
+      return statusLabel(t.est);
     case "unit":
       return t.unit || "";
     case "pasajero":
@@ -166,6 +171,12 @@ export function TripsList({
   onExport,
   onChangeStatus,
   isOperator = false,
+  estadoFilter,
+  onEstadoChange,
+  qViaje,
+  onQViajeChange,
+  qPasajero,
+  onQPasajeroChange,
   dateFilter,
   onDateChange,
   page,
@@ -175,8 +186,8 @@ export function TripsList({
   loading = false,
 }: TripsListProps) {
   const dateInputRef = useRef<HTMLInputElement>(null);
-  const [statusFilter, setStatusFilter] = useState<TripStatus[]>([]);
-  const [q, setQ] = useState("");
+  const { estados, metaOf } = useEstados();
+  const statusLabel = (id: TripStatus) => metaOf(id)?.label ?? String(id);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
     key: "time",
     dir: "asc",
@@ -186,36 +197,23 @@ export function TripsList({
 
   const cols = isOperator ? OPERATOR_COLS : ADMIN_COLS;
 
-  // Estado y búsqueda filtran SOLO la página cargada: el backend los soporta
-  // (`estado__codigo`, `search`), pero mandarlos al servidor depende de migrar
-  // antes el mapeo de estados (hoy son ids 1–9 a mano). Lo mismo el orden.
+  // Fecha, estado y búsqueda los resuelve el SERVIDOR (ver App → api.listTrips):
+  // lo que llega acá ya está filtrado y paginado. El filtro por fecha se repite
+  // igual, para que un viaje recién creado en OTRO día no se cuele en la lista
+  // antes de que la recarga traiga la página correcta.
   //
-  // El filtro por fecha lo hace el servidor; se repite acá para que un viaje
-  // recién creado en OTRO día no se cuele en la lista antes de la recarga.
+  // El ORDEN sí es de esta página: el backend solo sabe ordenar por
+  // `fecha_servicio` y la lista ya está acotada a un día, así que no hay nada
+  // que delegarle (ver docs/pendientes.md).
   const filtered = useMemo(() => {
-    let r = trips.filter((t) => t.date === dateFilter);
-    if (statusFilter.length) r = r.filter((t) => statusFilter.includes(t.est));
-    if (q.trim()) {
-      const s = q.toLowerCase();
-      r = r.filter(
-        (t) =>
-          t.id.toLowerCase().includes(s) ||
-          t.passengers.some((p) => `${p.firstName} ${p.lastName}`.toLowerCase().includes(s)) ||
-          t.agc.toLowerCase().includes(s),
-      );
-    }
-    r = [...r].sort((a, b) => {
+    const r = trips.filter((t) => t.date === dateFilter);
+    return [...r].sort((a, b) => {
       const A = sortValue(a, sort.key);
       const B = sortValue(b, sort.key);
       const c = A < B ? -1 : A > B ? 1 : 0;
       return sort.dir === "asc" ? c : -c;
     });
-    return r;
-  }, [trips, dateFilter, statusFilter, q, sort]);
-
-  const toggleStatus = (id: TripStatus) => {
-    setStatusFilter((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  };
+  }, [trips, dateFilter, sort]);
 
   const sortBy = (key: SortKey) => {
     setSort((s) =>
@@ -224,7 +222,7 @@ export function TripsList({
   };
 
   const exportHeaders = cols.map(([, label]) => label);
-  const rowCells = (t: Trip): string[] => cols.map(([k]) => cellText(k, t));
+  const rowCells = (t: Trip): string[] => cols.map(([k]) => cellText(k, t, statusLabel));
 
   const handleCopy = async () => {
     if (!filtered.length) {
@@ -429,39 +427,66 @@ export function TripsList({
           />
         </div>
 
+        {/* Un solo estado por vez: el backend filtra por `estado=<id>`, que es un
+            entero. Antes era multi-select pero filtraba solo la página cargada,
+            así que un estado con viajes en la página 2 aparecía como vacío. */}
         <div className={styles.statusWrap}>
           <button onClick={() => setShowStatusMenu((s) => !s)} className={styles.statusBtn}>
             <Icon name="filter" size={14} />
-            Estado{statusFilter.length ? ` · ${statusFilter.length}` : ""}
+            {estadoFilter == null ? "Estado" : `Estado · ${statusLabel(estadoFilter)}`}
             <Icon name="chevdown" size={12} />
           </button>
           {showStatusMenu && (
             <div className={styles.statusMenu}>
-              {STATUSES.map((s) => (
+              {estados.map((s) => (
                 <label key={s.id} className={styles.statusOpt}>
                   <input
-                    type="checkbox"
-                    checked={statusFilter.includes(s.id)}
-                    onChange={() => toggleStatus(s.id)}
+                    type="radio"
+                    name="estado"
+                    checked={estadoFilter === s.id}
+                    onChange={() => {
+                      setShowStatusMenu(false);
+                      onEstadoChange(s.id);
+                    }}
                   />
                   <Badge status={s.id} />
                 </label>
               ))}
-              {statusFilter.length > 0 && (
-                <button onClick={() => setStatusFilter([])} className={styles.clearBtn}>
-                  Limpiar filtros
+              {estadoFilter != null && (
+                <button
+                  onClick={() => {
+                    setShowStatusMenu(false);
+                    onEstadoChange(null);
+                  }}
+                  className={styles.clearBtn}
+                >
+                  Limpiar filtro
                 </button>
               )}
             </div>
           )}
         </div>
 
+        {/* Dos búsquedas, no una: el backend no tiene un `search` que cruce las
+            dos cosas. `search` mira el nº de viaje y la referencia;
+            `pasajeros__persona__nombre__icontains`, el nombre del pasajero.
+            Las dos filtran contra TODO el día, no contra la página cargada. */}
         <div className={styles.searchWrap}>
           <Icon name="search" size={14} className={styles.searchIcon} />
           <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por viaje, pasajero o agencia"
+            value={qViaje}
+            onChange={(e) => onQViajeChange(e.target.value)}
+            placeholder="Nº de viaje o referencia"
+            className={styles.searchInput}
+          />
+        </div>
+
+        <div className={styles.searchWrap}>
+          <Icon name="search" size={14} className={styles.searchIcon} />
+          <Input
+            value={qPasajero}
+            onChange={(e) => onQPasajeroChange(e.target.value)}
+            placeholder="Pasajero"
             className={styles.searchInput}
           />
         </div>

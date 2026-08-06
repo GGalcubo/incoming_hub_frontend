@@ -4,10 +4,11 @@ import { api } from "./api/client";
 import type { RoleEnum } from "./api/backend";
 import { Topbar } from "./components/Topbar";
 import { ExcelUploadModal } from "./components/ExcelUploadModal";
-import { STATUSES, TODAY, TOMORROW } from "./data/catalogos";
+import { TODAY, TOMORROW } from "./data/catalogos";
 import { useModals } from "./context/ModalsContext";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
+import { useEstados } from "./hooks/useEstados";
 import { useMe } from "./hooks/useMe";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
@@ -22,6 +23,7 @@ export function App() {
   const { flash } = useToast();
   const { excelOpen, closeExcel } = useModals();
   const { role, isProvider } = useMe();
+  const { metaOf } = useEstados();
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(false);
   // Vista reducida para todo el que no es admin (operador de agencia y proveedor).
@@ -30,6 +32,11 @@ export function App() {
   // se le pide al servidor (antes se bajaban TODOS los viajes y la lista filtraba
   // por fecha en el navegador).
   const [dateFilter, setDateFilter] = useState<string>(TODAY);
+  // Filtros que resuelve el servidor. Viven acá, con el día y la página, porque
+  // son parte de lo que se le pide a /viajes/: cambiarlos recarga la lista.
+  const [estadoFilter, setEstadoFilter] = useState<TripStatus | null>(null);
+  const [qViaje, setQViaje] = useState("");
+  const [qPasajero, setQPasajero] = useState("");
   const [page, setPage] = useState(1);
   const [pageInfo, setPageInfo] = useState({ count: 0, pages: 1 });
   const [dayCounts, setDayCounts] = useState({ today: 0, tomorrow: 0 });
@@ -41,12 +48,19 @@ export function App() {
     setPage(1);
   };
 
+  // Cualquier filtro nuevo vuelve a la página 1: la que se estaba mirando puede
+  // no existir en el resultado filtrado.
+  const filtrar = <T,>(set: (v: T) => void) => (v: T) => {
+    set(v);
+    setPage(1);
+  };
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
     setLoading(true);
     api
-      .listTrips({ date: dateFilter, page })
+      .listTrips({ date: dateFilter, page, estado: estadoFilter, qViaje, qPasajero })
       .then((res) => {
         if (cancelled) return;
         setTrips(res.trips);
@@ -67,7 +81,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [user, flash, dateFilter, page, reloadKey]);
+  }, [user, flash, dateFilter, page, estadoFilter, qViaje, qPasajero, reloadKey]);
 
   // Contadores del encabezado. Van aparte de la lista porque son de OTROS días:
   // con la lista paginada por día, "hoy" y "mañana" ya no se pueden contar sobre
@@ -130,7 +144,7 @@ export function App() {
   const changeStatus = async (t: Trip, est: TripStatus): Promise<Trip> => {
     const updated = await api.setStatus(t.id, est);
     setTrips((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
-    const label = STATUSES.find((s) => s.id === est)?.label ?? est;
+    const label = metaOf(est)?.label ?? est;
     flash(`Viaje ${updated.id} → ${label}`);
     return updated;
   };
@@ -164,6 +178,12 @@ export function App() {
               loading={loading}
               onChangeStatus={changeStatus}
               isOperator={isOperator}
+              estadoFilter={estadoFilter}
+              onEstadoChange={filtrar(setEstadoFilter)}
+              qViaje={qViaje}
+              onQViajeChange={filtrar(setQViaje)}
+              qPasajero={qPasajero}
+              onQPasajeroChange={filtrar(setQPasajero)}
               dateFilter={dateFilter}
               onDateChange={verDia}
               page={page}
@@ -253,6 +273,12 @@ function TripsListRoute({
   loading,
   onChangeStatus,
   isOperator,
+  estadoFilter,
+  onEstadoChange,
+  qViaje,
+  onQViajeChange,
+  qPasajero,
+  onQPasajeroChange,
   dateFilter,
   onDateChange,
   page,
@@ -265,6 +291,12 @@ function TripsListRoute({
   loading: boolean;
   onChangeStatus: (t: Trip, est: TripStatus) => Promise<Trip>;
   isOperator: boolean;
+  estadoFilter: TripStatus | null;
+  onEstadoChange: (est: TripStatus | null) => void;
+  qViaje: string;
+  onQViajeChange: (q: string) => void;
+  qPasajero: string;
+  onQPasajeroChange: (q: string) => void;
   dateFilter: string;
   onDateChange: (date: string) => void;
   page: number;
@@ -293,6 +325,12 @@ function TripsListRoute({
         onExport={(msg) => flash(msg)}
         onChangeStatus={onChangeStatus}
         isOperator={isOperator}
+        estadoFilter={estadoFilter}
+        onEstadoChange={onEstadoChange}
+        qViaje={qViaje}
+        onQViajeChange={onQViajeChange}
+        qPasajero={qPasajero}
+        onQPasajeroChange={onQPasajeroChange}
         dateFilter={dateFilter}
         onDateChange={onDateChange}
         page={page}

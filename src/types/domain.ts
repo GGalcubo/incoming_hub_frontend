@@ -1,13 +1,13 @@
-export type TripStatus =
-  | "PENDIENTE"
-  | "CONFIRMADO"
-  | "EN_CURSO"
-  | "FINALIZADO"
-  | "CANCELADO"
-  | "NO_SHOW"
-  | "REPROGRAMADO"
-  | "MODIFICADO"
-  | "EN_ESPERA";
+// Estado de un viaje: es el ID de una fila de GET /estados/, no una etiqueta del
+// front. El catálogo (nombre, color, si es final) sale del backend — antes eran
+// nueve constantes propias mapeadas a mano contra los ids 1–9, mapeo que estaba
+// MAL: el front creía que el 5 era "Cancelado" y en el backend es "En Progreso".
+export type TripStatus = number;
+
+// Viaje que todavía no existe en el backend (el wizard, una fila de Excel): el
+// estado lo asigna el servidor al crearlo, así que acá no hay ninguno. No es un
+// id válido de `/estados/`.
+export const SIN_ESTADO = 0;
 
 export type LegType = "in" | "out" | "otro" | "disposicion";
 
@@ -154,9 +154,17 @@ export interface Trip {
   proveedorId?: string;
 }
 
+// Un estado listo para pintar: lo que la UI necesita de GET /estados/.
 export interface StatusMeta {
   id: TripStatus;
+  // Código del backend ("NUE", "Fin", "MOD"…). Solo para reconocer los estados a
+  // los que el front ata una acción; como clave NO sirve (ver api/backend Estado).
+  codigo: string;
   label: string;
+  // Hex del backend (puede venir vacío o mal formado: la UI lo valida).
+  color: string | null;
+  // El viaje ya no cambia de estado desde el Hub.
+  esFinal: boolean;
 }
 
 export interface User {

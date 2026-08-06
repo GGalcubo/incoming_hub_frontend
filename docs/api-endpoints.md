@@ -31,7 +31,7 @@ admin | agency_staff | agency_operator | provider
 ```
 ⚠️ El rol de proveedor se llama **`provider`**, en inglés — no `proveedor`. Todo el
 gateo de UI del front cuelga de esto (`useMe.isProvider`, `proveedorIdOf`,
-`clienteScope`, los `roles` del `NAV` del Topbar).
+los `roles` del `NAV` del Topbar).
 
 `/auth/me/` devuelve además `agencia` (objeto `Agencia`) y `proveedor` (objeto
 `Proveedor`) ya resueltos: **no** hay que inferir la agencia cruzando el email
@@ -59,16 +59,24 @@ contra el catálogo de solicitantes.
 | GET/PUT/PATCH/DELETE | `/services/{id}/` | Detalle / editar / borrar categoría |
 | GET | `/estados/` · `/estados/{id}/` | Estados de viaje (filtros: `es_final`, `visible_agencia`) |
 
-`Estado` = `{ id, codigo, nombre, color, es_final, visible_agencia }`. Códigos:
+`Estado` = `{ id, codigo, nombre, color, es_final, visible_agencia }`.
+`viaje.estado` es el **id** de una de estas filas, y el front lo usa tal cual
+(`Trip.est` ES el id): el nombre y el color salen del catálogo.
 
-```
-NUE PRE ASI CON PRO FIN CER ELI CAN NSH MOD CXL CLX REV WEB
-```
+⚠️ **El `codigo` NO sirve como clave.** Verificado contra la API el 06/08/2026:
 
-⚠️ **Pendiente:** `viaje.estado` es un **entero** y el front todavía lo traduce con
-la tabla hardcodeada `ESTADO_TO_STATUS` (ids 1–9) en `api/viajes.ts`. Son 15
-estados: cualquier id fuera de 1–9 cae silenciosamente a `PENDIENTE`. Hay que
-migrar ese mapeo al catálogo real (requiere leer `/estados/` con credenciales).
+- La tabla tiene **17 filas** (ids 1–18, falta el 11) con casing irregular y
+  espacios al final: `NUE`, `Pre`, `Asi`, `Con`, `Pro`, `Fin`, `Cer`, `Eli`,
+  `No `, `MOD`, `CXL`, `NO `, `CLX`, `REV`, `Web`, `Cam`, `Ori`.
+- El schema declara otra cosa: `CodigoEnum` con 15 en MAYÚSCULAS, incluidos
+  `CAN` y `NSH`, que **no existen** en la tabla; y sin `Cam` ni `Ori`.
+- `No ` (No Show) y `NO ` (NO SHOW +) **colisionan** al normalizar.
+- Por eso `GET /viajes/?estado__codigo=…` da **400** con los códigos reales y
+  **0 resultados** con los del enum (salvo `NUE`). El front filtra por
+  `estado=<id>`.
+
+⚠️ **No hay estado "Cancelado"**, así que cancelar un viaje no se puede. Ver
+[`pendientes.md`](./pendientes.md).
 
 ## Personas (pasajeros)
 | Método | Ruta | Descripción |
@@ -92,8 +100,10 @@ migrar ese mapeo al catálogo real (requiere leer `/estados/` con credenciales).
 > (`syncTarifaTramo` → `syncCostos`).
 >
 > ⚠️ Valida que la tarifa sea **de la misma categoría del viaje** (400 si no).
-> Ojo: el front resuelve la categoría del viaje contra `/services/` y la de la
-> tarifa contra `/categorias/`; si los ids no son los mismos, este PATCH falla.
+> El front resuelve la categoría del viaje contra `/services/` y la de la tarifa
+> contra `/categorias/`. ✅ Verificado el 06/08/2026: son el **mismo catálogo**
+> (ids 1–4, códigos `STD`/`EJEC`/`MB`/`VITO`), así que los ids coinciden. Si
+> alguna vez divergen, este PATCH empieza a fallar.
 
 En la **lectura** el tramo trae también `origen_es_aeropuerto` / `origen_iata` y
 sus pares de destino, más `id_tramo_central`. `numero_tramo` es read-only.
@@ -212,16 +222,27 @@ hacer el backend.
 `pasajeros__persona__nombre__icontains`, `tramos__origen_direccion__icontains`,
 `tramos__destino_direccion__icontains`, `ordering`, `page`.
 
-`listTrips` usa `fecha_servicio` + `page`: **una página de un día**, no la tabla
-entera (antes hacía `fetchAll("/viajes/")` y filtraba por fecha en el navegador).
-El paginador se guía por `count` y `next`; el tamaño de página lo fija el backend
-y no hay `page_size` para pedirlo distinto. Si la página se va de rango, DRF
-responde **404 "Invalid page"** y `listTrips` reintenta en la primera, devolviendo
-en `page` cuál sirvió.
+`listTrips` usa `fecha_servicio` + `page` + los filtros de la grilla: **una
+página de un día**, no la tabla entera (antes hacía `fetchAll("/viajes/")` y
+filtraba por fecha en el navegador). El paginador se guía por `count` y `next`; el
+tamaño de página lo fija el backend y no hay `page_size` para pedirlo distinto. Si
+la página se va de rango, DRF responde **404 "Invalid page"** y `listTrips`
+reintenta en la primera, devolviendo en `page` cuál sirvió.
 
-⚠️ **Pendiente:** el filtro por estado, la búsqueda y el orden de la grilla siguen
-en el cliente sobre la página cargada. Delegarlos a `estado__codigo`, `search` y
-`ordering` requiere migrar antes el mapeo de estados (hoy son ids 1–9 a mano).
+Cuáles de esos filtros sirven de verdad (probados contra la API el 06/08/2026):
+
+| Filtro | Anda | Detalle |
+|---|---|---|
+| `fecha_servicio` | ✅ | Es el eje de la lista. |
+| `estado` (id) | ✅ | `?estado=1` → 80, `?estado=9` → 32. **Es el que usa el front.** |
+| `estado__codigo` | ❌ | Valida contra `CodigoEnum`: **400** con los códigos que tiene cargados la tabla y **0 resultados** con los del enum, salvo `NUE`. Ver la sección Catálogos. |
+| `search` | ✅ | Solo `numero_viaje` / `referencia_externa`. **No** busca por pasajero ni por agencia. |
+| `pasajeros__persona__nombre__icontains` | ✅ | Es la única forma de buscar por pasajero, y es case-insensitive. |
+| `ordering` | ⚠️ | Solo `fecha_servicio`. `id`, `hora_servicio`, `numero_viaje` y `estado` devuelven siempre el mismo orden: falta `ordering_fields`. |
+
+Por eso la búsqueda de la grilla son **dos campos** (nº de viaje y pasajero): no
+hay un `search` que cruce las dos cosas. Y el orden de columnas se hace sobre la
+página cargada, porque no hay a qué delegarlo.
 
 ### Creación vs. modificación
 - **Crear** (`POST /viajes/`): los `pasajeros` y los `tramos` van **anidados en el

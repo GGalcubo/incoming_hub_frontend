@@ -1,5 +1,5 @@
 import { TODAY } from "../../data/catalogos";
-import type { Trip } from "../../types/domain";
+import { SIN_ESTADO, type Trip } from "../../types/domain";
 
 export type Mode = "new" | "edit";
 
@@ -36,7 +36,7 @@ export const EMPTY_TRIP: Trip = {
   legs: [{ type: "in", origin: "", destination: "", flight: "", obs: "" }],
   passengers: [{ firstName: "", lastName: "", phone: "" }],
   obs: "",
-  est: "PENDIENTE",
+  est: SIN_ESTADO,
   costs: { total: 0, viaje: 0, espera: 0, peajes: 0, estacionamiento: 0, otros: 0 },
   history: [],
   pax: 1,

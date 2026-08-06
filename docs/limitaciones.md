@@ -38,6 +38,13 @@ cotiza, por eso se sigue mandando. El detalle y el pedido al backend están en
 [`api-endpoints.md`](./api-endpoints.md#costos-del-viaje) y en
 [`pendientes.md`](./pendientes.md).
 
+**Cuándo se pisa ese monto** (regla del negocio, no un bug): lo rehace con el
+tarifario todo lo que cambie *de qué tarifa* se está hablando — elegir otra
+categoría o **cambiar la ruta**. Cambiar solo la modalidad o la cantidad de horas
+lo respeta: ahí la tarifa es la misma y el monto escrito es un precio absoluto
+para ese viaje. Por eso `viajeManual` no necesita persistirse. Lo fija el test
+"recotizar por cambio de ruta pisa el monto con la tarifa nueva".
+
 Los **extras por agencia** (espera / hora a disposición / km facturados a cada
 cliente) ya no existen en el front: no hay modelo en el backend y lo único que
 había era un set guardado en el `localStorage` de un navegador. La pantalla que
@@ -89,18 +96,19 @@ los editaba se eliminó junto con *Tarifas Cliente*.
 proveedor"), así que la conversión `MINUTOS_POR_HORA` de `api/tarifasCrud.ts` es
 correcta.
 
-## Deuda: real, pero desalineado con el backend
+## Lo que NO se cumple del lado del servidor
 
-Los datos son del servidor, pero el front todavía no usa todo lo que el backend
-ya publica. El detalle está en [`pendientes.md`](./pendientes.md):
+El front no tiene deuda pendiente (ver [`pendientes.md`](./pendientes.md)), pero
+hay dos reglas que hoy se cumplen **solo de vista**, porque el recorte por rol es
+por viaje y no por campo:
 
-- **Estados del viaje.** [`api/viajes.ts`](../src/api/viajes.ts) mapea los ids
-  1–9 a mano; el backend expone 15 códigos en `GET /estados/`. Cualquier id fuera
-  de 1–9 cae en silencio a `PENDIENTE`.
-- **Agencia propia del usuario.** Se infiere cruzando el email del perfil contra
-  el catálogo de solicitantes, cuando `/auth/me/` ya devuelve `agencia` resuelta.
-- **El precio al cliente viaja igual al navegador del proveedor.** El recorte por
-  rol es por viaje, no por campo: el costo trae las dos columnas y la UI solo
-  esconde una. Lo mismo pasa con el historial.
-- **Unidad asignada.** La columna se muestra en la lista pero no se edita.
-- **Estado y búsqueda de la lista de viajes.** Filtran solo la página cargada.
+- **El precio al cliente viaja igual al navegador del proveedor.** `GET
+  /viajes/{id}/costos/` manda las dos columnas a todos: con el usuario
+  `proveedor1` se reciben `costo_viaje_cliente` y `costo_total_cliente`.
+- **El historial también.** `GET /viajes/{id}/historial/` devuelve el diff
+  completo; el front lo filtra (`filtrarPorVista`), pero el dato está en la
+  respuesta y se ve en la pestaña Network.
+
+Además, **cancelar un viaje no funciona**: el backend no tiene cargado el estado
+"Cancelado", así que el botón queda deshabilitado. Antes mandaba un id fijo que
+allá es "En Progreso" y dejaba el viaje en curso.

@@ -1,21 +1,10 @@
-// Catálogos de producto y helpers de fecha. NO son datos de ejemplo: los estados
-// son los que maneja el negocio (y con los que se traducen los del backend, ver
-// api/viajes.ts) y las fechas son las que usan los atajos "Hoy / Mañana" de la
-// lista.
-
-import type { StatusMeta } from "../types/domain";
-
-export const STATUSES: StatusMeta[] = [
-  { id: "PENDIENTE", label: "Pendiente" },
-  { id: "CONFIRMADO", label: "Confirmado" },
-  { id: "EN_CURSO", label: "En curso" },
-  { id: "FINALIZADO", label: "Finalizado" },
-  { id: "CANCELADO", label: "Cancelado" },
-  { id: "NO_SHOW", label: "No show" },
-  { id: "REPROGRAMADO", label: "Reprogramado" },
-  { id: "MODIFICADO", label: "Modificado" },
-  { id: "EN_ESPERA", label: "En espera" },
-];
+// Helpers de fecha para los atajos "Hoy / Mañana" de la lista de viajes.
+//
+// Acá vivía además un catálogo de estados propio del front (`STATUSES`). Se
+// eliminó: los estados salen de `GET /estados/` (ver api/viajes → listEstados y
+// hooks/useEstados). El mapeo que traducía esos nueve nombres a los ids 1–9 del
+// backend estaba MAL — el front creía que el 5 era "Cancelado" y allá es "En
+// Progreso" —, así que la lista mostraba estados que no eran.
 
 const today = new Date();
 const fmt = (d: Date) =>

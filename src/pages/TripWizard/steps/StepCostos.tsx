@@ -3,6 +3,8 @@ import { api } from "../../../api/client";
 import { Aviso } from "../../../components/ui/Aviso";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Field";
+import { CODIGO_ESTADO } from "../../../api/viajes";
+import { useEstados } from "../../../hooks/useEstados";
 import { useMe } from "../../../hooks/useMe";
 import { totalCliente, totalProveedor, withTotals } from "../../../lib/costs";
 import { cx } from "../../../lib/cx";
@@ -65,13 +67,20 @@ function derivarEsperaMin(
 
 export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) => void }) {
   const { isAdmin, isProvider, proveedorId } = useMe();
+  const { metaOf, idPorCodigo } = useEstados();
+  // Id del estado "Finalizado" del backend. Si no está cargado, el botón de
+  // finalizar no se ofrece: no hay a qué estado mandarlo.
+  const finalizadoId = idPorCodigo(CODIGO_ESTADO.FINALIZADO);
   const [extras, setExtras] = useState<TarifaExtras | null>(null);
   // Borrador del input de minutos: mientras se tipea no redondeamos (si no,
   // escribir "45" pasaría por "4" y se convertiría en 0). Se aplica al salir.
   const [esperaDraft, setEsperaDraft] = useState<string | null>(null);
   const c = t.costs;
   const sym = c.moneda === "USD" ? "u$s" : "$";
-  const cerrado = t.est === "FINALIZADO";
+  // Cerrado = el backend marca el estado como final ("el viaje no puede cambiar
+  // de estado desde Hub"). Antes era una comparación contra la constante
+  // "FINALIZADO" del front, que no existía del lado del servidor.
+  const cerrado = metaOf(t.est)?.esFinal ?? false;
   // El proveedor solo carga los costos de SUS viajes (los que tiene asignados).
   const esPropio = !isProvider || t.proveedorId === proveedorId;
 
@@ -329,16 +338,16 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
         ))}
       </div>
 
-      {canEditAlgo && (
+      {canEditAlgo && finalizadoId != null && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-          <Button kind="primary" icon="check" onClick={() => set({ est: "FINALIZADO" })}>
+          <Button kind="primary" icon="check" onClick={() => set({ est: finalizadoId })}>
             Finalizar viaje
           </Button>
         </div>
       )}
       {cerrado && (
         <p className={styles.p} style={{ marginTop: 12 }}>
-          El viaje está cerrado (finalizado). Los costos quedan fijados.
+          El viaje está en un estado final ({metaOf(t.est)?.label}). Los costos quedan fijados.
         </p>
       )}
 

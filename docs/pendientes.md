@@ -1,38 +1,45 @@
 # Pendientes
 
-Qué falta, en una sola página. El detalle técnico de cada punto está en
-[`api-endpoints.md`](./api-endpoints.md) y [`limitaciones.md`](./limitaciones.md).
+Qué falta, en una sola página. El detalle técnico está en
+[`api-endpoints.md`](./api-endpoints.md) y de dónde sale cada dato, en
+[`limitaciones.md`](./limitaciones.md).
 
-Verificado contra `/api/schema/` el **06/08/2026**.
+**Deuda del frontend: ninguna.** Todo lo que sigue depende del backend.
 
-## 1. Depende del backend
+Acá va **solo lo que falta**. Lo que ya se cerró no se archiva en esta página: el
+porqué de cada decisión vive en el código (comentario + test) y lo que la app
+hace hoy, en [`limitaciones.md`](./limitaciones.md).
 
-El front ya está listo en los tres primeros: manda los datos y funcionan solo el
-día que el servidor los acepte.
+Verificado el **06/08/2026**. Los puntos **1 a 5** salieron de respuestas
+concretas de la API (con usuario admin y con `proveedor1`), no del schema: cada
+uno trae cómo reproducirlo. Los **6 a 8** salen de `/api/schema/`.
+
+## 1. Para el backend — datos mal cargados o config faltante
+
+Los tres más baratos: no hay que cambiar el modelo, alcanza con cargar/ajustar.
+El primero tiene una función caída.
+
+| # | Qué falta | Por qué importa | Cómo verlo |
+|---|---|---|---|
+| 1 | **Falta el estado "Cancelado".** El schema declara el código `CAN` en `CodigoEnum`, pero la tabla NO lo tiene: `GET /estados/` devuelve `count: 17`, ids del 1 al 18 con el **11 faltante**. | 🔴 **Cancelar un viaje no funciona.** El botón queda deshabilitado a propósito. Antes el front mandaba un id fijo —el 5— que allá es "En Progreso": cancelar dejaba el viaje EN CURSO. | `GET /estados/` y buscar `CAN`. Aparece en Swagger porque ahí se ve el *enum declarado*, no las filas. |
+| 2 | **Los códigos de estado guardados no coinciden con el enum del propio backend.** La tabla tiene `Pre`, `Asi`, `Con`, `Fin`, `No `, `NO `… (casing irregular y **espacios al final**) y dos que ni están en el enum (`Cam`, `Ori`). El enum declara 15, todos en MAYÚSCULAS. Encima `No ` (No Show) y `NO ` (NO SHOW +) colisionan al normalizar. | El filtro `estado__codigo` valida contra el enum: da **400** con los códigos reales y **0 resultados** para 14 de los 15. El `codigo` no sirve como clave de nada; el front tuvo que filtrar por `estado=<id>`. | `GET /viajes/?estado__codigo=Con` → 400. `?estado__codigo=CON` → 0. `?estado__codigo=NUE` → 80 (el único que matchea). |
+| 3 | **`ordering` casi no ordena.** Solo responde a `fecha_servicio`. `hora_servicio`, `numero_viaje`, `estado` e `id` devuelven siempre el mismo orden: falta `ordering_fields`. | La lista ya está acotada a un día, así que ordenar por fecha no sirve para nada: el orden de columnas quedó sobre la página cargada. | `GET /viajes/?ordering=id` vs `?ordering=-id` → idéntico. Con `fecha_servicio` sí cambia. |
+
+## 2. Para el backend — fugas de datos entre roles
+
+El recorte por rol es **por viaje**, no por campo: el servidor decide qué viajes
+ve cada uno, pero de cada viaje manda todo. Hoy la regla "el proveedor no ve el
+precio al cliente" se cumple **solo de vista**, y se ve en la pestaña Network.
+
+| # | Qué falta | Evidencia (con el usuario `proveedor1`) |
+|---|---|---|
+| 4 | **Recortar los costos por campo.** `GET /viajes/{id}/costos/` manda las dos columnas a todos. | El proveedor recibe `costo_viaje_cliente: "40.00"` y `costo_total_cliente: "40.00"` del viaje 563, más `costo_espera/peajes/estacionamiento/otros_cliente` y `moneda_cliente`. |
+| 5 | **Recortar el historial por rol.** `GET /viajes/{id}/historial/` devuelve el diff completo a todos. | De las 12 entradas del viaje 563, el diff que le llega al proveedor incluye `costo_viaje_cliente`, `costo_total_cliente` y los otros cinco campos `*_cliente`. El front los filtra (`filtrarPorVista` en `api/historial.ts`), pero viajan igual. |
+
+## 3. Para el backend — falta modelo o campo
 
 | # | Qué falta | Por qué importa |
 |---|---|---|
-| 1 | **Poder escribir el monto base del viaje.** El `PATCH /viajes/{id}/costos/` usa `PatchedCostoViajeUpdate`, que no incluye `costo_viaje_proveedor` ni `costo_viaje_cliente`. Hay que agregarlos como escribibles y que `recalcular_costo_viaje` no los pise si fueron cargados a mano (ojo: `PATCH /tramos/{id}/tarifa/` hoy resetea los ajustes manuales). | Un viaje cuya ruta no tiene tarifa **no puede tener precio**. Se carga en pantalla, se ve en el total y se pierde al recargar: DRF descarta los campos que no declara, sin error. |
-| 2 | **Extras por agencia** (espera, hora a disposición y km facturados a cada cliente). No hay modelo: el backend solo los tiene por proveedor. | Se eliminó del front (vivía en el `localStorage` de un navegador): hoy la funcionalidad **no existe**, y no vuelve hasta que el backend la modele. |
-| 3 | **Recortar el costo por campo, no solo por viaje.** El costo trae las dos columnas siempre, así que el navegador de un proveedor recibe `costo_viaje_cliente` y `costo_total_cliente` aunque la UI no los muestre. | Si "el proveedor no ve el precio al cliente" es una regla dura, hoy se cumple **solo de vista**. |
-| 4 | **Rol del autor en los comentarios.** El backend devuelve id y nombre, no el rol. | La chapita de Administración / Proveedor / Agencia queda sin poner en cada comentario. |
-
-## 2. Deuda del frontend
-
-| # | Qué falta | Estado |
-|---|---|---|
-| 1 | **Estados del viaje.** `api/viajes.ts` mapea los ids 1–9 a mano; el backend publica 15 códigos en `GET /estados/` (NUE, PRE, ASI, CON, PRO, FIN, CER, ELI, CAN, NSH, MOD, CXL, CLX, REV, WEB). Cualquier id fuera de 1–9 cae en silencio a `PENDIENTE`. | Es el que **bloquea al siguiente**. |
-| 2 | **Filtro por estado, búsqueda y orden de la lista de viajes.** Se aplican en el cliente, sobre la página cargada. El backend los soporta (`estado__codigo`, `search`, `ordering`). | Espera al punto 1: un filtro por estado server-side con el mapeo actual mentiría. |
-| 3 | **Agencia propia del usuario.** Se infiere cruzando el email del perfil contra el catálogo de solicitantes, cuando `/auth/me/` ya devuelve `agencia` resuelta. | El cruce por email solo hace falta para el nombre del solicitante. |
-| 4 | **Unidad asignada.** La columna se muestra en la lista pero no se edita en ninguna pantalla; el campo (`unidad_asignada`) existe en el backend. | — |
-| 5 | **La marca de "monto cargado a mano" es de sesión.** No se persiste, así que al reabrir un viaje y cambiar el primer destino, la cotización vuelve a recalcular la base. | Deja de importar si se resuelve el punto 1 del backend. |
-
-## 3. Cerrado, para que no se vuelva a preguntar
-
-- `valor_espera` y `valor_espera_cliente` son **por hora**: la conversión
-  `MINUTOS_POR_HORA` de `api/tarifasCrud.ts` está bien.
-- El cambio de contraseña ya usa `POST /auth/change-password/`.
-- La carga por Excel ya usa `POST /viajes/bulk/` (todo o nada, errores por fila).
-- La lista de viajes ya se pide por día y por página; el paginador es real.
-- *Tarifas Cliente* quedó oculta a propósito: la tabla de proveedor le muestra al
-  admin las dos columnas.
+| 6 | **Poder escribir el monto base del viaje.** `PATCH /viajes/{id}/costos/` usa `PatchedCostoViajeUpdate`, que no incluye `costo_viaje_proveedor` ni `costo_viaje_cliente`. Hay que hacerlos escribibles y que `recalcular_costo_viaje` no los pise si vinieron a mano (ojo: `PATCH /tramos/{id}/tarifa/` hoy resetea los ajustes manuales). | Un viaje cuya ruta no tiene tarifa **no puede tener precio**. Se carga en pantalla, se ve en el total y se pierde al recargar: DRF descarta los campos que no declara, sin error. El front ya lo manda: funciona el día que el servidor lo acepte. |
+| 7 | **Extras por agencia** (espera, hora a disposición y km facturados a cada cliente). No hay modelo: los extras solo existen por proveedor, y `Agencia` no tiene ningún campo de tarifa. | La funcionalidad hoy **no existe**: se eliminó del front porque vivía en el `localStorage` de un navegador. No vuelve hasta que el backend la modele. |
+| 8 | **Rol del autor en los comentarios.** `ComentarioCosto` expone `autor` y `autor_nombre`, no el rol. | La chapita de Administración / Proveedor / Agencia queda sin poner en cada comentario: preferimos no mostrarla antes que deducirla mal. |
