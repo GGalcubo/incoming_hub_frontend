@@ -41,21 +41,6 @@
   margin-left: 8px;
 }
 
-/* Chapa de "modo demo": aparece solo cuando no hay backend configurado y, por
-   lo tanto, TODO lo que se ve sale del seed y del localStorage. */
-.demoChip {
-  flex: none;
-  padding: 3px 8px;
-  border: 1px solid var(--warning-solid);
-  border-radius: 999px;
-  background: var(--warning-bg);
-  color: var(--warning-fg);
-  font: 700 10px/14px Heming;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: default;
-}
-
 .spacer {
   flex: 1;
 }

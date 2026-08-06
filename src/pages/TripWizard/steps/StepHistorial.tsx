@@ -1,7 +1,5 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
-import { HAS_BACKEND } from "../../../api/http";
-import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Icon } from "../../../components/ui/Icon";
 import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
@@ -18,7 +16,6 @@ export function StepHistorial({ t }: { t: Trip }) {
   const lado = cargandoRol ? undefined : isAdmin ? null : isProvider ? "proveedor" : "cliente";
   // El historial lo sirve el backend por su propio endpoint
   // (GET /viajes/{id}/historial/): no viene con el viaje, así que se pide acá.
-  // Sin backend, el mock devuelve el historial de ejemplo del viaje del seed.
   const [entries, setEntries] = useState<HistoryEntry[] | null>(null);
   const [error, setError] = useState("");
 
@@ -51,13 +48,6 @@ export function StepHistorial({ t }: { t: Trip }) {
             ? "Cambios registrados sobre este viaje, del más reciente al más antiguo. Incluye los de sus destinos, pasajeros y costos."
             : "Cambios registrados sobre este viaje, del más reciente al más antiguo."}
       </p>
-
-      {!HAS_BACKEND && (
-        <AvisoMock>
-          Sin backend configurado, el historial que se ve es de ejemplo: no se registran los
-          cambios que hagas.
-        </AvisoMock>
-      )}
 
       {error && <div className={styles.histError}>{error}</div>}
 

@@ -101,8 +101,7 @@ export interface TripComentario {
 // registro de costos con la base de esa tarifa). El resto es la ruta y modalidad
 // elegidas, para poder reconstruir la selección al reabrir el viaje.
 export interface TripTarifa {
-  // Id de la tarifa del backend (/tarifarios/tarifas/). Sin backend real queda
-  // sin definir: el mock trabaja solo con origen/destino/categoría.
+  // Id de la tarifa del backend (/tarifarios/tarifas/).
   tarifaId?: number;
   origen?: string;
   destino?: string;
@@ -125,8 +124,7 @@ export interface HistoryEntry {
   ts: string;
   user: string;
   action: string;
-  // Diff del cambio. Solo lo trae el historial real del backend; el del seed
-  // (modo demo) no tiene detalle.
+  // Diff del cambio, campo por campo.
   changes?: HistoryChange[];
 }
 
@@ -151,9 +149,8 @@ export interface Trip {
   solicitante?: string;
   tarifa?: TripTarifa;
   // Proveedor que presta el servicio. Define de qué tarifario salen los precios
-  // y quién puede editar los costos del viaje. Contra el backend real es el id
-  // del proveedor del viaje (`viaje.proveedor`); sin backend, el del catálogo
-  // mock, persistido en un overlay local (ver api/proveedores.ts).
+  // y quién puede editar los costos del viaje. Es el id del proveedor del viaje
+  // en el backend (`viaje.proveedor`).
   proveedorId?: string;
 }
 

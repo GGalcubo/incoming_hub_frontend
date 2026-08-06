@@ -11,9 +11,7 @@
 //   4. `getCostos()` / `patchCostos()` leen y ajustan los costos del viaje. La
 //      base (`costo_viaje_*`) y los totales los calcula el backend: por PATCH
 //      solo van los ajustes manuales (espera, peajes, estacionamiento, otros).
-//
-// OJO: esto NO reemplaza a api/tarifas.ts (el mock de las pantallas de Tarifas),
-// que sigue sirviendo el tarifario local mientras esas vistas no se migren.
+
 
 import type {
   ComentarioCosto,

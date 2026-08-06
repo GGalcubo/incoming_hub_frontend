@@ -1,4 +1,4 @@
-import { TODAY } from "../../data/seed";
+import { TODAY } from "../../data/catalogos";
 import type { Trip } from "../../types/domain";
 
 export type Mode = "new" | "edit";

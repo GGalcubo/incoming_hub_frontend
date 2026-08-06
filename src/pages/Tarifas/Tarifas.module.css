@@ -60,7 +60,7 @@
   color: var(--fg-muted);
 }
 
-/* El aviso de datos de demo es compartido: components/ui/AvisoMock. */
+/* El cartel de aviso es compartido: components/ui/Aviso. */
 
 /* ---- tabla ---- */
 .tableWrap {

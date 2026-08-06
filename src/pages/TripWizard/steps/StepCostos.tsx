@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../../../api/client";
-import { HAS_BACKEND } from "../../../api/http";
-import { AvisoMock } from "../../../components/ui/AvisoMock";
+import { Aviso } from "../../../components/ui/Aviso";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Field";
 import { useMe } from "../../../hooks/useMe";
@@ -100,19 +99,21 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   // valor/minuto del tarifario correspondiente.
   const esperaEditable = !cerrado && canEditAlgo && !!extras;
 
-  // Tarifa de extras del proveedor del viaje (valor por minuto de espera); si
-  // todavía no tiene proveedor, las del tarifario general. Sin ella no se puede
-  // calcular la espera. Los dos valores (proveedor y cliente) salen del backend
-  // (ver api/client.ts, getTarifasExtras).
+  // Tarifa de extras del proveedor del viaje (valor por minuto de espera). Sin
+  // ella no se puede calcular la espera, y sin proveedor asignado no hay a quién
+  // pedírsela: el campo queda deshabilitado y el detalle lo explica. Los dos
+  // valores (proveedor y cliente) salen del backend.
   useEffect(() => {
     let active = true;
+    setExtras(null);
+    if (!t.proveedorId) return;
     api
       .getTarifasExtras(t.proveedorId)
       .then((e) => {
         if (active) setExtras(e);
       })
       .catch(() => {
-        /* sin tarifas cargadas: se muestra el aviso y no se puede editar la espera */
+        /* el proveedor no tiene extras cargados: no se puede editar la espera */
       });
     return () => {
       active = false;
@@ -197,24 +198,12 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
           (PatchedCostoViajeUpdate) no acepta `costo_viaje_*`, los deriva del
           tarifario de los tramos. Se manda igual —DRF ignora los campos que no
           modela— así que el día que los acepte esto funciona sin tocar nada. */}
-      {HAS_BACKEND && c.viajeManual && (
-        <AvisoMock tono="pendiente">
+      {c.viajeManual && (
+        <Aviso tono="pendiente">
           El valor del viaje cargado a mano <b>no se guarda en el servidor</b>: el backend lo
           calcula con la tarifa del tramo y todavía no acepta que se lo edite. Sirve para ver el
           total correcto ahora, pero al recargar el viaje vuelve el monto del tarifario.
-        </AvisoMock>
-      )}
-
-      {/* Los valores con los que se calcula la espera son del proveedor del viaje
-          y salen del backend. Solo se avisa cuando NO: sin backend, sin proveedor
-          asignado todavía, o si ese proveedor no tiene valores cargados (ahí la
-          API cae al tarifario de ejemplo, ver client.getTarifasExtras). */}
-      {extras?.esLocal && (
-        <AvisoMock>
-          {t.proveedorId
-            ? "Los valores con los que se calcula la espera están cargados solo en este navegador: el proveedor del viaje no los tiene en el servidor."
-            : "El viaje todavía no tiene proveedor asignado: la espera se calcula con los valores de ejemplo de este navegador. Al elegir la tarifa se toman los del proveedor."}
-        </AvisoMock>
+        </Aviso>
       )}
 
       <div className={styles.costGrid} style={gridStyle}>
@@ -291,15 +280,15 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
           <span className={styles.esperaHint}>
             {!extras
               ? canEditAlgo
-                ? "No hay tarifa de espera cargada."
+                ? t.proveedorId
+                  ? "El proveedor del viaje no tiene cargada la tarifa de espera."
+                  : "El viaje todavía no tiene proveedor asignado: elegí la tarifa para poder cargar la espera."
                 : `${esperaMin} min de espera`
               : `Unidad mínima 15 min · ${cols
                   .map((col) => `${fmt(rateOf(col) ?? 0)}/min ${COL_LABEL[col].toLowerCase()}`)
-                  .join(" · ")}${
                   // El backend guarda el MONTO de la espera, no los minutos: al
                   // reabrir el viaje se reconstruyen dividiendo por el valor/minuto.
-                  HAS_BACKEND ? " · se guarda el monto, los minutos se recalculan" : ""
-                }`}
+                  .join(" · ")} · se guarda el monto, los minutos se recalculan`}
           </span>
         </span>
         {cols.map((col) => (

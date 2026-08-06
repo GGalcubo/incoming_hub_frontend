@@ -6,7 +6,7 @@ import { validateExcelRow } from "../lib/excelValidate";
 import { hasGoogleMapsKey } from "../lib/gmaps";
 import { normalizePhone } from "../lib/phone";
 import { PlaceCombo } from "../pages/TripWizard/PlaceCombo";
-import { AvisoMock } from "./ui/AvisoMock";
+import { Aviso } from "./ui/Aviso";
 import { Button } from "./ui/Button";
 import { Icon } from "./ui/Icon";
 import { Input, Select } from "./ui/Field";
@@ -282,10 +282,10 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
           {/* El parseo y la validación corren en el navegador (SheetJS); lo que
               necesita a Google es la geocodificación de origen/destino. */}
           {!hasGoogleMapsKey() && (
-            <AvisoMock>
+            <Aviso titulo="Sin Google Maps">
               No hay API key de Google Maps configurada: las direcciones del Excel se cargan como
               texto, sin geolocalizar.
-            </AvisoMock>
+            </Aviso>
           )}
           {parsing ? (
             <div className={styles.parsing}>

@@ -1,7 +1,7 @@
 # Pendientes
 
 Qué falta, en una sola página. El detalle técnico de cada punto está en
-[`api-endpoints.md`](./api-endpoints.md) y [`mock-status.md`](./mock-status.md).
+[`api-endpoints.md`](./api-endpoints.md) y [`limitaciones.md`](./limitaciones.md).
 
 Verificado contra `/api/schema/` el **06/08/2026**.
 
@@ -13,7 +13,7 @@ día que el servidor los acepte.
 | # | Qué falta | Por qué importa |
 |---|---|---|
 | 1 | **Poder escribir el monto base del viaje.** El `PATCH /viajes/{id}/costos/` usa `PatchedCostoViajeUpdate`, que no incluye `costo_viaje_proveedor` ni `costo_viaje_cliente`. Hay que agregarlos como escribibles y que `recalcular_costo_viaje` no los pise si fueron cargados a mano (ojo: `PATCH /tramos/{id}/tarifa/` hoy resetea los ajustes manuales). | Un viaje cuya ruta no tiene tarifa **no puede tener precio**. Se carga en pantalla, se ve en el total y se pierde al recargar: DRF descarta los campos que no declara, sin error. |
-| 2 | **Extras por agencia** (espera, hora a disposición y km facturados a cada cliente). No hay modelo: el backend solo los tiene por proveedor. | Es el **último tarifario 100% mock**: vive en el `localStorage` de un navegador. Su pantalla quedó oculta junto con *Tarifas Cliente*. |
+| 2 | **Extras por agencia** (espera, hora a disposición y km facturados a cada cliente). No hay modelo: el backend solo los tiene por proveedor. | Se eliminó del front (vivía en el `localStorage` de un navegador): hoy la funcionalidad **no existe**, y no vuelve hasta que el backend la modele. |
 | 3 | **Recortar el costo por campo, no solo por viaje.** El costo trae las dos columnas siempre, así que el navegador de un proveedor recibe `costo_viaje_cliente` y `costo_total_cliente` aunque la UI no los muestre. | Si "el proveedor no ve el precio al cliente" es una regla dura, hoy se cumple **solo de vista**. |
 | 4 | **Rol del autor en los comentarios.** El backend devuelve id y nombre, no el rol. | La chapita de Administración / Proveedor / Agencia queda sin poner en cada comentario. |
 

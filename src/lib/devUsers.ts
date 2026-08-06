@@ -6,7 +6,7 @@ const DEV_USERS_PASSWORD = "Basico2620";
 export interface DevUser {
   user: string;
   pass: string;
-  // Rol que le toca según `mockRoleFromUsername` (solo informativo, para la UI).
+  // Rol de la cuenta en el backend (solo informativo, para la UI).
   label: string;
 }
 

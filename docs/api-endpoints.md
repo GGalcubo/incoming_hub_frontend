@@ -128,18 +128,18 @@ tarifa elegida es lo que se guarda en el tramo. Ver `api/tarifario.ts`.
 
 `/tarifarios/tarifas/` filtra **server-side** por `proveedor`, `id_proveedor`,
 `origen`, `destino`, `categoria_servicio` y `activo`. Es el que usan las pantallas
-de Tarifas (`api/tarifasCrud.ts`); `api/tarifas.ts` quedó como mock para el modo
-sin backend.
+de Tarifas (`api/tarifasCrud.ts`).
 
-### Lo que este CRUD NO modela (y el front sigue resolviendo local)
+### Lo que este CRUD NO modela
 - **No hay tarifario por cliente.** Hay UNA tarifa por (proveedor, origen,
   destino, categoría) con las dos columnas de precio adentro. "Tarifas Cliente"
   era la misma tabla mostrando `precio_cliente`, no un tarifario aparte: por eso
-  la pantalla quedó oculta y el admin ve las dos columnas en *Tarifas Proveedor*.
-- **La columna CLIENTE de los extras no existe.** El proveedor tiene sus tres
-  valores (arriba), pero no hay equivalente de lo que se le factura al cliente,
-  ni un set de extras por cliente. Esa mitad sigue en localStorage y lo avisan
-  las pantallas.
+  no hay pantalla propia (`/tarifas/cliente` redirige) y el admin ve las dos
+  columnas en *Tarifas Proveedor*.
+- **No hay extras POR AGENCIA.** Los extras del proveedor sí traen sus dos
+  columnas (`valor_x` y `valor_x_cliente`, arriba), pero no existe un set por
+  cliente. El front ya no lo ofrece: la pantalla que lo editaba guardaba en
+  localStorage y se eliminó. Ver [`pendientes.md`](./pendientes.md).
 
 Los ids de `origen`/`destino` son **zonas** (`/tarifarios/zonas/`) y el de
 `categoria_servicio` sale de `/categorias/`: el front traduce en los dos sentidos

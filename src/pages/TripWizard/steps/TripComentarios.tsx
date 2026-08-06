@@ -1,16 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
-import { HAS_BACKEND } from "../../../api/http";
-import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Button } from "../../../components/ui/Button";
 import { Textarea } from "../../../components/ui/Field";
 import type { TripComentario } from "../../../types/domain";
 import styles from "./steps.module.css";
 
-// De qué lado del mostrador vino el comentario. Solo lo tienen los comentarios
-// del modo mock, que guardan el rol del autor; el backend devuelve el nombre
-// pero NO el rol, así que ahí la chapita no se muestra (preferimos eso a
-// deducirla mal). Si hace falta, hay que pedirle al backend que lo exponga.
+// De qué lado del mostrador vino el comentario. El backend devuelve el nombre del
+// autor pero NO su rol, así que hoy la chapita no se dibuja (preferimos eso a
+// deducirla mal). Queda el mapa para cuando el backend exponga el rol.
 const ROL_LABEL: Record<string, string> = {
   admin: "Administración",
   provider: "Proveedor",
@@ -75,16 +72,6 @@ export function TripComentarios({ tripId }: { tripId: string }) {
         <span>Comentarios</span>
         <span className={styles.commentsCount}>{list?.length ?? 0}</span>
       </div>
-
-      {/* Con backend los comentarios son reales (cuelgan del costo del viaje).
-          Sin él siguen viviendo en el localStorage de este navegador, así que el
-          otro lado del mostrador no los ve: hay que avisarlo. */}
-      {!HAS_BACKEND && (
-        <AvisoMock>
-          Los comentarios se guardan solo en este navegador: el resto del equipo no los ve y se
-          pierden al cambiar de equipo o borrar los datos del sitio.
-        </AvisoMock>
-      )}
 
       {list === null ? (
         <div className={styles.commentsEmpty}>Cargando comentarios…</div>

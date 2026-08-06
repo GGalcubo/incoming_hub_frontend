@@ -13,13 +13,6 @@ function b64urlDecode(input: string): string {
   return new TextDecoder("utf-8").decode(bytes);
 }
 
-function b64urlEncode(input: string): string {
-  const bytes = new TextEncoder().encode(input);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  return btoa(bin).replace(/=+$/g, "").replace(/\+/g, "-").replace(/\//g, "_");
-}
-
 export function decodeJwt(token: string): JwtPayload | null {
   try {
     const part = token.split(".")[1];
@@ -34,13 +27,4 @@ export function isExpired(token: string, skewSeconds = 0): boolean {
   const payload = decodeJwt(token);
   if (!payload?.exp) return false;
   return payload.exp * 1000 <= Date.now() + skewSeconds * 1000;
-}
-
-export function mockJwt(sub: string, ttlSeconds = 8 * 3600): string {
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64urlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const payload = b64urlEncode(
-    JSON.stringify({ sub, iat: now, exp: now + ttlSeconds }),
-  );
-  return `${header}.${payload}.mock-signature`;
 }

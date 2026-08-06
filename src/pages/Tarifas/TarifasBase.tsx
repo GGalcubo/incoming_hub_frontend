@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { HAS_BACKEND } from "../../api/http";
-import { AvisoMock } from "../../components/ui/AvisoMock";
 import { Button } from "../../components/ui/Button";
 import { Field, Input, Select } from "../../components/ui/Field";
 import { Icon } from "../../components/ui/Icon";
@@ -18,11 +16,6 @@ import type {
 } from "../../types/tarifas";
 import styles from "./Tarifas.module.css";
 
-// Qué columna de precio mira la pantalla. Es la MISMA tarifa: el backend guarda
-// una sola por (proveedor, ruta, categoría) con los dos precios adentro, así que
-// "Tarifas Proveedor" muestra el costo y "Tarifas Cliente" el precio de venta.
-export type LadoTarifa = "proveedor" | "cliente";
-
 const emptyDraft = (proveedorId: string, categoria: string): TarifaBaseInput => ({
   proveedorId,
   origen: "",
@@ -33,17 +26,16 @@ const emptyDraft = (proveedorId: string, categoria: string): TarifaBaseInput => 
   activo: true,
 });
 
-export function TarifasBase({ me, lado = "proveedor" }: { me: UseMe; lado?: LadoTarifa }) {
+export function TarifasBase({ me }: { me: UseMe }) {
   const { flash } = useToast();
   const qc = useQueryClient();
   const { isAdmin, isProvider, isAgency, proveedorId } = me;
   // Proveedor y admin editan; el cliente (agencia) solo consulta.
   const canEdit = isAdmin || isProvider;
   // "Los proveedores no deben ver el costo final al cliente"; la agencia, a la
-  // inversa, nunca ve el costo del proveedor. Sobre eso, cada pantalla recorta a
-  // su columna: la de Cliente no muestra el costo aunque sea el admin.
+  // inversa, nunca ve el costo del proveedor.
   const showCliente = !isProvider;
-  const showProveedor = !isAgency && lado === "proveedor";
+  const showProveedor = !isAgency;
   // El proveedor ve solo su tarifario (el filtro lo aplica el backend): la
   // columna "Proveedor" sobra. Para admin/agencia distingue una fila de otra.
   const showDueno = !isProvider;
@@ -145,15 +137,6 @@ export function TarifasBase({ me, lado = "proveedor" }: { me: UseMe; lado?: Lado
 
   return (
     <>
-      {/* Con backend el tarifario es real (/tarifarios/tarifas/); sin él, el ABM
-          entero vive en el localStorage de este navegador. */}
-      {!HAS_BACKEND && (
-        <AvisoMock>
-          Sin backend configurado, el tarifario es de prueba: lo que cargues, edites o borres
-          queda solo en este navegador.
-        </AvisoMock>
-      )}
-
       <div className={styles.toolbar}>
         <Field label="Origen" className={styles.filterField}>
           <Select value={origenFilter} onChange={(e) => setOrigenFilter(e.target.value)}>

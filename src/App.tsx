@@ -4,7 +4,7 @@ import { api } from "./api/client";
 import type { RoleEnum } from "./api/backend";
 import { Topbar } from "./components/Topbar";
 import { ExcelUploadModal } from "./components/ExcelUploadModal";
-import { STATUSES, TODAY, TOMORROW } from "./data/seed";
+import { STATUSES, TODAY, TOMORROW } from "./data/catalogos";
 import { useModals } from "./context/ModalsContext";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";

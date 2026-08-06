@@ -1,21 +1,23 @@
 import type { User } from "../types/domain";
 
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
+export const AUTH_URL = (import.meta.env.VITE_AUTH_URL as string | undefined) ?? "";
 
 // Los viajes viven en el mismo Django que el login (.../api/v1). Si hay un
 // VITE_API_URL explícito lo respetamos; si no, reusamos el base de auth.
 export const VIAJES_BASE = API_URL || AUTH_URL;
 
-// true cuando hay backend real de viajes/tarifas configurado. Las vistas lo usan
-// para saber qué campos calcula el servidor (p. ej. la base del costo, que sale
-// del tarifario y no se edita a mano) y qué sigue viniendo del mock local.
-export const HAS_BACKEND = !!VIAJES_BASE;
+// Sin backend configurado la app NO tiene de dónde sacar datos y no los inventa:
+// cada llamada corta acá con un mensaje que dice qué falta. Es a propósito —
+// antes había un modo demo con datos de ejemplo en localStorage y lo que se veía
+// en pantalla no era real.
+export const SIN_BACKEND_MESSAGE =
+  "No hay backend configurado (falta VITE_API_URL o VITE_AUTH_URL): la aplicación no tiene de dónde leer los datos.";
 
-// true cuando hay backend de autenticación. Sin él, el login es mock: entra
-// cualquier usuario/contraseña y el rol se deriva del username (ver
-// api/client.ts). El login lo avisa en pantalla.
-export const HAS_AUTH = !!AUTH_URL;
+export function assertBase(base: string): string {
+  if (!base) throw new Error(SIN_BACKEND_MESSAGE);
+  return base;
+}
 
 const USER_STORAGE_KEY = "proxy:user";
 
@@ -98,7 +100,7 @@ async function parseError(res: Response): Promise<never> {
 // Llamada autenticada contra el backend de viajes. `path` arranca con "/".
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
-  const res = await safeFetch(`${VIAJES_BASE}${path}`, {
+  const res = await safeFetch(`${assertBase(VIAJES_BASE)}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",

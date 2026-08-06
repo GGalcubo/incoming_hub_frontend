@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../components/ui/Icon";
 import { Input } from "../../components/ui/Field";
-import { PLACES } from "../../data/seed";
 import {
   hasGoogleMapsKey,
   loadGoogleMapsPlaces,
@@ -57,13 +56,6 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
     };
   }, [usingGmaps]);
 
-  const queryLocal = (q: string): PlaceSuggestion[] => {
-    const needle = normalizePlace(q).toLowerCase();
-    return PLACES.filter((place) => place.toLowerCase().includes(needle))
-      .slice(0, 6)
-      .map((place) => ({ id: place, main: place, full: place }));
-  };
-
   const queryGmaps = (q: string) => {
     const svc = serviceRef.current;
     if (!svc) return;
@@ -108,10 +100,10 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
       setLoading(false);
       return;
     }
+    // Sin Google Maps no hay sugerencias: el campo queda como texto libre. Antes
+    // caía a una lista fija de lugares de ejemplo, que parecían resultados reales.
     if (usingGmaps && serviceRef.current) {
       debounceRef.current = window.setTimeout(() => queryGmaps(trimmed), 180);
-    } else {
-      setSuggestions(queryLocal(trimmed));
     }
   };
 
@@ -123,9 +115,8 @@ export function PlaceCombo({ value, onChange, onPick }: PlaceComboProps) {
         onFocus={() => {
           setOpen(true);
           const trimmed = (value || "").trim();
-          if (trimmed && suggestions.length === 0) {
-            if (usingGmaps && serviceRef.current) queryGmaps(trimmed);
-            else setSuggestions(queryLocal(trimmed));
+          if (trimmed && suggestions.length === 0 && usingGmaps && serviceRef.current) {
+            queryGmaps(trimmed);
           }
         }}
         onBlur={() => setTimeout(() => setOpen(false), 120)}

@@ -3,7 +3,6 @@ import { Topbar } from "../../components/Topbar";
 import { useMe } from "../../hooks/useMe";
 import { cx } from "../../lib/cx";
 import { TarifasBase } from "./TarifasBase";
-import { TarifasClienteExtras } from "./TarifasClienteExtras";
 import { TarifasExtras } from "./TarifasExtras";
 import styles from "./Tarifas.module.css";
 
@@ -68,26 +67,10 @@ export function TarifasProveedorPage() {
   );
 }
 
-// Tarifario de CLIENTE: lo que se le factura por cada traslado. Es el MISMO
-// tarifario que el de proveedor mirado del otro lado del mostrador (una tarifa
-// por proveedor/ruta/categoría, con los dos precios adentro): acá se muestra la
-// columna de venta.
+// No hay una pantalla de "Tarifas Cliente" aparte: es el MISMO tarifario mirado
+// del otro lado del mostrador (una tarifa por proveedor/ruta/categoría, con los
+// dos precios adentro) y la tabla de proveedor ya le muestra al admin las dos
+// columnas. App.tsx redirige /tarifas/cliente acá para no romper links viejos.
 //
-// ⚠️ OCULTO: no está ruteado ni aparece en la nav. Como la tabla de proveedor ya
-// le muestra al admin las dos columnas, la pantalla era redundante (App.tsx
-// redirige /tarifas/cliente a /tarifas/proveedor). Se conserva entera para poder
-// revivirla: alcanza con volver a poner la ruta y el ítem en Topbar.tsx. Ojo que
-// con ella queda escondida la única puerta a los extras POR AGENCIA
-// (TarifasClienteExtras), que no tienen equivalente en la tabla de proveedor.
-export function TarifasClientePage() {
-  const me = useMe();
-
-  return (
-    <TarifasLayout
-      title="Tarifas Cliente"
-      subtitle="Precio de venta por destino, según el tarifario de cada proveedor."
-      base={<TarifasBase me={me} lado="cliente" />}
-      extras={<TarifasClienteExtras me={me} />}
-    />
-  );
-}
+// Con ella se fue lo último que quedaba de extras POR AGENCIA, que no existían en
+// el backend y vivían en el localStorage del navegador.

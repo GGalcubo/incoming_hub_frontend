@@ -1,4 +1,4 @@
-import { AvisoMock } from "../../../components/ui/AvisoMock";
+import { Aviso } from "../../../components/ui/Aviso";
 import { Button } from "../../../components/ui/Button";
 import { Field, Input, Select, Textarea } from "../../../components/ui/Field";
 import { Icon } from "../../../components/ui/Icon";
@@ -94,13 +94,13 @@ export function StepTramos({ t, set, errs }: StepProps) {
         vuelo.
       </p>
 
-      {/* Sin API key de Google, el autocomplete cae al listado de lugares del
-          seed (data/seed PLACES) y los tramos se guardan sin coordenadas. */}
+      {/* Sin API key de Google no hay autocomplete ni mapa: el lugar se escribe a
+          mano y el tramo se guarda sin coordenadas. */}
       {!showMap && (
-        <AvisoMock>
-          No hay API key de Google Maps configurada: el buscador de lugares usa una lista fija de
-          ejemplo y los destinos se guardan sin coordenadas ni mapa.
-        </AvisoMock>
+        <Aviso titulo="Sin Google Maps">
+          No hay API key de Google Maps configurada: el buscador de lugares no sugiere nada, hay
+          que escribir la dirección a mano y los destinos se guardan sin coordenadas ni mapa.
+        </Aviso>
       )}
 
       <div

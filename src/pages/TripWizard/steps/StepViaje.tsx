@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../../../api/client";
 import { Field, Input, Select } from "../../../components/ui/Field";
-import { AGENCIES } from "../../../data/seed";
 import type { StepProps } from "../types";
 import styles from "./steps.module.css";
 
 export function StepViaje({ t, set, errs, mode }: StepProps) {
   const isEdit = mode === "edit";
-  const [agencies, setAgencies] = useState<string[]>(AGENCIES);
+  // Las agencias las trae el backend. Hasta que responda no hay ninguna: el
+  // selector queda vacío en vez de ofrecer una lista de ejemplo.
+  const [agencies, setAgencies] = useState<string[]>([]);
   // El solicitante es el usuario logueado; el admin puede elegir otro de la agencia.
   const [loggedUser, setLoggedUser] = useState<string>(t.solicitante ?? "");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -41,7 +42,7 @@ export function StepViaje({ t, set, errs, mode }: StepProps) {
         set(patch);
       })
       .catch(() => {
-        /* sin backend / sin sesión: se mantienen los valores por defecto */
+        /* sin sesión o backend caído: el selector queda vacío, no se inventa */
       });
     return () => {
       active = false;

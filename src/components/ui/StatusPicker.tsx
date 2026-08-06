@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { STATUSES } from "../../data/seed";
+import { STATUSES } from "../../data/catalogos";
 import { cx } from "../../lib/cx";
 import type { TripStatus } from "../../types/domain";
 import { Badge } from "./Badge";

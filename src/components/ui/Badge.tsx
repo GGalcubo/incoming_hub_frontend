@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { STATUSES } from "../../data/seed";
+import { STATUSES } from "../../data/catalogos";
 import type { TripStatus } from "../../types/domain";
 import styles from "./Badge.module.css";
 

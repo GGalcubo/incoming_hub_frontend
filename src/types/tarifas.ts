@@ -1,13 +1,12 @@
 // Modelo de dominio de las TARIFAS (frontend). Es el contrato que consumen las
-// vistas: api/tarifasCrud.ts lo traduce desde el tarifario real del backend
-// (/tarifarios/tarifas/) y api/tarifas.ts lo sirve desde localStorage cuando no
-// hay backend configurado.
+// vistas: api/tarifasCrud.ts lo traduce desde el tarifario del backend
+// (/tarifarios/tarifas/).
 //
 // IMPORTANTE: todos los montos están en DÓLARES (USD). El deck lo pide explícito
 // ("Los costos son en dólares").
 
 // Categoría de vehículo que se ofrece en el paso "Tarifa" del wizard. El precio
-// NO vive acá: sale de la tarifa base para la ruta elegida (ver CategoriaTarifada).
+// NO vive acá: sale de la tarifa base para la ruta elegida.
 export interface VehicleCategoria {
   codigo: string; // identificador estable (STD, EJE, VVIP, VAN)
   nombre: string; // etiqueta visible (STANDARD, EJECUTIVO, …)
@@ -16,19 +15,9 @@ export interface VehicleCategoria {
 }
 
 // Un proveedor de traslados. Cada uno tiene SU tarifario (tarifas base + extras)
-// y solo puede tocar el propio. El `id` es la clave de scoping en toda la app:
-// con backend es el id del proveedor; en modo mock, el username del usuario
-// proveedor (ver api/proveedores.ts).
+// y solo puede tocar el propio. El `id` es la clave de scoping en toda la app: es
+// el id del proveedor en el backend (ver api/proveedores.ts).
 export interface Proveedor {
-  id: string;
-  nombre: string;
-}
-
-// Un cliente: la agencia a la que se le factura. A diferencia del proveedor, no
-// sale de un seed propio: son las agencias que ya expone el backend (/agencies/).
-// El `id` es el NOMBRE de la agencia porque es la única clave con la que el resto
-// del front la referencia (`Trip.agc`) y es estable contra el mock y el backend.
-export interface Cliente {
   id: string;
   nombre: string;
 }
@@ -61,11 +50,6 @@ export type TarifaBaseInput = Omit<TarifaBase, "id">;
 // proveedor). Ver api/tarifasCrud.ts.
 export interface TarifaExtras {
   proveedorId: string;
-  // true cuando el set NO vino del backend: sin backend configurado, sin
-  // proveedor asignado todavía, o porque el proveedor no tiene valores cargados
-  // y se cayó al tarifario de ejemplo. Las vistas lo usan para avisar en
-  // pantalla que esos montos no los ve el resto del equipo.
-  esLocal?: boolean;
   // OJO: por MINUTO acá; el backend lo guarda por HORA (`valor_espera`). La
   // conversión está en MINUTOS_POR_HORA, en api/tarifasCrud.ts.
   esperaProveedor: number; // USD por minuto
@@ -79,25 +63,5 @@ export interface TarifaExtras {
 // ── Tarifario de CLIENTE ─────────────────────────────────────────────────────
 // NO hay una tarifa por cliente: el backend modela una sola tarifa por
 // (proveedor, ruta, categoría) con las dos columnas de precio adentro, así que
-// "lo que se le factura al cliente" es `TarifaBase.tarifaCliente`.
-//
-// Extras del tarifario de cliente. Solo puede existir un set por cliente (clave
-// `clienteId`).
-//
-// ⚠️ MOCK COMPLETO, en cualquier modo: el backend modela los extras del
-// proveedor pero no tiene nada equivalente por cliente. Ver api/tarifasCliente.ts.
-export interface TarifaClienteExtras {
-  clienteId: string;
-  espera: number; // USD por minuto
-  horaDispo: number; // USD por hora de disponibilidad
-  km: number; // USD por km adicional
-}
-
-// Una categoría con su precio ya resuelto para una ruta concreta (lo que consume
-// el paso "Tarifa"). `null` cuando no hay tarifa activa para esa combinación.
-export interface CategoriaTarifada extends VehicleCategoria {
-  origen: string;
-  destino: string;
-  tarifaProveedor: number | null;
-  tarifaCliente: number | null;
-}
+// "lo que se le factura al cliente" es `TarifaBase.tarifaCliente`, y los extras
+// del lado cliente son las columnas `*Cliente` de TarifaExtras.

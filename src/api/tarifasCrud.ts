@@ -1,16 +1,14 @@
-// Capa de API de las pantallas de TARIFAS contra el backend REAL
-// (/api/v1/tarifarios/tarifas/). El mock de api/tarifas.ts queda solo para el
-// modo sin backend configurado (ver USE_TARIFAS_MOCK en api/client.ts).
+// Capa de API de las pantallas de TARIFAS contra el backend
+// (/api/v1/tarifarios/tarifas/).
 //
 // MODELO DEL BACKEND: hay UNA tarifa por (proveedor, origen, destino, categoría)
 // y trae las dos columnas de precio adentro (`precio_proveedor` y
-// `precio_cliente`). NO existe un tarifario por cliente: las dos pantallas
-// (Tarifas Proveedor y Tarifas Cliente) leen de acá y lo único que cambia es qué
-// columna de precio muestran.
+// `precio_cliente`). NO existe un tarifario por cliente: lo que se le factura es
+// la columna `precio_cliente` de esta misma tarifa.
 //
 // SCOPING: lo hace el SERVIDOR. Un usuario proveedor solo ve y edita las suyas
 // (el backend le fuerza el `proveedor`); el admin ve todas. Acá no repetimos ese
-// chequeo: el mock lo hacía porque no había nadie más que lo hiciera.
+// chequeo.
 
 import type {
   CategoriaServicio,
@@ -62,8 +60,7 @@ async function catalogo(): Promise<Catalogo> {
   return { zonas, categorias };
 }
 
-// Categorías de vehículo para el selector de una tarifa, en el mismo formato que
-// ya consumen las vistas (`VEHICLE_CATEGORIAS` del mock tiene esta forma).
+// Categorías de vehículo para el selector de una tarifa.
 export async function listCategorias(): Promise<VehicleCategoria[]> {
   const cats = await listCategoriasServicio();
   return cats
@@ -206,8 +203,8 @@ export async function listProveedores(): Promise<Proveedor[]> {
 // el 05/08/2026). La conversión es esta constante y nada más.
 const MINUTOS_POR_HORA = 60;
 
-// El set completo (las dos columnas) sale del proveedor: el backend agregó los
-// `*_cliente`, así que los extras ya no están partidos contra localStorage.
+// El set completo (las dos columnas) sale del proveedor: `valor_*` es lo que
+// cobra y `valor_*_cliente` lo que se le factura al cliente.
 function toExtras(p: ProveedorApi): TarifaExtras {
   return {
     proveedorId: String(p.id),

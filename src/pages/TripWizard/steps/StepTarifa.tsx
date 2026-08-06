@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type TarifaOpcion } from "../../../api/client";
-import { HAS_BACKEND } from "../../../api/http";
-import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
 import type { Trip } from "../../../types/domain";
@@ -118,7 +116,7 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         setRutaFija(false);
       })
       .catch(() => {
-        /* sin backend/mocks: se queda vacío */
+        /* el backend no devolvió la ruta: se queda vacío */
       });
     return () => {
       active = false;
@@ -157,7 +155,9 @@ export function StepTarifa({ t, set, errs }: StepProps) {
     let active = true;
     setLoading(true);
     api
-      .cotizarRuta(origen, destino, proveedorViaje)
+      // El proveedor no se manda: el backend cotiza la ruta para TODOS los que
+      // tengan tarifa vigente y el recorte por proveedor se hace más abajo.
+      .cotizarRuta(origen, destino)
       .then((c) => {
         if (!active) return;
         setOpciones(c.opciones);
@@ -396,11 +396,6 @@ export function StepTarifa({ t, set, errs }: StepProps) {
 
       {/* Con backend las tarifas salen de /tarifarios/cotizar/; sin él, del
           tarifario de prueba de este navegador. */}
-      {!HAS_BACKEND && (
-        <AvisoMock>
-          Sin backend configurado, los precios salen del tarifario de prueba de este navegador.
-        </AvisoMock>
-      )}
 
       {errs.cat && !t.cat && (
         <div className={styles.catNoPrice} style={{ color: "var(--danger-fg)" }}>

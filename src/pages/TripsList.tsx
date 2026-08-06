@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { STATUSES, TODAY, TOMORROW } from "../data/seed";
+import { STATUSES, TODAY, TOMORROW } from "../data/catalogos";
 import type { Trip, TripStatus } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";

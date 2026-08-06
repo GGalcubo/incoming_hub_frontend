@@ -1,6 +1,6 @@
 // Capa de traducción entre el modelo de dominio del frontend (`Trip`) y el
 // esquema del backend (`Viaje` + catálogos). Toda la lógica de red de viajes
-// vive acá; client.ts solo decide entre este módulo y el mock.
+// vive acá; client.ts solo expone la fachada que consumen las vistas.
 
 import type {
   ExcelRow,
@@ -34,7 +34,7 @@ import { patchCostos, setTramoTarifa } from "./tarifario";
 
 // ── Estados ────────────────────────────────────────────────────────────────
 // El backend expone `estado` como entero. Este mapeo sigue el orden del catálogo
-// de producto (data/seed STATUSES). Si el backend usa otros IDs, ajustar solo
+// de producto (data/catalogos STATUSES). Si el backend usa otros IDs, ajustar solo
 // esta tabla.
 //
 // PENDIENTE: el backend YA publica el catálogo real en `GET /estados/`
@@ -536,9 +536,9 @@ function buildTramosInput(t: Trip): TramoInput[] {
   return bodies;
 }
 
-// Id numérico del proveedor del viaje. El dominio lo guarda como string; contra
-// el backend real es el id de /auth/me/ o del viaje. Devuelve undefined si no es
-// numérico (catálogo mock): en ese caso el campo no se manda.
+// Id numérico del proveedor del viaje. El dominio lo guarda como string; es el
+// id de /auth/me/ o del viaje. Devuelve undefined si no es numérico: en ese caso
+// el campo no se manda.
 function proveedorId(t: Trip): number | undefined {
   const n = Number(t.proveedorId);
   return t.proveedorId && Number.isInteger(n) ? n : undefined;

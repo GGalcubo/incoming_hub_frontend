@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { PASSWORD_MIN_LEN, type MeProfile, type RoleEnum } from "../api/backend";
-import { HAS_AUTH } from "../api/http";
 import type { User } from "../types/domain";
-import { AvisoMock } from "./ui/AvisoMock";
 import { Button } from "./ui/Button";
 import { Field, Input } from "./ui/Field";
 import { Modal } from "./ui/Modal";
@@ -141,14 +139,6 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
       <div className={styles.grid}>
         {error && <div className={styles.error}>{error}</div>}
 
-        {/* Sin backend de auth el perfil no sale de /auth/me/: se arma con el
-            username y lo editado se guarda en localStorage. */}
-        {!HAS_AUTH && (
-          <AvisoMock>
-            No hay backend de usuarios: el perfil es de prueba y los cambios quedan guardados
-            solo en este navegador.
-          </AvisoMock>
-        )}
 
         <div className={`${styles.section} ${styles.sectionFirst}`}>Datos de sistema</div>
         <div className={styles.row}>
@@ -190,14 +180,6 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
         </Field>
 
         <div className={styles.section}>Cambiar contraseña</div>
-        {/* Sin backend de auth entra cualquiera con cualquier clave: no hay
-            contraseña real que cambiar y el formulario es de mentira. */}
-        {!HAS_AUTH && (
-          <AvisoMock>
-            El login es de prueba (entra cualquier usuario con cualquier contraseña), así que
-            cambiarla no tiene efecto.
-          </AvisoMock>
-        )}
         <Field label="Contraseña actual" hint="Dejá los tres campos vacíos si no la vas a cambiar.">
           <Input
             type="password"
