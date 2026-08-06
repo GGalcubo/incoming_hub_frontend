@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HistorialEntrada } from "./backend";
-import { entradaToHistoryEntry } from "./historial";
+import { entradaToHistoryEntry, filtrarPorVista } from "./historial";
+import type { HistoryEntry } from "../types/domain";
 
 const USUARIOS = new Map([[7, "Ana Pérez"]]);
 
@@ -92,5 +93,73 @@ describe("historial: entrada del backend → HistoryEntry", () => {
       USUARIOS,
     );
     expect(e.changes).toBeUndefined();
+  });
+});
+
+describe("historial: recorte por rol", () => {
+  const viaje: HistoryEntry = {
+    ts: "30/07/2026 14:03",
+    user: "Ana Pérez",
+    action: "Modificación de viaje",
+    changes: [{ field: "Estado", from: "1", to: "2" }],
+  };
+  const costos: HistoryEntry = {
+    ts: "30/07/2026 15:10",
+    user: "Ana Pérez",
+    action: "Modificación de costos",
+    changes: [
+      { field: "Viaje (cliente)", from: "32000", to: "35000" },
+      { field: "Viaje (proveedor)", from: "24000", to: "26000" },
+      { field: "Horas a disposición", from: "2", to: "3" },
+    ],
+  };
+  const historia = [costos, viaje];
+
+  it("el admin ve la auditoría entera, sin tocar nada", () => {
+    expect(filtrarPorVista(historia, "todo")).toBe(historia);
+  });
+
+  it("la agencia ve solo los costos de cliente", () => {
+    const out = filtrarPorVista(historia, "cliente");
+    expect(out).toHaveLength(1);
+    expect(out[0].changes).toEqual([
+      { field: "Viaje (cliente)", from: "32000", to: "35000" },
+      { field: "Horas a disposición", from: "2", to: "3" },
+    ]);
+  });
+
+  it("el proveedor ve solo los costos de proveedor", () => {
+    const out = filtrarPorVista(historia, "proveedor");
+    expect(out).toHaveLength(1);
+    expect(out[0].changes).toEqual([
+      { field: "Viaje (proveedor)", from: "24000", to: "26000" },
+      { field: "Horas a disposición", from: "2", to: "3" },
+    ]);
+  });
+
+  it("una entrada de costos que quedó sin campos propios no se muestra", () => {
+    const soloAjeno: HistoryEntry = {
+      ...costos,
+      changes: [{ field: "Total (proveedor)", from: "24000", to: "26000" }],
+    };
+    expect(filtrarPorVista([soloAjeno], "cliente")).toEqual([]);
+  });
+
+  it("no filtra por rol el historial que ya venía recortado", () => {
+    expect(filtrarPorVista([viaje], "proveedor")).toEqual([]);
+  });
+
+  it("reconoce el lado de un campo de costo que el backend agregue después", () => {
+    const nuevo: HistoryEntry = {
+      ...costos,
+      // Campo fuera de CAMPO_LABEL: llega prolijado ("recargo_nocturno_cliente").
+      changes: [
+        { field: "Recargo nocturno cliente", from: "0", to: "500" },
+        { field: "Recargo nocturno proveedor", from: "0", to: "400" },
+      ],
+    };
+    expect(filtrarPorVista([nuevo], "proveedor")[0].changes).toEqual([
+      { field: "Recargo nocturno proveedor", from: "0", to: "400" },
+    ]);
   });
 });

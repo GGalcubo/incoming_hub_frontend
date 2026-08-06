@@ -271,6 +271,14 @@ pasajeros, costos y comentarios. `modelo` viene en singular y capitalizado
 [`api/historial.ts`](../src/api/historial.ts), que además esconde `id`, `viaje`,
 `created_at` y `updated_at` (ruido en toda modificación).
 
+⚠️ **El endpoint NO recorta por rol**: a la agencia y al proveedor les devuelve el
+diff completo, incluida la columna de costos del otro lado. El recorte lo hace el
+front (`filtrarPorVista` en `api/historial.ts`, con el rol resuelto en
+`api.historialVista()`): admin ve todo; agencia y proveedor, solo las entradas de
+costos y solo los campos de su columna. Al ser del lado del cliente **no es una
+garantía**: el costo ajeno igual viaja en la respuesta. Lo correcto sería que el
+backend filtre el historial como ya filtra la lista de viajes.
+
 ⚠️ **`usuario` es el ID del autor, no su nombre** (y es `null` cuando el cambio no
 vino de un request HTTP). El front resuelve el nombre contra `/solicitantes/`, que
 devuelve `User`; si el rol logueado no puede listarlo, cae a “Usuario #id”. Sería

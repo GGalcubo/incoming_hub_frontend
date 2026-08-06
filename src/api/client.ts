@@ -555,10 +555,27 @@ export const api = {
   // Auditoría del servidor (GET /viajes/{id}/historial/): incluye los cambios
   // del viaje y los de sus tramos, pasajeros, costos y comentarios. Sin backend
   // se muestra el historial de ejemplo que trae el viaje del seed.
+  //
+  // Lo que devuelve va recortado por rol (ver historial.filtrarPorVista): el
+  // admin ve la auditoría entera, la agencia y el proveedor solo los cambios de
+  // costos de su columna.
   async listHistorial(tripId: string): Promise<HistoryEntry[]> {
-    if (!USE_VIAJES_MOCK) return historial.listHistorial(tripId);
-    await wait(80);
-    return mockTrips.find((t) => t.id === tripId)?.history ?? [];
+    const vista = await this.historialVista();
+    const entries = USE_VIAJES_MOCK
+      ? (await wait(80), (mockTrips.find((t) => t.id === tripId)?.history ?? []))
+      : await historial.listHistorial(tripId);
+    return historial.filtrarPorVista(entries, vista);
+  },
+
+  // Qué parte del historial le toca al rol logueado. Se resuelve acá contra
+  // /auth/me/ y no en la pantalla, para que ninguna vista pueda pedir la
+  // auditoría completa. El reparto es el mismo que el de las columnas de
+  // StepCostos: proveedor → la suya, admin → las dos, el resto → cliente.
+  async historialVista(): Promise<historial.HistorialVista> {
+    const me = await this.getMe();
+    if (me.role === "provider") return "proveedor";
+    if (me.role === "admin") return "todo";
+    return "cliente";
   },
 
   // ── Tarifas ────────────────────────────────────────────────────────────────

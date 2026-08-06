@@ -3,11 +3,19 @@ import { api } from "../../../api/client";
 import { HAS_BACKEND } from "../../../api/http";
 import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { Icon } from "../../../components/ui/Icon";
+import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
 import type { HistoryEntry, Trip } from "../../../types/domain";
 import styles from "./steps.module.css";
 
 export function StepHistorial({ t }: { t: Trip }) {
+  // El historial viene recortado por rol desde api.listHistorial: el admin ve
+  // todo, la agencia y el proveedor solo los cambios de costos de su columna. El
+  // rol se lee acá SOLO para el texto: el filtro no depende de la vista.
+  // `lado` null = ve todo (admin). Mientras el perfil carga queda indefinido: si
+  // no, el admin ve un parpadeo de "costos de cliente" antes de resolverse el rol.
+  const { isAdmin, isProvider, loading: cargandoRol } = useMe();
+  const lado = cargandoRol ? undefined : isAdmin ? null : isProvider ? "proveedor" : "cliente";
   // El historial lo sirve el backend por su propio endpoint
   // (GET /viajes/{id}/historial/): no viene con el viaje, así que se pide acá.
   // Sin backend, el mock devuelve el historial de ejemplo del viaje del seed.
@@ -37,8 +45,11 @@ export function StepHistorial({ t }: { t: Trip }) {
     <>
       <h3 className={styles.h2}>Historial de modificaciones</h3>
       <p className={styles.p}>
-        Cambios registrados sobre este viaje, del más reciente al más antiguo. Incluye los de sus
-        destinos, pasajeros y costos.
+        {lado
+          ? `Cambios registrados sobre los costos de ${lado} de este viaje, del más reciente al más antiguo.`
+          : lado === null
+            ? "Cambios registrados sobre este viaje, del más reciente al más antiguo. Incluye los de sus destinos, pasajeros y costos."
+            : "Cambios registrados sobre este viaje, del más reciente al más antiguo."}
       </p>
 
       {!HAS_BACKEND && (
@@ -54,7 +65,9 @@ export function StepHistorial({ t }: { t: Trip }) {
         <div className={styles.emptyBox}>Cargando historial…</div>
       ) : entries.length === 0 ? (
         <div className={styles.emptyBox}>
-          Todavía no hay modificaciones registradas para este viaje.
+          {lado
+            ? `Todavía no hay cambios registrados en los costos de ${lado} de este viaje.`
+            : "Todavía no hay modificaciones registradas para este viaje."}
         </div>
       ) : (
         <div className={styles.timeline}>

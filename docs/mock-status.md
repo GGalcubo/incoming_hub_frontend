@@ -75,7 +75,9 @@ correcta y no hay que tocar nada.
 - Historial del viaje (`/viajes/{id}/historial/`): auditoría agregada del viaje y
   de sus tramos, pasajeros, costos y comentarios, con el diff de cada cambio. El
   autor viene como **ID**, así que el nombre se resuelve contra `/solicitantes/`
-  (si el rol no puede listarlo, queda como “Usuario #id”).
+  (si el rol no puede listarlo, queda como “Usuario #id”). El recorte por rol
+  (agencia y proveedor ven solo los cambios de costos de su columna) es **del
+  front**: el endpoint devuelve la auditoría entera para todos.
 - Extras del proveedor (espera, hora a disposición y km), en sus **dos**
   columnas (proveedor y cliente), y el catálogo de proveedores
   (`/tarifarios/proveedores/`).

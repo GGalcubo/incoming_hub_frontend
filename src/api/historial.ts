@@ -249,6 +249,52 @@ export function entradaToHistoryEntry(
   };
 }
 
+// ── Recorte por rol ──────────────────────────────────────────────────────────
+// Qué parte de la auditoría ve cada rol. El admin la ve entera; la agencia y el
+// proveedor ven SOLO las entradas de costos, y dentro de ellas solo su columna:
+// la agencia lo que se le factura al cliente, el proveedor lo que él cobra. Es
+// la misma regla que StepCostos aplica a la grilla, acá sobre el diff — sin
+// esto, el historial era la puerta de atrás para ver el costo del otro lado.
+//
+// El backend NO recorta el historial (devuelve el diff completo), así que el
+// filtro es del front: quién lo pide se resuelve en client.ts contra /auth/me/,
+// no con un prop de la vista.
+export type HistorialVista = "todo" | "cliente" | "proveedor";
+
+// De qué lado del mostrador es un campo, mirando su etiqueta ya traducida. Los
+// campos de costo se etiquetan "Espera (proveedor)" / "Total (cliente)"; un
+// campo que el backend agregue y no esté en CAMPO_LABEL cae al prolijado
+// ("… cliente"), y también se reconoce. Lo que no matchea ninguno de los dos es
+// neutro (p. ej. "Horas a disposición") y lo ven ambos: no revela precios.
+const MARCA_LADO: Record<Exclude<HistorialVista, "todo">, RegExp> = {
+  cliente: /\(cliente\)|\bcliente$/i,
+  proveedor: /\(proveedor\)|\bproveedor$/i,
+};
+
+// Una entrada habla de costos si su modelo se tradujo a "costos" (ver
+// MODELO_LABEL); vale también para la forma cruda "accion · costos".
+function esDeCostos(action: string): boolean {
+  return action.toLowerCase().includes(MODELO_LABEL.costo);
+}
+
+export function filtrarPorVista(
+  entries: HistoryEntry[],
+  vista: HistorialVista,
+): HistoryEntry[] {
+  if (vista === "todo") return entries;
+  const ajeno = MARCA_LADO[vista === "cliente" ? "proveedor" : "cliente"];
+  const out: HistoryEntry[] = [];
+  for (const e of entries) {
+    if (!esDeCostos(e.action)) continue;
+    const changes = (e.changes ?? []).filter((c) => !ajeno.test(c.field));
+    // Si después del recorte no queda nada del lado propio, la entrada es ruido:
+    // una "Modificación de costos" sin un solo campo visible no dice nada.
+    if (!changes.length) continue;
+    out.push({ ...e, changes });
+  }
+  return out;
+}
+
 // Historial completo del viaje, ya ordenado por el backend (del más reciente al
 // más antiguo). Un viaje fuera del scope del usuario da 404, igual que su detalle.
 export async function listHistorial(viajeId: string | number): Promise<HistoryEntry[]> {
