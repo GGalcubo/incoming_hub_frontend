@@ -41,23 +41,18 @@ const NAV: NavItem[] = [
     roles: ["admin", "agency_staff", "agency_operator"],
   },
   {
-    // La agencia no ve ningún tarifario: ni lo que cuesta el proveedor…
+    // La agencia no ve ningún tarifario: ni lo que cuesta el proveedor ni lo que
+    // se le factura al cliente.
     label: "Tarifas Proveedor",
     icon: "tag",
     to: "/tarifas/proveedor",
     // /tarifas sin sufijo redirige acá: lo tomamos como activo para que el ítem
-    // no quede apagado durante la redirección.
-    match: (p) => p === "/tarifas" || p.startsWith("/tarifas/proveedor"),
+    // no quede apagado durante la redirección. "Tarifas Cliente" ya no está en la
+    // nav: es la misma tarifa y esta tabla le muestra al admin las dos columnas
+    // (proveedor y cliente), así que el ítem aparte sobraba. La pantalla sigue
+    // existiendo en /tarifas/cliente para el admin.
+    match: (p) => p.startsWith("/tarifas"),
     roles: ["admin", "provider"],
-  },
-  {
-    // …ni el tarifario de clientes. El proveedor tampoco: nunca ve lo que se le
-    // factura al cliente. Queda solo para el admin.
-    label: "Tarifas Cliente",
-    icon: "tag",
-    to: "/tarifas/cliente",
-    match: (p) => p.startsWith("/tarifas/cliente"),
-    roles: ["admin"],
   },
 ];
 

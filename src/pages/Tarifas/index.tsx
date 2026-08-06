@@ -71,8 +71,14 @@ export function TarifasProveedorPage() {
 // Tarifario de CLIENTE: lo que se le factura por cada traslado. Es el MISMO
 // tarifario que el de proveedor mirado del otro lado del mostrador (una tarifa
 // por proveedor/ruta/categoría, con los dos precios adentro): acá se muestra la
-// columna de venta. Solo admin; ni el proveedor ni la agencia llegan (la ruta
-// los redirige).
+// columna de venta.
+//
+// ⚠️ OCULTO: no está ruteado ni aparece en la nav. Como la tabla de proveedor ya
+// le muestra al admin las dos columnas, la pantalla era redundante (App.tsx
+// redirige /tarifas/cliente a /tarifas/proveedor). Se conserva entera para poder
+// revivirla: alcanza con volver a poner la ruta y el ítem en Topbar.tsx. Ojo que
+// con ella queda escondida la única puerta a los extras POR AGENCIA
+// (TarifasClienteExtras), que no tienen equivalente en la tabla de proveedor.
 export function TarifasClientePage() {
   const me = useMe();
 

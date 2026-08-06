@@ -24,7 +24,7 @@ llegan al servidor**. Cada una está avisada en pantalla con el componente
 
 | Qué | Dónde vive | Vista que lo avisa |
 | --- | --- | --- |
-| Extras **por cliente** (set completo) | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras* |
+| Extras **por cliente** (set completo) | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras*, hoy **oculta** (ver abajo) |
 | Cambio de contraseña | no hay endpoint; los campos están deshabilitados | Settings de usuario |
 
 Los extras del proveedor ya **no** están partidos al medio: el backend agregó la
@@ -33,6 +33,13 @@ columna cliente (`valor_espera_cliente`, `valor_hora_dispo_cliente`,
 Extras* —y el valor/minuto de espera del cliente en los costos del viaje— salen
 del servidor. Lo que sigue sin equivalente es un set de extras **por agencia**
 (*Tarifas Cliente*).
+
+La pantalla *Tarifas Cliente* está **oculta**: no aparece en la nav y
+`/tarifas/cliente` redirige a *Tarifas Proveedor*, porque es la misma tarifa y esa
+tabla ya le muestra al admin las dos columnas. El código sigue en
+[`pages/Tarifas`](../src/pages/Tarifas/index.tsx) por si hay que revivirla — con
+ella queda escondido el único acceso a los extras por agencia de la tabla de
+arriba.
 
 ⚠️ **Sin confirmar:** el front asume que `valor_espera` viene **por hora** y lo
 pasa a minutos con `MINUTOS_POR_HORA` en `api/tarifasCrud.ts`. Si el backend la
@@ -61,10 +68,11 @@ del proveedor se cobra 60 veces más barato de lo que corresponde.
 - Pasajeros (`/personas/`): paginación, búsqueda y filtro por agencia, todo
   server-side.
 - Catálogos: agencias, categorías de servicio y solicitantes.
-- Tarifario base (Tarifas Proveedor / Tarifas Cliente → *Tarifas por destino*):
-  ABM real contra `/tarifarios/tarifas/`, con el scoping por proveedor hecho en
-  el servidor. Es **una sola** tarifa por (proveedor, ruta, categoría) con los dos
-  precios adentro: las dos pantallas miran columnas distintas de lo mismo.
+- Tarifario base (Tarifas Proveedor → *Tarifas por destino*): ABM real contra
+  `/tarifarios/tarifas/`, con el scoping por proveedor hecho en el servidor. Es
+  **una sola** tarifa por (proveedor, ruta, categoría) con los dos precios
+  adentro, y al admin se le muestran las dos columnas en la misma tabla: por eso
+  *Tarifas Cliente* salió de la nav (la pantalla sigue en `/tarifas/cliente`).
 - Cotización de la ruta en el wizard: zonas y tarifas vigentes del servidor.
 - Asignación viaje → proveedor: viene con el viaje (`viaje.proveedor`).
 - Carga por Excel: el parseo y la validación corren en el navegador (SheetJS) y

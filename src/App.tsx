@@ -11,7 +11,7 @@ import { useUser } from "./context/UserContext";
 import { useMe } from "./hooks/useMe";
 import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
-import { TarifasClientePage, TarifasProveedorPage } from "./pages/Tarifas";
+import { TarifasProveedorPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
 import { TripsList } from "./pages/TripsList";
 import type { Trip, TripStatus } from "./types/domain";
@@ -161,14 +161,12 @@ export function App() {
             </RoleRoute>
           }
         />
-        <Route
-          path="/tarifas/cliente"
-          element={
-            <RoleRoute allow={["admin"]} redirect={isProvider ? "/tarifas/proveedor" : "/viajes"}>
-              <TarifasClientePage />
-            </RoleRoute>
-          }
-        />
+        {/* "Tarifas Cliente" está OCULTO: es la misma tarifa que la de proveedor
+            (una sola por proveedor/ruta/categoría, con los dos precios adentro) y
+            al admin la tabla de proveedor ya le muestra las dos columnas, así que
+            la pantalla aparte sobraba. Queda el redirect para no romper links
+            viejos; la pantalla sigue en pages/Tarifas si hay que revivirla. */}
+        <Route path="/tarifas/cliente" element={<Navigate to="/tarifas/proveedor" replace />} />
         <Route
           path="/tarifas"
           element={

@@ -127,7 +127,8 @@ sin backend.
 ### Lo que este CRUD NO modela (y el front sigue resolviendo local)
 - **No hay tarifario por cliente.** Hay UNA tarifa por (proveedor, origen,
   destino, categoría) con las dos columnas de precio adentro. "Tarifas Cliente"
-  es la misma tabla mostrando `precio_cliente`, no un tarifario aparte.
+  era la misma tabla mostrando `precio_cliente`, no un tarifario aparte: por eso
+  la pantalla quedó oculta y el admin ve las dos columnas en *Tarifas Proveedor*.
 - **La columna CLIENTE de los extras no existe.** El proveedor tiene sus tres
   valores (arriba), pero no hay equivalente de lo que se le factura al cliente,
   ni un set de extras por cliente. Esa mitad sigue en localStorage y lo avisan
