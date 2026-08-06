@@ -193,9 +193,6 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
             : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
 
-      {/* El valor/minuto de espera del PROVEEDOR ya es real; el del CLIENTE
-          sigue saliendo del set local, así que ese monto puede no coincidir con
-          el que ve el resto del equipo. Solo se avisa a quien ve esa columna. */}
       {/* El monto base editado a mano NO lo guarda el backend: el PATCH de costos
           (PatchedCostoViajeUpdate) no acepta `costo_viaje_*`, los deriva del
           tarifario de los tramos. Se manda igual —DRF ignora los campos que no
@@ -208,18 +205,15 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
         </AvisoMock>
       )}
 
-      {HAS_BACKEND ? (
-        cols.includes("cliente") && (
-          <AvisoMock>
-            El valor por minuto con el que se calcula la espera <b>del cliente</b> todavía no
-            existe en el backend: está cargado solo en este navegador. El del proveedor y el
-            resto de los rubros sí se guardan en el servidor.
-          </AvisoMock>
-        )
-      ) : (
+      {/* Los valores con los que se calcula la espera son del proveedor del viaje
+          y salen del backend. Solo se avisa cuando NO: sin backend, sin proveedor
+          asignado todavía, o si ese proveedor no tiene valores cargados (ahí la
+          API cae al tarifario de ejemplo, ver client.getTarifasExtras). */}
+      {extras?.esLocal && (
         <AvisoMock>
-          Sin backend configurado, los valores con los que se calcula la espera están cargados
-          solo en este navegador.
+          {t.proveedorId
+            ? "Los valores con los que se calcula la espera están cargados solo en este navegador: el proveedor del viaje no los tiene en el servidor."
+            : "El viaje todavía no tiene proveedor asignado: la espera se calcula con los valores de ejemplo de este navegador. Al elegir la tarifa se toman los del proveedor."}
         </AvisoMock>
       )}
 
@@ -301,7 +295,11 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
                 : `${esperaMin} min de espera`
               : `Unidad mínima 15 min · ${cols
                   .map((col) => `${fmt(rateOf(col) ?? 0)}/min ${COL_LABEL[col].toLowerCase()}`)
-                  .join(" · ")}`}
+                  .join(" · ")}${
+                  // El backend guarda el MONTO de la espera, no los minutos: al
+                  // reabrir el viaje se reconstruyen dividiendo por el valor/minuto.
+                  HAS_BACKEND ? " · se guarda el monto, los minutos se recalculan" : ""
+                }`}
           </span>
         </span>
         {cols.map((col) => (

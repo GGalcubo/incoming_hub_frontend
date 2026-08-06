@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type TarifaOpcion } from "../../../api/client";
+import { HAS_BACKEND } from "../../../api/http";
+import { AvisoMock } from "../../../components/ui/AvisoMock";
 import { useMe } from "../../../hooks/useMe";
 import { cx } from "../../../lib/cx";
 import type { Trip } from "../../../types/domain";
@@ -391,6 +393,14 @@ export function StepTarifa({ t, set, errs }: StepProps) {
         Elegí la categoría de vehículo. Montos en dólares (u$s). Las categorías sin tarifa para
         la ruta se pueden elegir igual: quedan a cotizar por el proveedor.
       </p>
+
+      {/* Con backend las tarifas salen de /tarifarios/cotizar/; sin él, del
+          tarifario de prueba de este navegador. */}
+      {!HAS_BACKEND && (
+        <AvisoMock>
+          Sin backend configurado, los precios salen del tarifario de prueba de este navegador.
+        </AvisoMock>
+      )}
 
       {errs.cat && !t.cat && (
         <div className={styles.catNoPrice} style={{ color: "var(--danger-fg)" }}>

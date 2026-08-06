@@ -61,6 +61,11 @@ export type TarifaBaseInput = Omit<TarifaBase, "id">;
 // proveedor). Ver api/tarifasCrud.ts.
 export interface TarifaExtras {
   proveedorId: string;
+  // true cuando el set NO vino del backend: sin backend configurado, sin
+  // proveedor asignado todavía, o porque el proveedor no tiene valores cargados
+  // y se cayó al tarifario de ejemplo. Las vistas lo usan para avisar en
+  // pantalla que esos montos no los ve el resto del equipo.
+  esLocal?: boolean;
   // OJO: por MINUTO acá; el backend lo guarda por HORA (`valor_espera`). La
   // conversión está en MINUTOS_POR_HORA, en api/tarifasCrud.ts.
   esperaProveedor: number; // USD por minuto

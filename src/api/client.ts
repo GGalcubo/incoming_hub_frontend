@@ -594,11 +594,14 @@ export const api = {
   // `valor_*_cliente`) y además vienen anidadas en el viaje. Sin backend, o sin
   // un proveedor al que pedírselos, caen al set local de api/tarifas.ts.
   async getTarifasExtras(proveedorId?: string): Promise<TarifaExtras> {
-    if (USE_TARIFAS_MOCK || !proveedorId) return tarifas.getTarifasExtras(proveedorId);
+    // Todo lo que no salga del backend se marca `esLocal`, para que la pantalla
+    // pueda avisar que esos valores están cargados solo en este navegador.
+    const local = async () => ({ ...(await tarifas.getTarifasExtras(proveedorId)), esLocal: true });
+    if (USE_TARIFAS_MOCK || !proveedorId) return local();
     // Si el proveedor no existe (o el id no es del backend) nos quedamos con el
     // set local: mejor mostrar algo que romper el cuadro de costos.
     const real = await tarifasCrud.getExtrasProveedor(proveedorId).catch(() => null);
-    return real ?? tarifas.getTarifasExtras(proveedorId);
+    return real ?? local();
   },
   async updateTarifasExtras(
     patch: Partial<TarifaExtras>,

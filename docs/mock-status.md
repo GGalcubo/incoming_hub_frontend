@@ -22,10 +22,15 @@ Esto es lo importante: son cosas que se ven y se editan en producción y que **n
 llegan al servidor**. Cada una está avisada en pantalla con el componente
 [`AvisoMock`](../src/components/ui/AvisoMock.tsx).
 
+> **Regla:** todo lo que sea mock, o que se guarde solo en la sesión / en este
+> navegador, tiene que avisarlo en pantalla. Si agregás algo así, poné el
+> `AvisoMock` en la misma vista y sumalo a este inventario.
+
 | Qué | Dónde vive | Vista que lo avisa |
 | --- | --- | --- |
 | Extras **por cliente** (set completo) | `localStorage`, ver [`api/tarifasCliente.ts`](../src/api/tarifasCliente.ts) | Tarifas Cliente → solapa *Extras*, hoy **oculta** (ver abajo) |
 | Valor del **viaje** corregido a mano | solo en memoria: el PATCH lo manda pero el backend lo ignora | Viaje → paso *Costos* |
+| Extras del proveedor cuando el proveedor **no los tiene cargados** (o el viaje todavía no tiene proveedor): se cae al set de ejemplo | `localStorage` | Tarifas → *Extras* y paso *Costos* (marca `esLocal`) |
 
 Los extras del proveedor ya **no** están partidos al medio: el backend agregó la
 columna cliente (`valor_espera_cliente`, `valor_hora_dispo_cliente`,
@@ -96,14 +101,23 @@ correcta y no hay que tocar nada.
 ## 3. Mock solo sin backend (`VITE_API_URL` vacío)
 
 Con la variable vacía aparece la chapa **Modo demo** en la barra superior. En ese
-modo todo sale del seed y del `localStorage`:
+modo todo sale del seed y del `localStorage`, y **cada pantalla lo avisa**:
 
-- Viajes (`proxy:mockTrips`) y el catálogo de pasajeros, derivado de ellos.
-- Asignación viaje → proveedor (`proxy:tripProveedor`).
-- Catálogo de proveedores (`data/tarifasSeed.ts`).
-- Tarifario base completo.
-- Perfil del usuario (`proxy:mockMe`) y rol derivado del username: `prov…` →
-  proveedor, `agen…`/`cliente…`/`oper…` → operador de agencia, el resto → admin.
+| Qué | Dónde vive | Vista que lo avisa |
+| --- | --- | --- |
+| Viajes | `proxy:mockTrips` | chapa *Modo demo* |
+| Pasajeros (derivados de los viajes) | `proxy:mockTrips` | Pasajeros |
+| Tarifario base | `proxy:tarifasBase` | Tarifas → *Tarifas por destino* |
+| Extras del proveedor | `proxy:tarifasExtras` | Tarifas → *Extras*, y el paso *Costos* |
+| Cotización del wizard | `proxy:tarifasBase` | paso *Cotización* |
+| Comentarios del viaje | `proxy:tripComentarios` | paso *Costos* |
+| Historial del viaje | seed | paso *Historial* |
+| Asignación viaje → proveedor | `proxy:tripProveedor` | chapa *Modo demo* |
+| Perfil y login (rol derivado del username: `prov…` → proveedor, `agen…`/`cliente…`/`oper…` → operador, el resto → admin) | `proxy:mockMe` | Login y Settings |
+
+Sin API key de Google Maps (`VITE_GOOGLE_MAPS_API_KEY`) el buscador de lugares
+cae a una lista fija y los destinos se guardan sin coordenadas: lo avisan el paso
+*Destinos* y la carga por Excel.
 
 ## 4. Deuda: real, pero desalineado con el backend
 

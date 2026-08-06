@@ -10,8 +10,9 @@ import type { UseMe } from "../../hooks/useMe";
 import type { TarifaExtras } from "../../types/tarifas";
 import styles from "./Tarifas.module.css";
 
-// Los montos del set (todo menos el dueño): las claves editables del form.
-type MontoKey = Exclude<keyof TarifaExtras, "proveedorId">;
+// Los montos del set (todo menos el dueño y la marca de origen): las claves
+// editables del form.
+type MontoKey = Exclude<keyof TarifaExtras, "proveedorId" | "esLocal">;
 
 // Cada fila del form: una unidad (espera/hora/km) con su valor proveedor y cliente.
 interface ExtraRow {
@@ -92,11 +93,13 @@ export function TarifasExtras({ me }: { me: UseMe }) {
   return (
     <div className={styles.formCard}>
       {/* Las dos columnas son reales: se guardan en el proveedor (`valor_*` y
-          `valor_*_cliente`). Solo queda el aviso del modo sin backend. */}
-      {!HAS_BACKEND && (
+          `valor_*_cliente`). El aviso queda para cuando lo que se está mirando NO
+          vino del servidor: sin backend, o proveedor sin valores cargados. */}
+      {form.esLocal && (
         <AvisoMock>
-          Sin backend configurado, los extras se guardan solo en este navegador y no los ve el
-          resto del equipo.
+          {HAS_BACKEND
+            ? "Estos valores no salieron del servidor (el proveedor todavía no los tiene cargados): son los de ejemplo de este navegador. Guardá para que queden en el proveedor."
+            : "Sin backend configurado, los extras se guardan solo en este navegador y no los ve el resto del equipo."}
         </AvisoMock>
       )}
 

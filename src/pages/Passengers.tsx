@@ -3,6 +3,8 @@ import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { api } from "../api/client";
 import type { Persona } from "../api/backend";
+import { HAS_BACKEND } from "../api/http";
+import { AvisoMock } from "../components/ui/AvisoMock";
 import { Icon } from "../components/ui/Icon";
 import { Input, Select } from "../components/ui/Field";
 import { cx } from "../lib/cx";
@@ -84,6 +86,15 @@ export function PassengersList() {
 
   return (
     <div className={styles.page}>
+      {/* Con backend los pasajeros son /personas/; sin él, el catálogo se deriva
+          de los viajes de prueba de este navegador. */}
+      {!HAS_BACKEND && (
+        <AvisoMock>
+          Sin backend configurado, los pasajeros salen de los viajes de prueba guardados en este
+          navegador.
+        </AvisoMock>
+      )}
+
       <div className={styles.toolbar}>
         <div className={styles.agencyWrap}>
           {isAdmin ? (

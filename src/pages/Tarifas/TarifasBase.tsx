@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { HAS_BACKEND } from "../../api/http";
+import { AvisoMock } from "../../components/ui/AvisoMock";
 import { Button } from "../../components/ui/Button";
 import { Field, Input, Select } from "../../components/ui/Field";
 import { Icon } from "../../components/ui/Icon";
@@ -143,6 +145,15 @@ export function TarifasBase({ me, lado = "proveedor" }: { me: UseMe; lado?: Lado
 
   return (
     <>
+      {/* Con backend el tarifario es real (/tarifarios/tarifas/); sin él, el ABM
+          entero vive en el localStorage de este navegador. */}
+      {!HAS_BACKEND && (
+        <AvisoMock>
+          Sin backend configurado, el tarifario es de prueba: lo que cargues, edites o borres
+          queda solo en este navegador.
+        </AvisoMock>
+      )}
+
       <div className={styles.toolbar}>
         <Field label="Origen" className={styles.filterField}>
           <Select value={origenFilter} onChange={(e) => setOrigenFilter(e.target.value)}>
