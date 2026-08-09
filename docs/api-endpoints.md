@@ -63,20 +63,24 @@ contra el catálogo de solicitantes.
 `viaje.estado` es el **id** de una de estas filas, y el front lo usa tal cual
 (`Trip.est` ES el id): el nombre y el color salen del catálogo.
 
-⚠️ **El `codigo` NO sirve como clave.** Verificado contra la API el 06/08/2026:
+✅ **La tabla quedó sana.** Verificado contra la API el 08/08/2026 (antes los
+códigos venían con casing irregular y espacios al final, `No ` y `NO `
+colisionaban al normalizar y no existía "Cancelado"):
 
-- La tabla tiene **17 filas** (ids 1–18, falta el 11) con casing irregular y
-  espacios al final: `NUE`, `Pre`, `Asi`, `Con`, `Pro`, `Fin`, `Cer`, `Eli`,
-  `No `, `MOD`, `CXL`, `NO `, `CLX`, `REV`, `Web`, `Cam`, `Ori`.
-- El schema declara otra cosa: `CodigoEnum` con 15 en MAYÚSCULAS, incluidos
-  `CAN` y `NSH`, que **no existen** en la tabla; y sin `Cam` ni `Ori`.
-- `No ` (No Show) y `NO ` (NO SHOW +) **colisionan** al normalizar.
-- Por eso `GET /viajes/?estado__codigo=…` da **400** con los códigos reales y
-  **0 resultados** con los del enum (salvo `NUE`). El front filtra por
-  `estado=<id>`.
+- Son **18 filas**: ids 1–10 y 12–18, más el **34** (`CAN`, *Cancelado*,
+  `es_final: true`). Sigue sin haber id 11.
+- Todos los códigos están en MAYÚSCULAS y sin espacios: `NUE`, `PRE`, `ASI`,
+  `CON`, `PRO`, `FIN`, `CER`, `ELI`, `NSH`, `MOD`, `CXL`, `NSP`, `CLX`, `REV`,
+  `WEB`, `CAM`, `ORI`, `CAN`. No hay dos que colisionen.
+- `GET /viajes/?estado__codigo=<COD>` devuelve **el mismo count** que
+  `?estado=<id>` en los 18. El front igual filtra por `estado=<id>`, que es lo
+  que ya tenía. Un código fuera del enum (`Con`) sigue dando 400, que es correcto.
+- El front resuelve los estados con acciones atadas (`CODIGO_ESTADO` +
+  `estadoIdPorCodigo`) por código normalizado, así que **cancelar un viaje ya
+  funciona** sin tocar nada.
 
-⚠️ **No hay estado "Cancelado"**, así que cancelar un viaje no se puede. Ver
-[`pendientes.md`](./pendientes.md).
+⚠️ El estado `WEB` (id 16) tiene `color: "#FFFFF"` — cinco dígitos, no es un hex
+válido. Ver [`pendientes.md`](./pendientes.md).
 
 ## Personas (pasajeros)
 | Método | Ruta | Descripción |
@@ -149,10 +153,14 @@ de Tarifas (`api/tarifasCrud.ts`).
   tiene las dos columnas, así que `/tarifas/cliente` lo redirige (igual que al
   proveedor).
 
-  ⚠️ **Falta confirmar el permiso del backend**: `GET /tarifarios/tarifas/` y
-  `/tarifarios/proveedores/` con un usuario `agency_staff` / `agency_operator`.
-  Si el servidor no los deja pasar, la pantalla muestra el error del backend (no
-  inventa precios) y hay que habilitarles la lectura.
+  🔴 **El backend no deja leerlos con un usuario de agencia** (verificado el
+  08/08/2026 con `agencia1`, rol `agency_operator`): `GET /tarifarios/tarifas/` y
+  `/tarifarios/proveedores/` responden **403** con *"Solo un administrador o un
+  usuario proveedor puede operar sobre tarifas."*. `/tarifarios/zonas/` y
+  `/categorias/`, que la misma pantalla necesita para traducir los ids, sí pasan
+  (200). Así que hoy `/tarifas/cliente` muestra el error del backend —no inventa
+  precios— y la función está muerta hasta que le habiliten la lectura. Ver
+  [`pendientes.md`](./pendientes.md).
 - **No hay extras POR AGENCIA.** Los extras del proveedor sí traen sus dos
   columnas (`valor_x` y `valor_x_cliente`, arriba), pero no existe un set por
   cliente. El front ya no lo ofrece: la pantalla que lo editaba guardaba en
@@ -176,12 +184,12 @@ desde su pantalla borraría el precio de venta.
 - Los **totales** los calcula el backend y no se mandan nunca.
 - La **base** (`costo_viaje_proveedor` / `costo_viaje_cliente`) sale del tarifario
   de los tramos. El paso Costos deja corregirla a mano (imprescindible cuando la
-  ruta no cotiza) y la manda en el PATCH, pero ⚠️ **el backend todavía no la
-  acepta**: el serializer del PATCH (`PatchedCostoViajeUpdate`, verificado en
-  `/api/schema/` el 05/08/2026) no incluye esos campos y DRF los ignora en
-  silencio — "los setea `recalcular_costo_viaje`", dice el propio schema. La vista
-  lo avisa y el monto se pierde al releer el viaje. **Pedido al backend:**
-  aceptarlos en ese serializer.
+  ruta no cotiza) y la manda en el PATCH. 🟡 **El serializer ya la acepta**
+  (`PatchedCostoViajeUpdate` incluye los dos campos, verificado en `/api/schema/`
+  el 08/08/2026; antes no) y apareció `base_manual` —booleano de solo lectura— en
+  `CostoViaje`, que es el flag para que `recalcular_costo_viaje` no la pise.
+  **Falta probar con un PATCH real que persista y que el recálculo la respete**;
+  hasta entonces la vista sigue avisando. Ver [`pendientes.md`](./pendientes.md).
 - Por PATCH van espera, peajes, estacionamiento, otros (de las dos columnas),
   `moneda_*`, `horas_disponibles` y la base solo si se editó a mano.
 - ⚠️ Cambiar la tarifa de un tramo **resetea a 0 todos los ajustes manuales** y
@@ -191,13 +199,17 @@ desde su pantalla borraría el precio de venta.
 ### Comentarios del costo
 El viejo campo `comentario` (string único) **ya no existe**: son varios y vienen
 embebidos en el GET de costos como `comentarios[]`, con
-`{ id, texto, autor, autor_nombre, created_at, updated_at }`. El `autor` lo fija
-el backend con el usuario logueado; solo `texto` es escribible.
+`{ id, texto, autor, autor_nombre, autor_rol, created_at, updated_at }`. El
+`autor` lo fija el backend con el usuario logueado; solo `texto` es escribible.
 
-⚠️ **No viene el ROL del autor**, solo su id y su nombre. La vista muestra una
-chapita con el lado del mostrador (Administración / Proveedor / Agencia) y contra
-el backend queda sin poner. Si se quiere recuperar, el backend tiene que
-exponerlo.
+✅ **`autor_rol` ya viene** (se agregó entre el 06 y el 08/08/2026): es lo que le
+falta al front para poner la chapita con el lado del mostrador (Administración /
+Proveedor / Agencia). Ojo que no hay ningún comentario cargado en la base, así
+que el valor real está sin ver. Ver [`pendientes.md`](./pendientes.md).
+
+La colección **no se lee por separado**: `GET /viajes/{id}/costos/comentarios/`
+da **405**. Los comentarios llegan embebidos en el GET de costos, que es como el
+front ya los toma.
 
 ## Viajes
 | Método | Ruta | Descripción |
@@ -217,11 +229,11 @@ detalle fuera de scope da **404** (también en `costos`, `historial`, `tarifa` y
 `comentarios`). **El front ya no filtra**: hacerlo encima vaciaba la lista del
 proveedor cuando `/auth/me/` no traía el proveedor resuelto.
 
-⚠️ El recorte es **por viaje, no por campo**: el costo del viaje sigue trayendo
-las dos columnas, así que el navegador de un proveedor recibe
-`costo_viaje_cliente` / `costo_total_cliente` aunque la UI no los muestre. Si la
-regla "el proveedor no ve el precio al cliente" es dura, el recorte lo tiene que
-hacer el backend.
+✅ **El recorte también es por campo** (desde el 08/08/2026; antes venían las dos
+columnas a todos). `GET /viajes/{id}/costos/` con `proveedor1` no trae **ningún**
+campo `*_cliente` —ni `costo_viaje_cliente`, ni `costo_total_cliente`, ni
+`moneda_cliente`—; con `agencia1` trae el espejo, solo los `*_cliente`. El admin
+sigue viendo las dos.
 
 ### Filtros de `/viajes/` (server-side)
 `agencia`, `estado`, `estado__codigo`, `fecha_servicio`, `fecha_servicio__gte`,
@@ -242,14 +254,16 @@ Cuáles de esos filtros sirven de verdad (probados contra la API el 06/08/2026):
 |---|---|---|
 | `fecha_servicio` | ✅ | Es el eje de la lista. |
 | `estado` (id) | ✅ | `?estado=1` → 80, `?estado=9` → 32. **Es el que usa el front.** |
-| `estado__codigo` | ❌ | Valida contra `CodigoEnum`: **400** con los códigos que tiene cargados la tabla y **0 resultados** con los del enum, salvo `NUE`. Ver la sección Catálogos. |
+| `estado__codigo` | ✅ | Desde el 08/08/2026 da el mismo count que `?estado=<id>` en los 18 estados. Un código fuera del enum (`Con`) da 400. El front igual filtra por id. |
 | `search` | ✅ | Solo `numero_viaje` / `referencia_externa`. **No** busca por pasajero ni por agencia. |
 | `pasajeros__persona__nombre__icontains` | ✅ | Es la única forma de buscar por pasajero, y es case-insensitive. |
-| `ordering` | ⚠️ | Solo `fecha_servicio`. `id`, `hora_servicio`, `numero_viaje` y `estado` devuelven siempre el mismo orden: falta `ordering_fields`. |
+| `ordering` | ✅ | Desde el 08/08/2026 responde a `fecha_servicio`, `hora_servicio`, `numero_viaje`, `estado` e `id`, en los dos sentidos (antes daban todos el mismo orden). `estado` ordena por **nombre** alfabético, no por id. |
 
 Por eso la búsqueda de la grilla son **dos campos** (nº de viaje y pasajero): no
-hay un `search` que cruce las dos cosas. Y el orden de columnas se hace sobre la
-página cargada, porque no hay a qué delegarlo.
+hay un `search` que cruce las dos cosas. El orden de columnas todavía se hace
+sobre la página cargada (`TripsList.tsx`), que era la única opción cuando
+`ordering` no andaba: ahora se puede delegar al servidor, ver
+[`pendientes.md`](./pendientes.md).
 
 ### Creación vs. modificación
 - **Crear** (`POST /viajes/`): los `pasajeros` y los `tramos` van **anidados en el
@@ -299,13 +313,12 @@ pasajeros, costos y comentarios. `modelo` viene en singular y capitalizado
 [`api/historial.ts`](../src/api/historial.ts), que además esconde `id`, `viaje`,
 `created_at` y `updated_at` (ruido en toda modificación).
 
-⚠️ **El endpoint NO recorta por rol**: a la agencia y al proveedor les devuelve el
-diff completo, incluida la columna de costos del otro lado. El recorte lo hace el
-front (`filtrarPorVista` en `api/historial.ts`, con el rol resuelto en
-`api.historialVista()`): admin ve todo; agencia y proveedor, solo las entradas de
-costos y solo los campos de su columna. Al ser del lado del cliente **no es una
-garantía**: el costo ajeno igual viaja en la respuesta. Lo correcto sería que el
-backend filtre el historial como ya filtra la lista de viajes.
+✅ **El endpoint recorta por rol** (desde el 08/08/2026; antes mandaba el diff
+completo a todos). En los 12 cambios del viaje 563, a `proveedor1` le llegan solo
+los campos `*_proveedor` y a `agencia1` solo los `*_cliente`. El filtro del front
+(`filtrarPorVista` en `api/historial.ts`, con el rol resuelto en
+`api.historialVista()`) quedó **redundante**: se deja como red, pero hoy no saca
+nada.
 
 ⚠️ **`usuario` es el ID del autor, no su nombre** (y es `null` cuando el cambio no
 vino de un request HTTP). El front resuelve el nombre contra `/solicitantes/`, que

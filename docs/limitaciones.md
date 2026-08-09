@@ -30,7 +30,7 @@ Es la lista corta, y cada punto está avisado en pantalla con
 
 | Qué | Qué pasa | Vista que lo avisa |
 | --- | --- | --- |
-| Valor del **viaje** corregido a mano | el PATCH lo manda y el backend lo ignora (deriva la base del tarifario del tramo); al recargar el viaje vuelve el monto del tarifario | Viaje → paso *Costos* |
+| Valor del **viaje** corregido a mano | el PATCH lo manda y hasta el 06/08 el backend lo ignoraba. 🟡 **El serializer ya lo acepta** (y sumó un flag `base_manual`), pero falta probar con un PATCH real que persista y que recalcular la tarifa del tramo no lo pise: hasta entonces el aviso se queda | Viaje → paso *Costos* |
 | Direcciones sin API key de Google | se guardan como texto, sin coordenadas ni mapa | paso *Destinos* y carga por Excel |
 
 El valor del viaje es la única forma de ponerle precio a un viaje cuya ruta no
@@ -63,13 +63,14 @@ agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
   de DRF. Los contadores de "hoy / mañana" del encabezado son dos consultas
   aparte, porque son de otros días.
 - Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`).
-  Lo único que no llega es la chapita de rol del autor, que el servidor no expone.
+  Falta la chapita de rol del autor: el backend ya expone `autor_rol`, el front
+  todavía no lo usa (ver [`pendientes.md`](./pendientes.md)).
 - Historial del viaje (`/viajes/{id}/historial/`): auditoría agregada del viaje y
   de sus tramos, pasajeros, costos y comentarios, con el diff de cada cambio. El
   autor viene como **ID**, así que el nombre se resuelve contra `/solicitantes/`
   (si el rol no puede listarlo, queda como "Usuario #id"). El recorte por rol
-  (agencia y proveedor ven solo los cambios de costos de su columna) es **del
-  front**: el endpoint devuelve la auditoría entera para todos.
+  (agencia y proveedor ven solo los cambios de costos de su columna) lo hace
+  **el servidor**.
 - Extras del proveedor (espera, hora a disposición y km), en sus **dos** columnas
   (proveedor y cliente), y el catálogo de proveedores
   (`/tarifarios/proveedores/`). Un viaje sin proveedor asignado **no** tiene con
@@ -87,9 +88,8 @@ agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
   el proveedor, solo su costo; la **agencia**, en su *Tarifario*
   (`/tarifas/cliente`), solo lo que paga —sin el costo del proveedor, sin las
   tarifas dadas de baja y sin poder editar nada—. Lo fijan los tres casos de
-  [`TarifasBase.test.tsx`](../src/pages/Tarifas/TarifasBase.test.tsx). Falta
-  confirmar que el backend deje leer esos endpoints con un usuario de agencia
-  (ver [`api-endpoints.md`](./api-endpoints.md#lo-que-este-crud-no-modela)).
+  [`TarifasBase.test.tsx`](../src/pages/Tarifas/TarifasBase.test.tsx). 🔴 Contra
+  el backend real la vista de la agencia **no anda**: da 403 (ver más abajo).
 - Cotización de la ruta en el wizard: zonas y tarifas vigentes del servidor.
 - Asignación viaje → proveedor: viene con el viaje (`viaje.proveedor`).
 - Carga por Excel: el parseo y la validación corren en el navegador (SheetJS) y
@@ -101,19 +101,25 @@ agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
 proveedor"), así que la conversión `MINUTOS_POR_HORA` de `api/tarifasCrud.ts` es
 correcta.
 
-## Lo que NO se cumple del lado del servidor
+## Lo que arregló el backend (08/08/2026)
 
-El front no tiene deuda pendiente (ver [`pendientes.md`](./pendientes.md)), pero
-hay dos reglas que hoy se cumplen **solo de vista**, porque el recorte por rol es
-por viaje y no por campo:
+Tres cosas que esta página listaba como rotas ya no lo están, verificadas contra
+la API con `proveedor1` y `agencia1`:
 
-- **El precio al cliente viaja igual al navegador del proveedor.** `GET
-  /viajes/{id}/costos/` manda las dos columnas a todos: con el usuario
-  `proveedor1` se reciben `costo_viaje_cliente` y `costo_total_cliente`.
-- **El historial también.** `GET /viajes/{id}/historial/` devuelve el diff
-  completo; el front lo filtra (`filtrarPorVista`), pero el dato está en la
-  respuesta y se ve en la pestaña Network.
+- **El precio al cliente ya no viaja al navegador del proveedor.** `GET
+  /viajes/{id}/costos/` recorta **por campo**: al proveedor no le llega ningún
+  `*_cliente`, a la agencia ningún `*_proveedor`.
+- **El historial también recorta por rol** desde el servidor. El
+  `filtrarPorVista` del front quedó de red, no saca nada.
+- **Cancelar un viaje funciona.** El backend cargó el estado *Cancelado* (`CAN`,
+  id 34) y el front lo resuelve por código, así que el botón se habilitó solo.
+  Antes quedaba deshabilitado a propósito, después de que un id fijo —el 5, que
+  allá es "En Progreso"— dejara viajes en curso al cancelarlos.
 
-Además, **cancelar un viaje no funciona**: el backend no tiene cargado el estado
-"Cancelado", así que el botón queda deshabilitado. Antes mandaba un id fijo que
-allá es "En Progreso" y dejaba el viaje en curso.
+## Lo que sigue sin cumplirse del lado del servidor
+
+**El *Tarifario* de la agencia (`/tarifas/cliente`) no funciona**: el backend
+responde **403** a `GET /tarifarios/tarifas/` y `/tarifarios/proveedores/` con
+los roles de agencia. La pantalla muestra el error —no inventa precios— y la
+función está muerta hasta que le habiliten la lectura. Ver
+[`pendientes.md`](./pendientes.md).
