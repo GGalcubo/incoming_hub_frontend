@@ -118,26 +118,34 @@ export interface PasajeroRead {
 }
 
 // Costos del viaje (GET/PATCH /viajes/{id}/costos/). Tiene DOS columnas: lo que
-// cobra el proveedor y lo que se le factura al cliente. Por cada lado, la base
-// (`costo_viaje_*`) sale del tarifario de los tramos y el total lo calcula el
-// backend: ninguno de los dos se edita desde el front (ver CostoViajePatch).
+// cobra el proveedor y lo que se le factura al cliente. Por cada lado, el total
+// lo calcula el backend y no se edita desde el front (ver CostoViajePatch).
+//
+// ⚠️ LAS COLUMNAS SON OPCIONALES porque el backend recorta por rol (desde el
+// 08/08/2026): al proveedor no le manda ningún `*_cliente` y a la agencia ningún
+// `*_proveedor`; solo el admin recibe las dos. Por eso se leen siempre con
+// `num()`, que trata el campo ausente como 0 — la columna que falta es la que
+// ese rol no dibuja.
 export interface CostoViaje {
   id: number;
   viaje: number;
-  costo_viaje_proveedor: string;
-  costo_espera_proveedor: string;
-  costo_peajes_proveedor: string;
-  costo_estacionamiento_proveedor: string;
-  costo_otros_proveedor: string;
-  costo_total_proveedor: string;
-  moneda_proveedor: string;
-  costo_viaje_cliente: string;
-  costo_espera_cliente: string;
-  costo_peajes_cliente: string;
-  costo_estacionamiento_cliente: string;
-  costo_otros_cliente: string;
-  costo_total_cliente: string;
-  moneda_cliente: string;
+  costo_viaje_proveedor?: string;
+  costo_espera_proveedor?: string;
+  costo_peajes_proveedor?: string;
+  costo_estacionamiento_proveedor?: string;
+  costo_otros_proveedor?: string;
+  costo_total_proveedor?: string;
+  moneda_proveedor?: string;
+  costo_viaje_cliente?: string;
+  costo_espera_cliente?: string;
+  costo_peajes_cliente?: string;
+  costo_estacionamiento_cliente?: string;
+  costo_otros_cliente?: string;
+  costo_total_cliente?: string;
+  moneda_cliente?: string;
+  // Prendido cuando la base la escribió alguien a mano y no la derivó
+  // `recalcular_costo_viaje` del tarifario del tramo. Es de solo lectura.
+  base_manual: boolean;
   // Los comentarios del costo son VARIOS y vienen embebidos acá (antes era un
   // único campo `comentario` de texto, que el backend eliminó). Se agregan,
   // editan y borran por /viajes/{id}/costos/comentarios/.
@@ -149,14 +157,15 @@ export interface CostoViaje {
 // Un comentario del costo de un viaje. El `autor` lo fija el backend con el
 // usuario logueado; solo `texto` es escribible.
 //
-// OJO: no trae el ROL del autor, solo su id y su nombre. La vista muestra una
-// chapita con el lado del mostrador (Administración / Proveedor / Agencia) y
-// contra el backend queda sin poner, porque no hay de dónde sacarla.
+// `autor_rol` es un código de `RoleEnum` (admin / agency_staff /
+// agency_operator / provider) y es lo que dibuja la chapita del lado del
+// mostrador. Viene null cuando el comentario no tiene autor.
 export interface ComentarioCosto {
   id: number;
   texto: string;
-  autor: number;
+  autor: number | null;
   autor_nombre: string;
+  autor_rol: RoleEnum | null;
   created_at: string;
   updated_at: string;
 }
@@ -170,11 +179,12 @@ export interface ComentarioCosto {
 // (`TripCosts.viajeManual`), porque sin eso un viaje cuya ruta no cotiza no tiene
 // forma de tener precio.
 //
-// ⚠️ HOY NO LA GUARDA: el serializer del PATCH (`PatchedCostoViajeUpdate`) no
-// incluye esos campos y DRF los ignora en silencio —el propio schema dice "los
-// setea recalcular_costo_viaje"—, así que el monto se ve en pantalla y se pierde
-// al releer el viaje (la vista lo avisa). Se mandan igual para que el día que el
-// backend los acepte funcione sin tocar nada.
+// 🟡 EL SERIALIZER YA LOS ACEPTA: hasta el 06/08/2026 `PatchedCostoViajeUpdate`
+// no los incluía y DRF los descartaba en silencio; hoy están, y el GET sumó
+// `base_manual`, que es el flag para que `recalcular_costo_viaje` no los pise.
+// Falta probar con un PATCH real que persistan y que recalcular la tarifa del
+// tramo los respete: hasta entonces la vista sigue avisando que el monto se
+// pierde y `viajeManual` sigue viviendo solo en memoria. Ver docs/pendientes.md.
 export interface CostoViajePatch {
   costo_viaje_proveedor?: string;
   costo_viaje_cliente?: string;

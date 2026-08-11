@@ -277,6 +277,16 @@ function esDeCostos(action: string): boolean {
   return action.toLowerCase().includes(MODELO_LABEL.costo);
 }
 
+// Recorta el historial a lo que le toca ver a un rol. Hace DOS cosas:
+//
+// 1. Deja solo las entradas de costos. Esto sigue siendo del front: el backend
+//    le manda a la agencia y al proveedor la auditoría entera del viaje (tramos,
+//    pasajeros, direcciones, horarios), y en su pantalla solo va lo de plata.
+// 2. Saca los campos de la columna ajena. Esto el backend ya lo hace desde el
+//    08/08/2026 —al proveedor no le llega ningún `*_cliente` y viceversa—, así
+//    que en la práctica no encuentra nada que sacar. Se queda de red: es un
+//    filtro por regex sobre campos ya traducidos, no cuesta nada, y si el
+//    servidor volviera atrás el precio ajeno no se dibuja igual.
 export function filtrarPorVista(
   entries: HistoryEntry[],
   vista: HistorialVista,

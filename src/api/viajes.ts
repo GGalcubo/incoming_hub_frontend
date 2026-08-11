@@ -41,9 +41,9 @@ import { patchCostos, setTramoTarifa } from "./tarifario";
 //
 // Códigos con los que el front tiene que reconocer estados CONCRETOS, porque hay
 // acciones atadas a ellos. Se resuelven contra el catálogo por código
-// normalizado (trim + mayúsculas): los del backend vienen con casing irregular y
-// espacios al final ("No ", "Pre"). Ninguno de estos cuatro colisiona; ojo que
-// "No " (No Show) y "NO " (NO SHOW +) sí colisionarían entre sí.
+// normalizado (trim + mayúsculas). Hoy el backend los manda limpios, pero la
+// normalización se queda: hasta el 08/08/2026 venían con casing irregular y
+// espacios al final ("Pre", "No "), y es una línea.
 export const CODIGO_ESTADO = {
   NUEVO: "NUE",
   FINALIZADO: "FIN",
@@ -59,9 +59,14 @@ export function estadoIdPorCodigo(estados: Estado[], codigo: string): number | n
   return estados.find((e) => normCodigo(e.codigo) === target)?.id ?? null;
 }
 
-// Catálogo listo para la UI. Se ordena por id, que es el orden operativo del
+// Catálogo listo para la UI. Se ordena por id, que sigue el orden operativo del
 // flujo (Nuevo → Pre-Asignado → Asignado → …), y se dejan afuera los estados
 // internos de la central (`visible_agencia: false`).
+//
+// El id NO es un campo de orden: es la fila en la tabla del backend, y la
+// coincidencia es histórica. "Cancelado" se cargó después que el resto y entró
+// con el id 34, así que queda último del selector — para un estado final es
+// razonable, pero un estado nuevo del medio del flujo va a aparecer al final.
 export function estadosToStatusMeta(estados: Estado[]): StatusMeta[] {
   return estados
     .filter((e) => e.visible_agencia)

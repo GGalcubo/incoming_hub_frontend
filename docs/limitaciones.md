@@ -62,9 +62,9 @@ agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
   **paginada**: se pide una página por vez y el paginador usa el `count`/`next`
   de DRF. Los contadores de "hoy / mañana" del encabezado son dos consultas
   aparte, porque son de otros días.
-- Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`).
-  Falta la chapita de rol del autor: el backend ya expone `autor_rol`, el front
-  todavía no lo usa (ver [`pendientes.md`](./pendientes.md)).
+- Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`),
+  con la chapita de rol del autor (`autor_rol`). No hay ninguno cargado en la
+  base todavía, así que la chapita está sin ver contra datos reales.
 - Historial del viaje (`/viajes/{id}/historial/`): auditoría agregada del viaje y
   de sus tramos, pasajeros, costos y comentarios, con el diff de cada cambio. El
   autor viene como **ID**, así que el nombre se resuelve contra `/solicitantes/`

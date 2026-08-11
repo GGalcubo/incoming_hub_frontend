@@ -5,9 +5,9 @@ import { Textarea } from "../../../components/ui/Field";
 import type { TripComentario } from "../../../types/domain";
 import styles from "./steps.module.css";
 
-// De qué lado del mostrador vino el comentario. El backend devuelve el nombre del
-// autor pero NO su rol, así que hoy la chapita no se dibuja (preferimos eso a
-// deducirla mal). Queda el mapa para cuando el backend exponga el rol.
+// De qué lado del mostrador vino el comentario. El código lo manda el backend en
+// `autor_rol`; si viene vacío o con uno que no conocemos, la chapita se dibuja
+// con el código crudo antes que mentir con una etiqueta linda.
 const ROL_LABEL: Record<string, string> = {
   admin: "Administración",
   provider: "Proveedor",

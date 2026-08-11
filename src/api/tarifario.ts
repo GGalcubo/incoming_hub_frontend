@@ -91,14 +91,14 @@ export function patchCostos(
 // costos y se escriben por su propio sub-recurso. El autor lo fija el backend
 // con el usuario logueado, así que la vista no lo manda.
 //
-// El backend NO devuelve el rol del autor (solo id y nombre), así que la chapita
-// de "de qué lado del mostrador vino" queda sin poner: preferimos no mostrarla
-// antes que adivinarla con el rol del que está leyendo.
+// El rol del autor lo manda el backend (`autor_rol`, un código de RoleEnum): es
+// lo que dibuja la chapita del lado del mostrador. Cuando viene vacío la vista
+// no la muestra, en vez de deducirla con el rol del que está leyendo.
 function toTripComentario(c: ComentarioCosto): TripComentario {
   return {
     id: String(c.id),
     autor: c.autor_nombre || `Usuario #${c.autor}`,
-    rol: null,
+    rol: c.autor_rol ?? null,
     texto: c.texto,
     fecha: c.created_at,
   };

@@ -35,6 +35,7 @@ function costo(patch: Partial<CostoViaje> = {}): CostoViaje {
     costo_otros_cliente: "0",
     costo_total_cliente: "110",
     moneda_cliente: "USD",
+    base_manual: false,
     comentarios: [],
     horas_disponibles: 0,
     updated_at: "",
@@ -138,35 +139,56 @@ describe("viajeToTrip — categoría elegida", () => {
 });
 
 // El catálogo de estados es del BACKEND. Estas filas son las reales de
-// /estados/ (06/08/2026), incluidos sus defectos: casing irregular, espacios al
-// final y dos códigos que colisionan al normalizar ("No " / "NO ").
+// /estados/ (08/08/2026), cuando el backend normalizó la tabla: códigos en
+// mayúsculas, sin espacios al final y ninguno que colisione. "Cancelado" se
+// cargó último y por eso tiene el id 34, fuera del rango del resto.
+//
+// La última fila es sintética: hoy TODOS los estados vienen con
+// `visible_agencia: true`, y hace falta uno en false para probar el filtro.
 const ESTADOS: Estado[] = [
   { id: 1, codigo: "NUE", nombre: "Nuevo", color: "#273740", es_final: false, visible_agencia: true },
-  { id: 6, codigo: "Fin", nombre: "Finalizado", color: "#273740", es_final: false, visible_agencia: true },
-  { id: 7, codigo: "Cer", nombre: "Cerrado", color: "#273740", es_final: true, visible_agencia: true },
-  { id: 9, codigo: "No ", nombre: "No Show", color: "#F5B041", es_final: false, visible_agencia: true },
+  { id: 6, codigo: "FIN", nombre: "Finalizado", color: "#273740", es_final: false, visible_agencia: true },
+  { id: 7, codigo: "CER", nombre: "Cerrado", color: "#273740", es_final: true, visible_agencia: true },
+  { id: 9, codigo: "NSH", nombre: "No Show", color: "#F5B041", es_final: false, visible_agencia: true },
   { id: 10, codigo: "MOD", nombre: "MOD", color: "#F5B041", es_final: false, visible_agencia: true },
-  { id: 13, codigo: "NO ", nombre: "NO SHOW +", color: "#d3d3d3", es_final: true, visible_agencia: true },
+  { id: 13, codigo: "NSP", nombre: "NO SHOW +", color: "#d3d3d3", es_final: true, visible_agencia: true },
+  { id: 34, codigo: "CAN", nombre: "Cancelado", color: "#E53935", es_final: true, visible_agencia: true },
   { id: 99, codigo: "INT", nombre: "Interno", color: null, es_final: false, visible_agencia: false },
 ];
 
 describe("estados: catálogo del backend", () => {
-  it("resuelve el id por código ignorando casing y espacios", () => {
+  it("resuelve el id por código", () => {
     expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.FINALIZADO)).toBe(6);
     expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.MODIFICADO)).toBe(10);
-    expect(estadoIdPorCodigo(ESTADOS, "nue")).toBe(1);
+    expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.CANCELADO)).toBe(34);
   });
 
-  // Hoy la tabla del backend no tiene "Cancelado" (declara el código CAN en el
-  // schema pero la fila no está). Sin él, cancelar tiene que fallar, no mandar
-  // otro estado: es lo que hacía antes y dejaba el viaje "En Progreso".
+  // El backend mandó códigos con casing irregular y espacios al final hasta el
+  // 08/08/2026 ("Fin", "No "). Ya no, pero normalizar es una línea y evita que
+  // volver a ensuciar la tabla rompa las acciones atadas a un estado.
+  it("normaliza el código: ignora casing y espacios al final", () => {
+    const sucios: Estado[] = [
+      { ...ESTADOS[1], codigo: "Fin " },
+      { ...ESTADOS[0], codigo: "nue" },
+    ];
+    expect(estadoIdPorCodigo(sucios, CODIGO_ESTADO.FINALIZADO)).toBe(6);
+    expect(estadoIdPorCodigo(sucios, CODIGO_ESTADO.NUEVO)).toBe(1);
+  });
+
+  // Si el backend no tiene cargado el estado, la acción atada tiene que quedar
+  // deshabilitada y no mandar otro. Es lo que pasaba con "Cancelado" antes de
+  // que lo cargaran: el front mandaba un id fijo —el 5, "En Progreso"— y
+  // cancelar dejaba el viaje en curso.
   it("devuelve null si el backend no tiene ese estado cargado", () => {
-    expect(estadoIdPorCodigo(ESTADOS, CODIGO_ESTADO.CANCELADO)).toBeNull();
+    const sinCancelado = ESTADOS.filter((e) => e.codigo !== "CAN");
+    expect(estadoIdPorCodigo(sinCancelado, CODIGO_ESTADO.CANCELADO)).toBeNull();
   });
 
+  // El id es la fila en la tabla del backend, no un campo de orden: "Cancelado"
+  // se cargó después que el resto y por eso cae último del selector.
   it("deja afuera los estados internos de la central y ordena por id", () => {
     const metas = estadosToStatusMeta(ESTADOS);
-    expect(metas.map((m) => m.id)).toEqual([1, 6, 7, 9, 10, 13]);
+    expect(metas.map((m) => m.id)).toEqual([1, 6, 7, 9, 10, 13, 34]);
     expect(metas.find((m) => m.label === "Interno")).toBeUndefined();
   });
 

@@ -202,9 +202,16 @@ export function TripsList({
   // igual, para que un viaje recién creado en OTRO día no se cuele en la lista
   // antes de que la recarga traiga la página correcta.
   //
-  // El ORDEN sí es de esta página: el backend solo sabe ordenar por
-  // `fecha_servicio` y la lista ya está acotada a un día, así que no hay nada
-  // que delegarle (ver docs/pendientes.md).
+  // El ORDEN sí es de esta página, y alcanza porque la lista está acotada a UN
+  // DÍA y un día entra en una página (el backend pagina de a 20). Ordenar acá
+  // ordena entonces el resultado entero, no un pedazo.
+  //
+  // No se delega al servidor aunque `ordering` ya funcione para `fecha_servicio`,
+  // `hora_servicio`, `numero_viaje`, `estado` e `id`: son cinco de las once
+  // columnas, y las otras seis (origen, destino, pasajero, categoría, unidad,
+  // observaciones) no tienen equivalente. Mitad y mitad se comporta peor que
+  // todo del mismo lado. Si algún día un día pasa de una página, esto ordena un
+  // pedazo y hay que rehacerlo (ver docs/pendientes.md).
   const filtered = useMemo(() => {
     const r = trips.filter((t) => t.date === dateFilter);
     return [...r].sort((a, b) => {

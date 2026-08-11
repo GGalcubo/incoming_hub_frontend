@@ -28,16 +28,28 @@ rol del autor en los comentarios. Lo que sigue es lo que quedó.
 |---|---|---|
 | 4 | **Que el monto base escrito a mano efectivamente persista.** El serializer ya lo acepta: `PatchedCostoViajeUpdate` incluye `costo_viaje_proveedor` y `costo_viaje_cliente`, y `CostoViaje` expone un campo nuevo `base_manual` (booleano, solo lectura) que es justo el flag que pedíamos. Falta probar que un `PATCH /viajes/{id}/costos/` lo guarde, que prenda `base_manual`, y que `PATCH /tramos/{id}/tarifa/` **no lo pise** cuando está prendido. |  Es lo único que le pone precio a un viaje cuya ruta no cotiza. Hasta confirmarlo, el paso *Costos* sigue avisando que el monto no se guarda. Se prueba con un PATCH real: leer los valores, escribir, releer, recalcular la tarifa del tramo y restaurar. |
 
-## 3. Para el frontend — al día del backend
+## 3. Para el frontend
 
-Deuda que nació el 08/08/2026, cuando el backend cerró sus puntos: son cosas que
-el front todavía hace como si el servidor no las tuviera.
+**Queda uno solo, y está trabado en el punto 4.**
 
 | # | Qué hacer | Dónde |
 |---|---|---|
-| 5 | **Usar `base_manual` del servidor** en vez del `viajeManual` en memoria, y **sacar el `Aviso`** de que el monto no se guarda. Depende de confirmar el punto 4. | `pages/TripWizard/steps/StepCostos.tsx`, `types/domain.ts` |
-| 6 | **Poner la chapita de rol en los comentarios**: `ComentarioCosto` ya trae `autor_rol`. (No hay ningún comentario cargado en la base, así que el valor real está sin ver.) | `api/backend.ts`, la vista de comentarios |
-| 7 | **Revisar el orden del selector de estados.** `estadosToStatusMeta` ordena por id porque ese era el orden operativo; *Cancelado* entró con el **id 34**, así que ahora queda último de la lista. | `api/viajes.ts` |
-| 8 | **Limpiar los comentarios sobre el casing de los códigos** (`CODIGO_ESTADO`, `normCodigo`, los estados de `viajes.test.ts`): describen una tabla que ya no existe. La normalización puede quedarse igual, es barata. | `api/viajes.ts`, `api/viajes.test.ts` |
-| 9 | **Decidir qué hacer con `filtrarPorVista`.** El backend ya recorta el historial por rol, así que quedó redundante. Sirve de red por si el servidor vuelve atrás, pero hoy no filtra nada. | `api/historial.ts` |
-| 10 | **Delegar el orden de la grilla al servidor.** Hoy se ordena sobre la página cargada porque `ordering` solo respondía a `fecha_servicio`; ahora responde a `hora_servicio`, `numero_viaje`, `estado` e `id` en los dos sentidos. Ordenar sobre una página suelta es engañoso: reacomoda 20 filas de 119. | `pages/TripsList.tsx`, `api/viajes.ts` |
+| 5 | **Usar `base_manual` del servidor** en vez del `viajeManual` en memoria, y **sacar el `Aviso`** de que el monto no se guarda. El tipo y los comentarios ya están al día; falta el cambio de comportamiento, que no se puede hacer sin confirmar el punto 4: si el backend todavía no persiste la base, `base_manual` nunca se prende y sacar el aviso sería mentir. | `pages/TripWizard/steps/StepCostos.tsx`, `types/domain.ts` |
+
+Lo demás que había acá se cerró el 08/08/2026, en el mismo repaso. Dos cosas
+resultaron **no ser** lo que parecían y quedan anotadas para no volver a
+levantarlas:
+
+- **El orden de la grilla está bien como está.** Se ordena en el cliente, pero la
+  lista está acotada a un día y un día entra en una página (el backend pagina de
+  a 20; el día más cargado de la base tiene 12 viajes), así que se ordena el
+  resultado entero y no un pedazo. Delegarlo al servidor tampoco alcanzaría:
+  `ordering` cubre cinco de las once columnas y las otras seis (origen, destino,
+  pasajero, categoría, unidad, observaciones) no tienen equivalente. Mitad y
+  mitad se comporta peor. **Sí hay que rehacerlo si algún día un día pasa de una
+  página.**
+- **`filtrarPorVista` no quedó redundante.** El backend recorta los *campos* de
+  costo por rol, pero le sigue mandando a la agencia y al proveedor la auditoría
+  entera del viaje (tramos, pasajeros, direcciones, horarios); que en su pantalla
+  vaya solo lo de plata lo sigue haciendo el front. Redundante quedó únicamente
+  el filtro de columna ajena, que se deja de red.

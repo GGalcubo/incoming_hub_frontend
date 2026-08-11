@@ -202,10 +202,10 @@ embebidos en el GET de costos como `comentarios[]`, con
 `{ id, texto, autor, autor_nombre, autor_rol, created_at, updated_at }`. El
 `autor` lo fija el backend con el usuario logueado; solo `texto` es escribible.
 
-✅ **`autor_rol` ya viene** (se agregó entre el 06 y el 08/08/2026): es lo que le
-falta al front para poner la chapita con el lado del mostrador (Administración /
-Proveedor / Agencia). Ojo que no hay ningún comentario cargado en la base, así
-que el valor real está sin ver. Ver [`pendientes.md`](./pendientes.md).
+✅ **`autor_rol` ya viene** (se agregó entre el 06 y el 08/08/2026): es un código
+de `RoleEnum` y es lo que dibuja la chapita del lado del mostrador
+(Administración / Proveedor / Agencia). El front ya lo usa. Ojo que no hay ningún
+comentario cargado en la base, así que el valor real está sin ver.
 
 La colección **no se lee por separado**: `GET /viajes/{id}/costos/comentarios/`
 da **405**. Los comentarios llegan embebidos en el GET de costos, que es como el
@@ -233,7 +233,8 @@ proveedor cuando `/auth/me/` no traía el proveedor resuelto.
 columnas a todos). `GET /viajes/{id}/costos/` con `proveedor1` no trae **ningún**
 campo `*_cliente` —ni `costo_viaje_cliente`, ni `costo_total_cliente`, ni
 `moneda_cliente`—; con `agencia1` trae el espejo, solo los `*_cliente`. El admin
-sigue viendo las dos.
+sigue viendo las dos. Por eso en `CostoViaje` las dos columnas son **opcionales**:
+se leen con `num()`, que trata el campo ausente como 0.
 
 ### Filtros de `/viajes/` (server-side)
 `agencia`, `estado`, `estado__codigo`, `fecha_servicio`, `fecha_servicio__gte`,
