@@ -174,17 +174,20 @@ export interface ComentarioCosto {
 // resuelve el backend y no se mandan. Si el viaje todavía no tiene costo, el
 // PATCH lo crea.
 //
-// La base (`costo_viaje_*`) la calcula el servidor con la tarifa del tramo. Se
-// manda igual cuando el usuario la escribió a mano en el paso Costos
+// La base (`costo_viaje_*`) normalmente la calcula el servidor con la tarifa del
+// tramo. Se manda cuando el usuario la escribió a mano en el paso Costos
 // (`TripCosts.viajeManual`), porque sin eso un viaje cuya ruta no cotiza no tiene
 // forma de tener precio.
 //
-// 🟡 EL SERIALIZER YA LOS ACEPTA: hasta el 06/08/2026 `PatchedCostoViajeUpdate`
-// no los incluía y DRF los descartaba en silencio; hoy están, y el GET sumó
-// `base_manual`, que es el flag para que `recalcular_costo_viaje` no los pise.
-// Falta probar con un PATCH real que persistan y que recalcular la tarifa del
-// tramo los respete: hasta entonces la vista sigue avisando que el monto se
-// pierde y `viajeManual` sigue viviendo solo en memoria. Ver docs/pendientes.md.
+// ✅ EL BACKEND LA GUARDA (probado con un PATCH real el 08/08/2026; hasta el
+// 06/08 el serializer no la incluía y DRF la descartaba en silencio). Al mandarla
+// se prende `base_manual` solo.
+//
+// ⚠️ Pero `PATCH /tramos/{id}/tarifa/` **pisa igual** el monto manual: re-deriva
+// la base del tarifario y apaga `base_manual`. No es un problema porque el front
+// solo toca ese endpoint cuando la tarifa CAMBIÓ de verdad (ver
+// syncTarifaTramo), que es justo cuando la regla de negocio dice que hay que
+// recotizar. Ojo si algún día se reenvía la misma tarifa: se pierde el monto.
 export interface CostoViajePatch {
   costo_viaje_proveedor?: string;
   costo_viaje_cliente?: string;

@@ -110,6 +110,21 @@ describe("viajeToTrip — horas a disposición", () => {
   });
 });
 
+// `base_manual` lo prende el backend cuando el PATCH manda la base, y es lo que
+// distingue "este viaje vale esto porque lo escribió alguien" de "esto salió del
+// tarifario". Sin traerlo, reabrir un viaje con precio cargado a mano lo dejaba
+// como automático y la primera recotización se lo comía.
+describe("viajeToTrip — base cargada a mano", () => {
+  it("marca el costo como manual si el backend dice base_manual", () => {
+    const t = viajeToTrip(viaje({ costo: costo({ base_manual: true }) }), CATALOGS);
+    expect(t.costs.viajeManual).toBe(true);
+  });
+
+  it("no lo marca cuando la base salió del tarifario", () => {
+    expect(viajeToTrip(viaje(), CATALOGS).costs.viajeManual).toBe(false);
+  });
+});
+
 // El paso Cotización marca la card y recotiza buscando por el CÓDIGO de la
 // categoría (`tarifa.categoria`). Si no se reconstruye al leer el viaje, la card
 // no queda seleccionada y ningún recálculo de precio encuentra qué recotizar.

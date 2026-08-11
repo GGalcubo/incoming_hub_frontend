@@ -1,6 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
 import { api } from "../../../api/client";
-import { Aviso } from "../../../components/ui/Aviso";
 import { Button } from "../../../components/ui/Button";
 import { Input } from "../../../components/ui/Field";
 import { CODIGO_ESTADO } from "../../../api/viajes";
@@ -96,7 +95,8 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
   // El tramo base sale del tarifario (paso Cotización), pero se puede corregir a
   // mano como cualquier otro rubro: es la única forma de ponerle precio a un
   // viaje que la ruta no cotiza ("a cotizar por el proveedor"). Editarlo marca el
-  // costo como manual y la cotización deja de pisarlo (ver TripCosts.viajeManual).
+  // costo como manual y la cotización deja de pisarlo (ver TripCosts.viajeManual),
+  // y el backend lo persiste desde el 08/08/2026 (`base_manual`).
   const canEditAlgo = cols.some(canEditCol);
 
   // Minutos de espera. El backend guarda el MONTO, no los minutos: cuando el
@@ -202,18 +202,6 @@ export function StepCostos({ t, set }: { t: Trip; set: (patch: Partial<Trip>) =>
               : "Cargá el valor del viaje, los minutos de espera y tus extras. El valor del viaje viene del tarifario y se puede corregir. La espera se cobra por bloques de 15 minutos y el monto se calcula solo. Los montos están en dólares."
             : "Valores del viaje. Ante una diferencia, contactá al administrador."}
       </p>
-
-      {/* El monto base editado a mano NO lo guarda el backend: el PATCH de costos
-          (PatchedCostoViajeUpdate) no acepta `costo_viaje_*`, los deriva del
-          tarifario de los tramos. Se manda igual —DRF ignora los campos que no
-          modela— así que el día que los acepte esto funciona sin tocar nada. */}
-      {c.viajeManual && (
-        <Aviso tono="pendiente">
-          El valor del viaje cargado a mano <b>no se guarda en el servidor</b>: el backend lo
-          calcula con la tarifa del tramo y todavía no acepta que se lo edite. Sirve para ver el
-          total correcto ahora, pero al recargar el viaje vuelve el monto del tarifario.
-        </Aviso>
-      )}
 
       <div className={styles.costGrid} style={gridStyle}>
         <span className={styles.costHeadCell} />

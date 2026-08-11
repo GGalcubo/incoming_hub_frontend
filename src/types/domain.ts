@@ -68,8 +68,10 @@ export interface TripCosts {
   // El monto base (`viaje`/`tarifaProveedor`) lo escribió una persona en el paso
   // Costos, no la cotización. Mientras esté en true, el paso Cotización NO lo
   // pisa con el precio del tarifario: solo vuelve a calcularlo si se elige una
-  // categoría (que es cambiar de tarifa a propósito). Es de sesión: no se
-  // persiste, así que al reabrir el viaje el monto guardado es el que manda.
+  // categoría o cambia la ruta (que es cambiar de tarifa a propósito).
+  //
+  // Se persiste: el backend lo guarda en `CostoViaje.base_manual` y lo prende
+  // solo cuando el PATCH manda la base. Al reabrir el viaje vuelve como estaba.
   viajeManual?: boolean;
   // Extras del lado PROVEEDOR: lo que el proveedor cobra por cada rubro, contra
   // los campos de arriba (`peajes`, `estacionamiento`, `otros`), que son lo que

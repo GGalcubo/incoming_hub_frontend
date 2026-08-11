@@ -30,20 +30,30 @@ Es la lista corta, y cada punto está avisado en pantalla con
 
 | Qué | Qué pasa | Vista que lo avisa |
 | --- | --- | --- |
-| Valor del **viaje** corregido a mano | el PATCH lo manda y hasta el 06/08 el backend lo ignoraba. 🟡 **El serializer ya lo acepta** (y sumó un flag `base_manual`), pero falta probar con un PATCH real que persista y que recalcular la tarifa del tramo no lo pise: hasta entonces el aviso se queda | Viaje → paso *Costos* |
 | Direcciones sin API key de Google | se guardan como texto, sin coordenadas ni mapa | paso *Destinos* y carga por Excel |
 
-El valor del viaje es la única forma de ponerle precio a un viaje cuya ruta no
-cotiza, por eso se sigue mandando. El detalle y el pedido al backend están en
-[`api-endpoints.md`](./api-endpoints.md#costos-del-viaje) y en
-[`pendientes.md`](./pendientes.md).
+Quedó **uno solo**. El valor del viaje corregido a mano salió de esta lista el
+08/08/2026: el backend lo persiste y el aviso se borró (ver abajo).
+
+## El valor del viaje cargado a mano
+
+Es la única forma de ponerle precio a un viaje cuya ruta no cotiza. **El backend
+lo guarda** (probado con un PATCH real el 08/08/2026) y marca el costo con
+`base_manual`, que el front lee al abrir el viaje: por eso un precio escrito a
+mano sigue ahí después de recargar.
 
 **Cuándo se pisa ese monto** (regla del negocio, no un bug): lo rehace con el
 tarifario todo lo que cambie *de qué tarifa* se está hablando — elegir otra
 categoría o **cambiar la ruta**. Cambiar solo la modalidad o la cantidad de horas
 lo respeta: ahí la tarifa es la misma y el monto escrito es un precio absoluto
-para ese viaje. Por eso `viajeManual` no necesita persistirse. Lo fija el test
-"recotizar por cambio de ruta pisa el monto con la tarifa nueva".
+para ese viaje. Lo fija el test "recotizar por cambio de ruta pisa el monto con
+la tarifa nueva".
+
+Del lado del servidor la regla sale igual, pero por otro camino: `PATCH
+/tramos/{id}/tarifa/` **siempre** re-deriva la base del tarifario y apaga
+`base_manual`. Coincide con lo que queremos porque el front solo llama a ese
+endpoint cuando la tarifa cambió de verdad (`syncTarifaTramo`). Si algún día se
+reenvía la misma tarifa, el monto escrito a mano se pierde.
 
 Los **extras por agencia** (espera / hora a disposición / km facturados a cada
 cliente) ya no existen en el front: no hay modelo en el backend y lo único que
@@ -76,7 +86,8 @@ agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
   (`/tarifarios/proveedores/`). Un viaje sin proveedor asignado **no** tiene con
   qué calcular la espera: el campo queda deshabilitado y lo dice.
 - Costos del viaje: los rubros manuales se persisten por columna. La base sale
-  del tarifario del tramo (la calcula el servidor).
+  del tarifario del tramo (la calcula el servidor) y se puede corregir a mano:
+  eso también se guarda, y queda marcado con `base_manual`.
 - Pasajeros (`/personas/`): paginación, búsqueda y filtro por agencia, todo
   server-side.
 - Catálogos: agencias, categorías de servicio, solicitantes, zonas y categorías

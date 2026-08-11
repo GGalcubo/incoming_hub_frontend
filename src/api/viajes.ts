@@ -457,6 +457,10 @@ function costoToTripCosts(costo: CostoViaje | null): TripCosts {
     estacionamientoProveedor,
     otrosProveedor,
     moneda: costo.moneda_cliente || costo.moneda_proveedor || undefined,
+    // Lo dice el servidor: la base la escribió alguien a mano y no la derivó del
+    // tarifario. Sin esto, reabrir un viaje con precio cargado a mano lo dejaba
+    // "automático" otra vez y la primera recotización se lo comía.
+    viajeManual: costo.base_manual,
   };
 }
 

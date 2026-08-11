@@ -10,9 +10,10 @@ hace hoy, en [`limitaciones.md`](./limitaciones.md).
 
 Verificado el **08/08/2026** contra la API de Heroku, con los tres usuarios de
 prueba (`incomingAdmin`, `proveedor1`, `agencia1`). De la lista anterior el
-backend cerró **seis** puntos: el estado *Cancelado*, los códigos de estado,
-`ordering`, el recorte de costos por campo, el recorte del historial por rol y el
-rol del autor en los comentarios. Lo que sigue es lo que quedó.
+backend cerró **siete** puntos: el estado *Cancelado*, los códigos de estado,
+`ordering`, el recorte de costos por campo, el recorte del historial por rol, el
+rol del autor en los comentarios y la escritura del monto base. El front ya se
+puso al día con todos. **Quedan tres, y los tres son del backend.**
 
 ## 1. Para el backend — falta modelo, campo o permiso
 
@@ -22,23 +23,20 @@ rol del autor en los comentarios. Lo que sigue es lo que quedó.
 | 2 | **Extras por agencia** (espera, hora a disposición y km facturados a cada cliente). Sigue sin haber modelo: `valor_espera`, `valor_hora_dispo` y `valor_km_adicional` existen solo en `Proveedor`; `Agencia` tiene únicamente datos de facturación (cuit, email, centro de costo). | La funcionalidad **no existe**: se eliminó del front porque vivía en el `localStorage` de un navegador. No vuelve hasta que el backend la modele. | `/api/schema/`: ningún componente fuera de `Proveedor*` tiene `valor_espera`. |
 | 3 | **El color del estado `WEB` (id 16) es inválido:** `#FFFFF`, cinco dígitos. | El badge se pinta mal (y si fuera blanco de verdad, sería ilegible). Es un dato mal cargado, no un cambio de modelo. | `GET /estados/` → la fila 16. |
 
-## 2. Para el backend — por confirmar
+## 2. Para el frontend
 
-| # | Qué confirmar | Por qué importa |
-|---|---|---|
-| 4 | **Que el monto base escrito a mano efectivamente persista.** El serializer ya lo acepta: `PatchedCostoViajeUpdate` incluye `costo_viaje_proveedor` y `costo_viaje_cliente`, y `CostoViaje` expone un campo nuevo `base_manual` (booleano, solo lectura) que es justo el flag que pedíamos. Falta probar que un `PATCH /viajes/{id}/costos/` lo guarde, que prenda `base_manual`, y que `PATCH /tramos/{id}/tarifa/` **no lo pise** cuando está prendido. |  Es lo único que le pone precio a un viaje cuya ruta no cotiza. Hasta confirmarlo, el paso *Costos* sigue avisando que el monto no se guarda. Se prueba con un PATCH real: leer los valores, escribir, releer, recalcular la tarifa del tramo y restaurar. |
+**Ninguna.** Lo que había se cerró el 08/08/2026, en el mismo repaso.
 
-## 3. Para el frontend
+El último en caer fue el monto base cargado a mano: el PATCH de prueba sobre el
+viaje 563 confirmó que el backend lo guarda y que prende `base_manual`, así que
+se borró el `Aviso` de *Costos* y `viajeManual` pasó a leerse del servidor. Un
+detalle que salió de la misma prueba: `PATCH /tramos/{id}/tarifa/` pisa el monto
+manual **aun con la misma tarifa**, pero no molesta porque el front solo llama a
+ese endpoint cuando la tarifa cambió de verdad, que es justo cuando la regla de
+negocio manda recotizar.
 
-**Queda uno solo, y está trabado en el punto 4.**
-
-| # | Qué hacer | Dónde |
-|---|---|---|
-| 5 | **Usar `base_manual` del servidor** en vez del `viajeManual` en memoria, y **sacar el `Aviso`** de que el monto no se guarda. El tipo y los comentarios ya están al día; falta el cambio de comportamiento, que no se puede hacer sin confirmar el punto 4: si el backend todavía no persiste la base, `base_manual` nunca se prende y sacar el aviso sería mentir. | `pages/TripWizard/steps/StepCostos.tsx`, `types/domain.ts` |
-
-Lo demás que había acá se cerró el 08/08/2026, en el mismo repaso. Dos cosas
-resultaron **no ser** lo que parecían y quedan anotadas para no volver a
-levantarlas:
+Dos cosas resultaron **no ser** lo que parecían y quedan anotadas para no volver
+a levantarlas:
 
 - **El orden de la grilla está bien como está.** Se ordena en el cliente, pero la
   lista está acotada a un día y un día entra en una página (el backend pagina de

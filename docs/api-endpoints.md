@@ -184,17 +184,22 @@ desde su pantalla borraría el precio de venta.
 - Los **totales** los calcula el backend y no se mandan nunca.
 - La **base** (`costo_viaje_proveedor` / `costo_viaje_cliente`) sale del tarifario
   de los tramos. El paso Costos deja corregirla a mano (imprescindible cuando la
-  ruta no cotiza) y la manda en el PATCH. 🟡 **El serializer ya la acepta**
-  (`PatchedCostoViajeUpdate` incluye los dos campos, verificado en `/api/schema/`
-  el 08/08/2026; antes no) y apareció `base_manual` —booleano de solo lectura— en
-  `CostoViaje`, que es el flag para que `recalcular_costo_viaje` no la pise.
-  **Falta probar con un PATCH real que persista y que el recálculo la respete**;
-  hasta entonces la vista sigue avisando. Ver [`pendientes.md`](./pendientes.md).
+  ruta no cotiza) y la manda en el PATCH. ✅ **El backend la guarda**, probado con
+  un PATCH real el 08/08/2026 sobre el viaje 563 (hasta el 06/08
+  `PatchedCostoViajeUpdate` no incluía los campos y DRF los descartaba en
+  silencio). Al mandarla se prende **`base_manual`** —booleano de solo lectura del
+  GET—, que el front lee para saber que el monto lo escribió una persona.
 - Por PATCH van espera, peajes, estacionamiento, otros (de las dos columnas),
   `moneda_*`, `horas_disponibles` y la base solo si se editó a mano.
-- ⚠️ Cambiar la tarifa de un tramo **resetea a 0 todos los ajustes manuales** y
-  re-deriva la base: por eso `syncTarifaTramo` corre antes que `syncCostos` y,
-  cuando la tarifa cambió, el PATCH de costos reenvía todos los rubros (`force`).
+- ⚠️ `PATCH /tramos/{id}/tarifa/` **resetea a 0 todos los ajustes manuales, pisa
+  la base con la del tarifario y apaga `base_manual`** — aun reenviando la MISMA
+  tarifa. Por eso `syncTarifaTramo` corre antes que `syncCostos` y, cuando la
+  tarifa cambió, el PATCH de costos reenvía todos los rubros (`force`). Y por eso
+  el front solo llama a ese endpoint cuando la tarifa cambió de verdad: reenviar
+  la misma borraría el precio cargado a mano.
+
+  Comprobado en el 563: base manual 123.45/234.56 → `PATCH /tramos/533/tarifa/`
+  con la misma tarifa (2) → vuelve 35.00/40.00 y `base_manual: false`.
 
 ### Comentarios del costo
 El viejo campo `comentario` (string único) **ya no existe**: son varios y vienen
