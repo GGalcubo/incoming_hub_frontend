@@ -32,6 +32,48 @@ function parseTipo(raw: string): LegType | null {
   return null;
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+// Arma el ISO solo si los tres números son una fecha razonable.
+function toISO(y: number, m: number, d: number): string {
+  if (!(y >= 2000 && m >= 1 && m <= 12 && d >= 1 && d <= 31)) return "";
+  return `${y}-${pad2(m)}-${pad2(d)}`;
+}
+
+// Fecha en UNA sola columna. Acepta lo que Excel muestra en una celda de fecha
+// ("20/06/2026"), el ISO tipeado a mano ("2026-06-20") y el número de serie de
+// Excel por si la celda viene sin formato.
+function parseFecha(raw: string): string {
+  const s = raw.trim();
+  if (!s) return "";
+
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (iso) return toISO(parseInt(iso[1], 10), parseInt(iso[2], 10), parseInt(iso[3], 10));
+
+  const dmy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (dmy) {
+    let d = parseInt(dmy[1], 10);
+    let m = parseInt(dmy[2], 10);
+    // Por defecto dd/mm/aaaa; si el segundo número no puede ser mes, la planilla
+    // vino en mm/dd (Excel en inglés) y se invierte.
+    if (m > 12 && d <= 12) [d, m] = [m, d];
+    let y = parseInt(dmy[3], 10);
+    if (y < 100) y += 2000;
+    return toISO(y, m, d);
+  }
+
+  // Número de serie de Excel: días desde el 1899-12-30. En UTC para no correrse
+  // un día por la zona horaria.
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 0) {
+    const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+    return toISO(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+  }
+  return "";
+}
+
 // Acepta "07:30", "7:30" o una fracción de día de Excel (por las dudas) → "HH:MM".
 function parseHora(raw: string): string {
   const s = raw.trim();
@@ -49,11 +91,9 @@ function parseHora(raw: string): string {
   return "";
 }
 
-// Aliases de header → campo lógico (norm() ya quita acentos, así "Año" → "ano").
+// Aliases de header → campo lógico (norm() ya quita acentos y baja a minúsculas).
 const COLS: Record<string, string[]> = {
-  dia: ["dia"],
-  mes: ["mes"],
-  anio: ["ano", "anio"],
+  fecha: ["fecha"],
   hora: ["hora"],
   cat: ["categoria"],
   pax: ["pasajeros"],
@@ -79,17 +119,9 @@ function buildHeaderMap(headerRow: unknown[]): Record<string, number> {
 }
 
 function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
-  // Fecha: Dia / Mes / Año (numéricos).
-  const d = parseInt(get("dia"), 10);
-  const m = parseInt(get("mes"), 10);
-  const y = parseInt(get("anio"), 10);
-  let date = "";
-  if (
-    Number.isFinite(d) && Number.isFinite(m) && Number.isFinite(y) &&
-    d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 2000
-  ) {
-    date = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  }
+  // Fecha: una sola columna ("Fecha"), en el formato que traiga la planilla.
+  const fechaText = get("fecha");
+  const date = parseFecha(fechaText);
 
   const time = parseHora(get("hora"));
   const cat = get("cat");
@@ -128,6 +160,9 @@ function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
 
   // Validación estructural compartida con el modal (fuente única de verdad).
   const { errors, warnings } = validateExcelRow({ date, time, cat, passengers, phones, legs });
+  // Si la celda tenía algo pero no se pudo interpretar, se aclara el motivo
+  // (validateExcelRow ya marcó el error "Falta la fecha").
+  if (!date && fechaText) warnings.push(`Fecha no reconocida: "${fechaText}"`);
   // El tipo se parsea de texto libre; si no se reconoce, el tramo queda "otro".
   if (!tipo) {
     warnings.push(

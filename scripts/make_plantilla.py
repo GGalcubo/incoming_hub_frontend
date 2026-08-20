@@ -1,14 +1,14 @@
 # Genera public/plantilla-viajes.xlsx (la plantilla descargable del modal de
 # carga por Excel). El formato sigue el ejemplo provisto por el cliente:
-#   - Fecha partida en Dia / Mes / Año (3 columnas numericas).
+#   - Una sola columna "Fecha" (celda de fecha, formato DD/MM/AAAA).
 #   - Una fila por VIAJE. Tramos adicionales del mismo viaje se cargan en las
 #     columnas "Destino 2" y "Destino 3" (no se repiten filas).
 #   - Columna "Telefono": uno por pasajero, mismo orden, separados con " | ".
 #   - Tipo y Categoria con desplegable (validacion de datos) desde la hoja LOV.
 #
-# NOTA: el parseo real del Excel ocurre en el backend (/trips/excel/parse).
-# Si se cambian columnas o los valores de Tipo/Categoria, el parser del backend
-# debe actualizarse en consecuencia.
+# NOTA: el parseo del Excel ocurre en el front (src/lib/excelParse.ts). Si se
+# cambian columnas o los valores de Tipo/Categoria, hay que actualizar el mapa
+# COLS de ese modulo.
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -20,20 +20,18 @@ ws = wb.active
 ws.title = "Viajes"
 
 headers = [
-    "Dia",            # A
-    "Mes",            # B
-    "Año",            # C
-    "Hora",           # D
-    "Categoria",      # E
-    "Pasajeros",      # F
-    "Telefono",       # G
-    "Tipo",           # H
-    "Origen",         # I
-    "Destino",        # J
-    "Vuelo",          # K
-    "Observaciones",  # L
-    "Destino 2",      # M
-    "Destino 3",      # N
+    "Fecha",          # A
+    "Hora",           # B
+    "Categoria",      # C
+    "Pasajeros",      # D
+    "Telefono",       # E
+    "Tipo",           # F
+    "Origen",         # G
+    "Destino",        # H
+    "Vuelo",          # I
+    "Observaciones",  # J
+    "Destino 2",      # K
+    "Destino 3",      # L
 ]
 ws.append(headers)
 
@@ -41,32 +39,31 @@ ws.append(headers)
 TIPOS = ["Llegada (in)", "Salida (out)", "Hs Disposición", "Otro"]
 CATEGORIAS = ["Auto Std", "Ejecutivo", "MB", "Vito"]
 
-t = date.today() + timedelta(days=1)
-D, M, Y = t.day, t.month, t.year
+F = date.today() + timedelta(days=1)
 
 # Filas de ejemplo. Una fila = un viaje. Columnas:
-# Dia, Mes, Año, Hora, Categoria, Pasajeros, Tel, Tipo, Origen, Destino,
+# Fecha, Hora, Categoria, Pasajeros, Tel, Tipo, Origen, Destino,
 # Vuelo, Observaciones, Destino 2, Destino 3
 rows = [
     # Llegada con vuelo, 1 pasajero
-    [D, M, Y, "07:30", "Ejecutivo", "JUAN PABLO VOJVODA", "+54 9 11 5555-1234",
+    [F, "07:30", "Ejecutivo", "JUAN PABLO VOJVODA", "+54 9 11 5555-1234",
      "Llegada (in)", "Aeropuerto Ezeiza (EZE)", "725 Continental", "AR1234", "", "", ""],
 
     # Salida con vuelo, 2 pasajeros (separados con  |  ) y 2 telefonos alineados
-    [D, M, Y, "10:00", "Auto Std", "M. ROJO | N. FABBRI",
+    [F, "10:00", "Auto Std", "M. ROJO | N. FABBRI",
      "+54 9 11 4490-7781 | +54 9 11 6033-2210",
      "Salida (out)", "Santos Dumont 3429", "Aeropuerto Ezeiza (EZE)", "AR1256", "", "", ""],
 
     # Salida con vuelo (interior), categoria MB
-    [D, M, Y, "11:15", "MB", "CHAQUEÑO PALAVECINO", "+54 9 387 555-1456",
+    [F, "11:15", "MB", "CHAQUEÑO PALAVECINO", "+54 9 387 555-1456",
      "Salida (out)", "Balcarce 230, Salta", "Aeropuerto de Salta", "AR1456", "", "", ""],
 
     # Traslado de varios tramos: Origen -> Destino -> Destino 2 (categoria Vito)
-    [D, M, Y, "14:00", "Vito", "MARTÍN ROMAGNOLI", "+54 9 11 5555-4302",
+    [F, "14:00", "Vito", "MARTÍN ROMAGNOLI", "+54 9 11 5555-4302",
      "Otro", "Hotel Faena", "Hotel Alvear", "", "Pasa a buscar valijas", "San Isidro", ""],
 
     # Horas a disposicion (sin vuelo)
-    [D, M, Y, "10:00", "Ejecutivo", "F. ACOSTA", "+54 9 11 5555-7788",
+    [F, "10:00", "Ejecutivo", "F. ACOSTA", "+54 9 11 5555-7788",
      "Hs Disposición", "Hotel Alvear", "Hotel Alvear", "", "4 hs a disposicion", "", ""],
 ]
 for r in rows:
@@ -102,26 +99,30 @@ for row_idx in range(2, ws.max_row + 1):
 
 # Comentarios aclaratorios en headers clave
 ws.cell(row=1, column=1).comment = Comment(
-    "Dia / Mes / Año: completar solo con numeros (ej: 19 / 6 / 2026).", "Plantilla")
-ws.cell(row=1, column=6).comment = Comment(
+    "Fecha del viaje en formato DD/MM/AAAA (ej: 19/06/2026).", "Plantilla")
+ws.cell(row=1, column=4).comment = Comment(
     "Varios pasajeros separados por  |  (ej: M. Rojo | N. Fabbri). Maximo 4.", "Plantilla")
-ws.cell(row=1, column=7).comment = Comment(
+ws.cell(row=1, column=5).comment = Comment(
     "Un telefono por pasajero, en el MISMO orden y separados por  |  "
     "(ej: +54 9 11 4490-7781 | +54 9 11 6033-2210).", "Plantilla")
-ws.cell(row=1, column=8).comment = Comment(
+ws.cell(row=1, column=6).comment = Comment(
     "Llegada (in) = arribo con vuelo\nSalida (out) = salida con vuelo\n"
     "Hs Disposición = horas a disposicion\nOtro = traslado", "Plantilla")
-ws.cell(row=1, column=13).comment = Comment(
+ws.cell(row=1, column=11).comment = Comment(
     "Destino 2 / Destino 3: tramos adicionales del mismo viaje. "
     "Dejar vacio si el viaje tiene un solo tramo.", "Plantilla")
 
 # Anchos
 widths = {
-    "A": 6, "B": 6, "C": 7, "D": 8, "E": 12, "F": 28, "G": 18, "H": 16,
-    "I": 30, "J": 30, "K": 9, "L": 26, "M": 24, "N": 24,
+    "A": 12, "B": 8, "C": 12, "D": 28, "E": 18, "F": 16,
+    "G": 30, "H": 30, "I": 9, "J": 26, "K": 24, "L": 24,
 }
 for col, w in widths.items():
     ws.column_dimensions[col].width = w
+
+# La columna A son celdas de fecha reales: se les fija el formato DD/MM/AAAA.
+for row_idx in range(2, ws.max_row + 1):
+    ws.cell(row=row_idx, column=1).number_format = "DD/MM/YYYY"
 
 ws.row_dimensions[1].height = 26
 ws.freeze_panes = "A2"
@@ -147,14 +148,14 @@ dv_tipo = DataValidation(
 dv_tipo.error = "Elegi un Tipo de la lista."
 dv_tipo.prompt = "Elegi: Llegada (in) / Salida (out) / Hs Disposición / Otro"
 ws.add_data_validation(dv_tipo)
-dv_tipo.add(f"H2:H200")
+dv_tipo.add(f"F2:F200")
 
 dv_cat = DataValidation(
     type="list", formula1=f"=LOV!$B$2:$B${len(CATEGORIAS) + 1}", allow_blank=True)
 dv_cat.error = "Elegi una Categoria de la lista."
 dv_cat.prompt = "Elegi: Auto Std / Ejecutivo / MB / Vito"
 ws.add_data_validation(dv_cat)
-dv_cat.add(f"E2:E200")
+dv_cat.add(f"C2:C200")
 
 # --- Hoja de instrucciones ---
 ws2 = wb.create_sheet("Instrucciones")
@@ -171,7 +172,7 @@ ws2.merge_cells("A1:B1")
 
 instrucciones = [
     ("Hoja Viajes", "Una fila por VIAJE. Para tramos adicionales usa las columnas Destino 2 y Destino 3."),
-    ("Dia / Mes / Año", "Completar los tres campos solo con numeros (ej: 19 / 6 / 2026)."),
+    ("Fecha", "Fecha del viaje en formato DD/MM/AAAA (ej: 19/06/2026)."),
     ("Hora", "Formato HH:MM en 24 horas (ej: 07:30)."),
     ("Categoria", "Elegir del desplegable: Auto Std / Ejecutivo / MB / Vito."),
     ("Pasajeros", "Nombre del pasajero. Varios separados con  |  (pipe). Maximo 4."),

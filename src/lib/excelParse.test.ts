@@ -5,7 +5,7 @@ import { validateExcelRow } from "./excelValidate";
 import { normalizePlace } from "./places";
 
 const HEADERS = [
-  "Dia", "Mes", "Año", "Hora", "Categoria", "Pasajeros", "Telefono", "Tipo",
+  "Fecha", "Hora", "Categoria", "Pasajeros", "Telefono", "Tipo",
   "Origen", "Destino", "Vuelo", "Observaciones", "Destino 2", "Destino 3",
 ];
 
@@ -20,10 +20,10 @@ function buildFile(rows: (string | number)[][]): File {
 }
 
 describe("parseExcelFile", () => {
-  it("mapea columnas, arma la fecha de 3 campos, el tipo y normaliza el alias", async () => {
+  it("mapea columnas, la fecha, el tipo y normaliza el alias", async () => {
     const rows = await parseExcelFile(
       buildFile([
-        [20, 6, 2026, "07:30", "Ejecutivo", "JUAN PABLO", "+54 11 5555-1234",
+        ["20/06/2026", "07:30", "Ejecutivo", "JUAN PABLO", "+54 11 5555-1234",
          "Llegada (in)", "EZE", "725 Continental", "AR1234", "", "", ""],
       ]),
     );
@@ -38,10 +38,26 @@ describe("parseExcelFile", () => {
     expect(rows[0].errors).toHaveLength(0);
   });
 
+  it("acepta la fecha en varios formatos (dd/mm, ISO y serie de Excel)", async () => {
+    const base = ["07:30", "Ejecutivo", "JUAN PABLO", "+54 11 5555-1234",
+      "Llegada (in)", "EZE", "725 Continental", "AR1234", "", "", ""];
+    const rows = await parseExcelFile(
+      buildFile([
+        ["20/6/2026", ...base],
+        ["2026-06-20", ...base],
+        ["6/20/26", ...base], // Excel en inglés (mm/dd/aa)
+        [46193, ...base], // número de serie
+      ]),
+    );
+    expect(rows.map((r) => r.date)).toEqual([
+      "2026-06-20", "2026-06-20", "2026-06-20", "2026-06-20",
+    ]);
+  });
+
   it("Destino 2 genera un segundo tramo encadenado (origen = destino anterior)", async () => {
     const rows = await parseExcelFile(
       buildFile([
-        [20, 6, 2026, "14:00", "Vito", "M. ROMAGNOLI", "", "Otro",
+        ["20/06/2026", "14:00", "Vito", "M. ROMAGNOLI", "", "Otro",
          "Hotel Faena", "Hotel Alvear", "", "", "San Isidro", ""],
       ]),
     );
@@ -53,7 +69,7 @@ describe("parseExcelFile", () => {
   it("alinea varios teléfonos con los pasajeros por posición", async () => {
     const rows = await parseExcelFile(
       buildFile([
-        [20, 6, 2026, "10:00", "Auto Std", "M. ROJO | N. FABBRI",
+        ["20/06/2026", "10:00", "Auto Std", "M. ROJO | N. FABBRI",
          "+54 11 4490 7781 | +54 11 6033 2210", "Salida (out)",
          "Santos Dumont 3429", "Aeropuerto Ezeiza (EZE)", "AR1256", "", "", ""],
       ]),
@@ -65,7 +81,7 @@ describe("parseExcelFile", () => {
   it("marca errores en filas incompletas", async () => {
     const rows = await parseExcelFile(
       buildFile([
-        [20, 6, 2026, "", "Ejecutivo", "X", "", "", "Recoleta", "Centro", "", "", "", ""],
+        ["20/06/2026", "", "Ejecutivo", "X", "", "", "Recoleta", "Centro", "", "", "", ""],
       ]),
     );
     expect(rows[0].errors.length).toBeGreaterThan(0); // falta hora + tipo
