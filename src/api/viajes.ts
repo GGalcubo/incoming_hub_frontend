@@ -312,13 +312,13 @@ export function viajeToTrip(v: Viaje, c: Catalogs): Trip {
       origin: placeOf(
         tr.origen_direccion,
         tr.origen_lugar_nombre,
-        tr.localidad_origen_central,
+        tr.localidad_origen_externo,
         originCoords,
       ),
       destination: placeOf(
         tr.destino_direccion,
         tr.destino_lugar_nombre,
-        tr.localidad_destino_central,
+        tr.localidad_destino_externo,
         destinationCoords,
       ),
       flight: i === 0 ? v.datos_vuelo : "",
@@ -659,11 +659,22 @@ export interface TripsPage {
 }
 
 export interface TripsQuery {
-  // Día a mostrar (YYYY-MM-DD). Lo filtra el SERVIDOR: antes se traían todos los
-  // viajes página por página y se filtraba en el navegador, así que cada carga
-  // bajaba el historial entero para mostrar un día.
-  date?: string;
+  // Rango de fechas a mostrar (YYYY-MM-DD, los dos extremos incluidos). Lo
+  // filtra el SERVIDOR: antes se traían todos los viajes página por página y se
+  // filtraba en el navegador, así que cada carga bajaba el historial entero para
+  // mostrar un día.
+  //
+  // Un solo día es `from === to` y va por `fecha_servicio`, que es el filtro que
+  // usó siempre la lista; el rango de verdad va por `fecha_servicio__gte` /
+  // `__lte`. Son dos caminos y no uno porque el de un día está probado contra la
+  // API y es el 99% de las cargas: un rango mal armado no puede romperlo.
+  from?: string;
+  to?: string;
   page?: number;
+  // `ordering` del backend (campo del BACKEND, no columna del front: ver
+  // ORDERING_FIELD en TripsList). Importa sobre todo con un rango, donde el
+  // resultado no entra en una página y el orden tiene que salir del servidor.
+  ordering?: string;
   // Id de estado (`/estados/`). Se filtra por ID y no por `estado__codigo`: ese
   // otro filtro valida contra un enum de códigos en mayúsculas que NO coincide
   // con los que tiene cargados la tabla, así que devuelve 0 para casi todos.
@@ -686,7 +697,13 @@ export async function listTrips(q: TripsQuery = {}): Promise<TripsPage> {
   const pedida = Math.max(1, q.page ?? 1);
   const traer = async (page: number) => {
     const params = new URLSearchParams({ page: String(page) });
-    if (q.date) params.set("fecha_servicio", q.date);
+    if (q.from && q.from === q.to) {
+      params.set("fecha_servicio", q.from);
+    } else {
+      if (q.from) params.set("fecha_servicio__gte", q.from);
+      if (q.to) params.set("fecha_servicio__lte", q.to);
+    }
+    if (q.ordering) params.set("ordering", q.ordering);
     if (q.estado != null) params.set("estado", String(q.estado));
     if (q.qViaje?.trim()) params.set("search", q.qViaje.trim());
     if (q.qPasajero?.trim()) {

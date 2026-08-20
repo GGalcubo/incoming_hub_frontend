@@ -13,8 +13,8 @@ export interface Paginated<T> {
 
 export interface Agencia {
   id: number;
-  id_cliente_central: number;
-  id_centro_costo_central: number;
+  id_cliente_externo: number;
+  id_centro_costo_externo: number;
   razon_social_cliente: string;
   nombre_centro_costo: string;
   email: string | null;
@@ -43,7 +43,7 @@ export interface Estado {
 
 export interface CategoriaServicio {
   id: number;
-  id_categoria_central: number | null;
+  id_categoria_externo: number | null;
   codigo: string;
   nombre: string;
   descripcion: string | null;
@@ -94,13 +94,13 @@ export interface Tramo {
   destino_lugar_nombre: string;
   destino_es_aeropuerto?: boolean;
   destino_iata?: string;
-  localidad_origen_central?: string;
-  id_localidad_origen_central?: number | null;
-  localidad_destino_central?: string;
-  id_localidad_destino_central?: number | null;
+  localidad_origen_externo?: string;
+  id_localidad_origen_externo?: number | null;
+  localidad_destino_externo?: string;
+  id_localidad_destino_externo?: number | null;
   distancia_km?: string | null;
   duracion_estimada_minutos?: number | null;
-  id_tramo_central: number | null;
+  id_tramo_externo: number | null;
 }
 
 // Pasajero embebido en la lectura de un viaje (GET /viajes/). El backend ya
@@ -113,8 +113,8 @@ export interface PasajeroRead {
   dni: string | null;
   email: string | null;
   es_principal: boolean;
-  id_persona_central: number | null;
-  id_viaje_persona_central: number | null;
+  id_persona_externo: number | null;
+  id_viaje_persona_externo: number | null;
 }
 
 // Costos del viaje (GET/PATCH /viajes/{id}/costos/). Tiene DOS columnas: lo que
@@ -242,12 +242,18 @@ export interface Zona {
   activo: boolean;
 }
 
+// NOTA sobre los campos `*_externo` (id_cliente, id_categoria, id_tramo,
+// localidad_*, id_persona, id_proveedor, sincronizado…): son el puente con el
+// sistema central y hasta el 20/08/2026 se llamaban `*_central`. El backend los
+// renombró; acá están los nombres verificados uno por uno contra respuestas
+// reales de cada endpoint. Todos son readOnly: los escribe la sincronización.
+
 // Proveedor tal como lo devuelve el backend (catálogo propio, con sus valores
 // por hora de espera y de disponibilidad).
 export interface ProveedorApi {
   id: number;
   nombre: string;
-  id_proveedor_central: number | null;
+  id_proveedor_externo: number | null;
   // Valor por HORA (no por minuto) de espera y de hora a disposición, y valor
   // por km adicional. Son los "extras" del proveedor: se leen acá (también
   // vienen anidados en el viaje) y se escriben por
@@ -341,9 +347,9 @@ export interface Viaje {
   unidad_asignada: string;
   puede_modificar: boolean;
   horas_minimas_cancelacion: number;
-  sincronizado_central: boolean;
+  sincronizado_externo: boolean;
   fecha_sincronizacion: string | null;
-  id_viaje_central: number | null;
+  id_viaje_externo: number | null;
   error_sincronizacion: string | null;
   creado_por: number | null;
   modificado_por: number | null;

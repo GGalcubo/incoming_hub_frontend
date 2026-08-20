@@ -68,10 +68,12 @@ agencia ve en su *Tarifario* son los del **proveedor**, columna cliente.
   valiendo.
 - Viajes: alta, edición por pestaña, cambio de estado, cancelación y baja, con
   sus tramos y pasajeros anidados. La lista viene **recortada por rol** desde el
-  servidor (el front ya no filtra), **filtrada por día** (`fecha_servicio`) y
-  **paginada**: se pide una página por vez y el paginador usa el `count`/`next`
+  servidor (el front ya no filtra), **filtrada por fecha** —un día
+  (`fecha_servicio`) o un rango de hasta 31 días (`fecha_servicio__gte`/`__lte`)—
+  y **paginada**: se pide una página por vez y el paginador usa el `count`/`next`
   de DRF. Los contadores de "hoy / mañana" del encabezado son dos consultas
-  aparte, porque son de otros días.
+  aparte, porque son de otros días. El tope de 31 días es del front: el backend no
+  lo impone, pero un rango abierto se pagina de a 20 y son decenas de llamadas.
 - Comentarios del viaje: cuelgan del costo (`/viajes/{id}/costos/comentarios/`),
   con la chapita de rol del autor (`autor_rol`). No hay ninguno cargado en la
   base todavía, así que la chapita está sin ver contra datos reales.

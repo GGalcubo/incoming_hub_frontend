@@ -12,6 +12,16 @@
 > manda el número de fila) para mapear los errores de vuelta a la planilla.
 > El alta de a uno (`POST /viajes/`) es la que usa el wizard.
 
+> 🔁 **`*_central` se llama `*_externo` (20/08/2026).** El backend renombró TODOS
+> los campos que son el puente con el sistema central. Son once, verificados uno
+> por uno contra respuestas reales: `sincronizado_externo` e `id_viaje_externo`
+> (viaje); `id_cliente_externo` e `id_centro_costo_externo` (agencia);
+> `id_categoria_externo` (servicio); `id_tramo_externo`,
+> `localidad_origen_externo` / `localidad_destino_externo` y sus
+> `id_localidad_*_externo` (tramo); `id_persona_externo` e
+> `id_viaje_persona_externo` (pasajero); `id_proveedor_externo` (proveedor). El
+> front ya está al día. Todos son **read-only**: los escribe la sincronización.
+
 ## Auth
 | Método | Ruta | Descripción |
 |---|---|---|
@@ -110,7 +120,7 @@ válido. Ver [`pendientes.md`](./pendientes.md).
 > alguna vez divergen, este PATCH empieza a fallar.
 
 En la **lectura** el tramo trae también `origen_es_aeropuerto` / `origen_iata` y
-sus pares de destino, más `id_tramo_central`. `numero_tramo` es read-only.
+sus pares de destino, más `id_tramo_externo`. `numero_tramo` es read-only.
 **`pasajeros_tramo` ya no existe**: los pasajeros no se cuelgan del tramo sino del
 viaje (`viaje.pasajeros`).
 
@@ -220,7 +230,8 @@ front ya los toma.
 | Método | Ruta | Descripción |
 |---|---|---|
 | GET | `/viajes/` | Listar (filtros: fecha, estado, pasajero, origen/destino, sync, tipo) |
-| GET | `/viajes/?fecha_servicio=&page=` | Lo que usa la lista: un día, una página |
+| GET | `/viajes/?fecha_servicio=&page=` | Lo que usa la lista mirando un día |
+| GET | `/viajes/?fecha_servicio__gte=&fecha_servicio__lte=&ordering=&page=` | Lo que usa mirando un rango |
 | POST | `/viajes/` | **Crear viaje con pasajeros y tramos anidados** (una sola llamada) |
 | POST | `/viajes/bulk/` | Alta masiva todo-o-nada (lista de viajes con `id_temporal`) |
 | GET/PUT/PATCH/DELETE | `/viajes/{id}/` | Detalle / editar (solo campos del viaje) / borrar |
@@ -243,13 +254,20 @@ se leen con `num()`, que trata el campo ausente como 0.
 
 ### Filtros de `/viajes/` (server-side)
 `agencia`, `estado`, `estado__codigo`, `fecha_servicio`, `fecha_servicio__gte`,
-`fecha_servicio__lte`, `tipo_servicio`, `sincronizado_central`, `search`,
+`fecha_servicio__lte`, `tipo_servicio`, `sincronizado_externo`, `search`,
 `pasajeros__persona__nombre__icontains`, `tramos__origen_direccion__icontains`,
 `tramos__destino_direccion__icontains`, `ordering`, `page`.
 
-`listTrips` usa `fecha_servicio` + `page` + los filtros de la grilla: **una
-página de un día**, no la tabla entera (antes hacía `fetchAll("/viajes/")` y
-filtraba por fecha en el navegador). El paginador se guía por `count` y `next`; el
+`listTrips` usa `page` + los filtros de la grilla + **uno de dos filtros de
+fecha**, no la tabla entera (antes hacía `fetchAll("/viajes/")` y filtraba por
+fecha en el navegador):
+
+- **Un día** (`from === to`, el 99% de las cargas) → `fecha_servicio`, como
+  siempre.
+- **Un rango** de hasta 31 días → `fecha_servicio__gte` + `fecha_servicio__lte`,
+  los dos extremos incluidos, más `ordering` (ver abajo). El tope de 31 días lo
+  pone el FRONT (`MAX_RANGE_DAYS`), no el backend: la lista se pagina de a 20 y
+  un rango abierto son decenas de llamadas para llenar la tabla. El paginador se guía por `count` y `next`; el
 tamaño de página lo fija el backend y no hay `page_size` para pedirlo distinto. Si
 la página se va de rango, DRF responde **404 "Invalid page"** y `listTrips`
 reintenta en la primera, devolviendo en `page` cuál sirvió.
@@ -263,13 +281,25 @@ Cuáles de esos filtros sirven de verdad (probados contra la API el 06/08/2026):
 | `estado__codigo` | ✅ | Desde el 08/08/2026 da el mismo count que `?estado=<id>` en los 18 estados. Un código fuera del enum (`Con`) da 400. El front igual filtra por id. |
 | `search` | ✅ | Solo `numero_viaje` / `referencia_externa`. **No** busca por pasajero ni por agencia. |
 | `pasajeros__persona__nombre__icontains` | ✅ | Es la única forma de buscar por pasajero, y es case-insensitive. |
-| `ordering` | ✅ | Desde el 08/08/2026 responde a `fecha_servicio`, `hora_servicio`, `numero_viaje`, `estado` e `id`, en los dos sentidos (antes daban todos el mismo orden). `estado` ordena por **nombre** alfabético, no por id. |
+| `ordering` | ✅ | Desde el 08/08/2026 responde a `fecha_servicio`, `hora_servicio`, `numero_viaje`, `estado` e `id`, en los dos sentidos (antes daban todos el mismo orden). `estado` ordena por **nombre** alfabético, no por id. **Lo usa el front cuando se mira un rango**, donde el resultado no entra en una página. |
+| `fecha_servicio__gte` / `__lte` | ✅ | Probados contra la API el 20/08/2026 con las 130 filas de la base: se bajó todo, se contó por fecha en memoria y se comparó con el `count` filtrado. Da exacto en los 7 casos (un día vía gte/lte, dos días, junio entero, agosto entero, un rango que cruza meses, viajes justo en los bordes, y un rango vacío). **Los dos extremos son inclusive.** |
 
 Por eso la búsqueda de la grilla son **dos campos** (nº de viaje y pasajero): no
-hay un `search` que cruce las dos cosas. El orden de columnas todavía se hace
-sobre la página cargada (`TripsList.tsx`), que era la única opción cuando
-`ordering` no andaba: ahora se puede delegar al servidor, ver
-[`pendientes.md`](./pendientes.md).
+hay un `search` que cruce las dos cosas.
+
+El orden de columnas se hace **de los dos lados, según lo que se esté mirando**
+(`TripsList.tsx` → `canSort` / `orderingParam`):
+
+- **Un día** entra en una página, así que ordena el navegador el resultado
+  entero: valen las once columnas.
+- **Un rango** no entra, así que ordena el servidor con `ordering`, que sabe
+  cuatro de las once (ID, fecha, hora, estado). **Sin `ordering` el rango NO
+  viene cronológico** (probado el 20/08/2026 sobre junio: 70 viajes, 4 páginas),
+  así que pedirlo no es opcional: sin eso la página 1 mezcla días sueltos. Las otras seis (origen, destino,
+  pasajero, categoría, unidad, observaciones) **quedan sin ordenar** mientras haya
+  un rango a la vista: ordenarlas en el navegador ordenaría la página cargada y
+  no el rango, que se ve igual pero está mal. Por fecha se pide
+  `fecha_servicio,hora_servicio`, si no las horas de cada día quedan sueltas.
 
 ### Creación vs. modificación
 - **Crear** (`POST /viajes/`): los `pasajeros` y los `tramos` van **anidados en el
@@ -287,8 +317,8 @@ sobre la página cargada (`TripsList.tsx`), que era la única opción cuando
 
 ### Pasajeros del viaje
 `viaje.pasajeros` (read-only) es la **única** fuente: cada item trae `persona`,
-`nombre`, `telefono`, `dni`, `email`, `es_principal` + `id_persona_central` /
-`id_viaje_persona_central`. **`viaje.pasajero_principal` ya no existe** — el
+`nombre`, `telefono`, `dni`, `email`, `es_principal` + `id_persona_externo` /
+`id_viaje_persona_externo`. **`viaje.pasajero_principal` ya no existe** — el
 principal se marca con `es_principal` (en el alta, dentro de `pasajeros[]`).
 `puede_cancelar` es **boolean** (antes venía como string).
 

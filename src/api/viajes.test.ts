@@ -12,8 +12,8 @@ const CATALOGS: Catalogs = { agencies: [], categorias: [], solicitantes: [], est
 
 // Catálogo con la misma forma que /services/ (ids y códigos reales del backend).
 const CATEGORIAS: CategoriaServicio[] = [
-  { id: 1, id_categoria_central: 1, codigo: "STD", nombre: "Auto Std", descripcion: "", activo: true, orden: 1 },
-  { id: 2, id_categoria_central: 2, codigo: "EJEC", nombre: "Ejecutivo", descripcion: "", activo: true, orden: 2 },
+  { id: 1, id_categoria_externo: 1, codigo: "STD", nombre: "Auto Std", descripcion: "", activo: true, orden: 1 },
+  { id: 2, id_categoria_externo: 2, codigo: "EJEC", nombre: "Ejecutivo", descripcion: "", activo: true, orden: 2 },
 ];
 const CON_CATEGORIAS: Catalogs = { ...CATALOGS, categorias: CATEGORIAS };
 

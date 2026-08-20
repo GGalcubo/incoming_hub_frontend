@@ -116,7 +116,7 @@ const CAMPO_LABEL: Record<string, string> = {
   unidad_asignada: "Unidad asignada",
   puede_modificar: "Se puede modificar",
   horas_minimas_cancelacion: "Horas mínimas de cancelación",
-  sincronizado_central: "Sincronizado con central",
+  sincronizado_externo: "Sincronizado con central",
   fecha_sincronizacion: "Fecha de sincronización",
   error_sincronizacion: "Error de sincronización",
   creado_por: "Creado por",

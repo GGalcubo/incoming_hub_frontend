@@ -4,7 +4,7 @@ import { api } from "./api/client";
 import type { RoleEnum } from "./api/backend";
 import { Topbar } from "./components/Topbar";
 import { ExcelUploadModal } from "./components/ExcelUploadModal";
-import { TODAY, TOMORROW } from "./data/catalogos";
+import { clampRange, dayRange, TODAY, TOMORROW, type DateRange } from "./data/catalogos";
 import { useModals } from "./context/ModalsContext";
 import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
@@ -14,7 +14,13 @@ import { Login } from "./pages/Login";
 import { PassengersList } from "./pages/Passengers";
 import { TarifasClientePage, TarifasProveedorPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
-import { TripsList } from "./pages/TripsList";
+import {
+  TripsList,
+  canSort,
+  defaultSort,
+  orderingParam,
+  type TripSort,
+} from "./pages/TripsList";
 import type { Trip, TripStatus } from "./types/domain";
 import styles from "./App.module.css";
 
@@ -32,10 +38,15 @@ export function App() {
   // lectura), admin y proveedor el de proveedor. Es el destino de /tarifas y al
   // que se manda a quien entre por la puerta que no le toca.
   const tarifasHome = isAgency ? "/tarifas/cliente" : "/tarifas/proveedor";
-  // El día y la página que se están mirando viven acá, no en la lista: son lo que
-  // se le pide al servidor (antes se bajaban TODOS los viajes y la lista filtraba
-  // por fecha en el navegador).
-  const [dateFilter, setDateFilter] = useState<string>(TODAY);
+  // El rango de fechas y la página que se están mirando viven acá, no en la
+  // lista: son lo que se le pide al servidor (antes se bajaban TODOS los viajes y
+  // la lista filtraba por fecha en el navegador). Un día suelto es el rango
+  // `from === to`, así que la lista tiene un solo concepto de "qué se mira".
+  const [range, setRange] = useState<DateRange>(dayRange(TODAY));
+  // El orden también: con un rango el resultado no entra en una página, así que
+  // ordenar en el navegador ordenaría un pedazo. Ahí lo ordena el servidor
+  // (`ordering`), y para eso el orden elegido tiene que ser parte del pedido.
+  const [sort, setSort] = useState<TripSort>(defaultSort(dayRange(TODAY)));
   // Filtros que resuelve el servidor. Viven acá, con el día y la página, porque
   // son parte de lo que se le pide a /viajes/: cambiarlos recarga la lista.
   const [estadoFilter, setEstadoFilter] = useState<TripStatus | null>(null);
@@ -47,9 +58,12 @@ export function App() {
   // Se incrementa para forzar una recarga (alta de un viaje, import de Excel).
   const [reloadKey, setReloadKey] = useState(0);
 
-  const verDia = (date: string) => {
-    setDateFilter(date);
+  const verRango = (r: DateRange) => {
+    setRange(r);
     setPage(1);
+    // Al pasar a un rango, un orden que el backend no sabe hacer (origen,
+    // pasajero…) dejaría de tener sentido: se vuelve al cronológico.
+    setSort((s) => (canSort(s.key, r) ? s : defaultSort(r)));
   };
 
   // Cualquier filtro nuevo vuelve a la página 1: la que se estaba mirando puede
@@ -64,7 +78,15 @@ export function App() {
     let cancelled = false;
     setLoading(true);
     api
-      .listTrips({ date: dateFilter, page, estado: estadoFilter, qViaje, qPasajero })
+      .listTrips({
+        from: range.from,
+        to: range.to,
+        ordering: orderingParam(sort, range),
+        page,
+        estado: estadoFilter,
+        qViaje,
+        qPasajero,
+      })
       .then((res) => {
         if (cancelled) return;
         setTrips(res.trips);
@@ -85,7 +107,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, [user, flash, dateFilter, page, estadoFilter, qViaje, qPasajero, reloadKey]);
+  }, [user, flash, range, sort, page, estadoFilter, qViaje, qPasajero, reloadKey]);
 
   // Contadores del encabezado. Van aparte de la lista porque son de OTROS días:
   // con la lista paginada por día, "hoy" y "mañana" ya no se pueden contar sobre
@@ -134,12 +156,14 @@ export function App() {
     return saved;
   };
 
-  // Tras cargar viajes desde el Excel: saltamos a la fecha más temprana de lo
-  // cargado (sin tener que cambiar el filtro a mano) y recargamos la lista para
-  // que aparezcan al instante.
+  // Tras cargar viajes desde el Excel: saltamos a lo que se acaba de cargar (sin
+  // tener que cambiar el filtro a mano) y recargamos la lista para que aparezcan
+  // al instante. Un Excel suele traer varios días, así que se muestra el rango
+  // entero; si no entra en el tope se ve desde el primero.
   const onExcelImported = async (n: number, dates: string[]) => {
-    const earliest = dates.filter(Boolean).sort()[0];
-    if (earliest) verDia(earliest);
+    const cargadas = dates.filter(Boolean).sort();
+    const earliest = cargadas[0];
+    if (earliest) verRango(clampRange({ from: earliest, to: cargadas[cargadas.length - 1] }, "from"));
     else setPage(1);
     setReloadKey((k) => k + 1);
     flash(`${n} viaje${n === 1 ? "" : "s"} creado${n === 1 ? "" : "s"}`, "success");
@@ -195,8 +219,10 @@ export function App() {
               onQViajeChange={filtrar(setQViaje)}
               qPasajero={qPasajero}
               onQPasajeroChange={filtrar(setQPasajero)}
-              dateFilter={dateFilter}
-              onDateChange={verDia}
+              range={range}
+              onRangeChange={verRango}
+              sort={sort}
+              onSortChange={setSort}
               page={page}
               pages={pageInfo.pages}
               count={pageInfo.count}
@@ -296,8 +322,10 @@ function TripsListRoute({
   onQViajeChange,
   qPasajero,
   onQPasajeroChange,
-  dateFilter,
-  onDateChange,
+  range,
+  onRangeChange,
+  sort,
+  onSortChange,
   page,
   pages,
   count,
@@ -314,8 +342,10 @@ function TripsListRoute({
   onQViajeChange: (q: string) => void;
   qPasajero: string;
   onQPasajeroChange: (q: string) => void;
-  dateFilter: string;
-  onDateChange: (date: string) => void;
+  range: DateRange;
+  onRangeChange: (r: DateRange) => void;
+  sort: TripSort;
+  onSortChange: (s: TripSort) => void;
   page: number;
   pages: number;
   count: number;
@@ -348,8 +378,10 @@ function TripsListRoute({
         onQViajeChange={onQViajeChange}
         qPasajero={qPasajero}
         onQPasajeroChange={onQPasajeroChange}
-        dateFilter={dateFilter}
-        onDateChange={onDateChange}
+        range={range}
+        onRangeChange={onRangeChange}
+        sort={sort}
+        onSortChange={onSortChange}
         page={page}
         pages={pages}
         count={count}

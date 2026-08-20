@@ -70,6 +70,97 @@
   pointer-events: none;
 }
 
+/* range filter */
+.rangeWrap {
+  position: relative;
+}
+
+.rangeMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 10;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  padding: 14px;
+  min-width: 300px;
+}
+
+.rangeRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.rangeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.rangeCap {
+  font: 500 11px/14px Heming;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rangeInput {
+  width: 100%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font: 400 13px/18px Heming;
+  color: var(--fg-primary);
+  color-scheme: dark;
+}
+
+.rangeArrow {
+  color: var(--fg-muted);
+  padding-bottom: 9px;
+  flex: none;
+}
+
+.rangeHint {
+  margin-top: 8px;
+  font: 400 12px/16px Heming;
+  color: var(--fg-tertiary);
+}
+
+.rangePresets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.presetBtn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  padding: 5px 11px;
+  font: 500 12px/16px Heming;
+  color: var(--fg-secondary);
+  cursor: pointer;
+}
+
+.presetBtn:hover {
+  color: var(--fg-primary);
+  border-color: var(--border-strong);
+}
+
+.rangeActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 /* status filter */
 .statusWrap {
   position: relative;
@@ -86,6 +177,12 @@
   font: 500 13px/18px Heming;
   color: var(--fg-primary);
   cursor: pointer;
+}
+
+/* El mismo botón del filtro de estado, marcado cuando hay un rango puesto. */
+.statusBtnActive {
+  border-color: var(--brand-500);
+  color: var(--fg-primary);
 }
 
 .statusMenu {
@@ -181,6 +278,12 @@
   border-bottom: 1px solid var(--border-subtle);
   width: auto;
   white-space: nowrap;
+}
+
+/* Columna que con un rango a la vista no se puede ordenar (el servidor no sabe
+   ordenar por ella y ordenar la página cargada sería mentir). */
+.thFixed {
+  cursor: default;
 }
 
 .thInner {

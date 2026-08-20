@@ -38,14 +38,22 @@ negocio manda recotizar.
 Dos cosas resultaron **no ser** lo que parecían y quedan anotadas para no volver
 a levantarlas:
 
-- **El orden de la grilla está bien como está.** Se ordena en el cliente, pero la
-  lista está acotada a un día y un día entra en una página (el backend pagina de
-  a 20; el día más cargado de la base tiene 12 viajes), así que se ordena el
-  resultado entero y no un pedazo. Delegarlo al servidor tampoco alcanzaría:
-  `ordering` cubre cinco de las once columnas y las otras seis (origen, destino,
-  pasajero, categoría, unidad, observaciones) no tienen equivalente. Mitad y
-  mitad se comporta peor. **Sí hay que rehacerlo si algún día un día pasa de una
-  página.**
+- **El orden de la grilla está bien como está** *mientras se mire un día*. Se
+  ordena en el cliente, pero un día entra en una página (el backend pagina de a
+  20; el día más cargado de la base tiene 12 viajes), así que se ordena el
+  resultado entero y no un pedazo, y valen las once columnas.
+
+  Lo que decía este punto —que delegarlo al servidor no alcanzaba, porque
+  `ordering` cubre cuatro de las once columnas— **dejó de aplicar con la vista de
+  rango**, que sí pasa de una página. Ahí no hay opción: ordena el servidor, y
+  las seis columnas que él no sabe ordenar (origen, destino, pasajero, categoría,
+  unidad, observaciones) quedan sin ordenar mientras haya un rango a la vista.
+  Que sea mitad y mitad es a propósito: cada mitad ordena el resultado ENTERO,
+  que es lo único que no miente. Ver `canSort` / `orderingParam` en
+  `TripsList.tsx`.
+
+  Si algún día un solo día pasa de una página, el camino ya está hecho: alcanza
+  con tratar al día como al rango.
 - **`filtrarPorVista` no quedó redundante.** El backend recorta los *campos* de
   costo por rol, pero le sigue mandando a la agencia y al proveedor la auditoría
   entera del viaje (tramos, pasajeros, direcciones, horarios); que en su pantalla

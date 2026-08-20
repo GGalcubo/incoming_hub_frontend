@@ -1,5 +1,16 @@
 import { useMemo, useRef, useState } from "react";
-import { TODAY, TOMORROW } from "../data/catalogos";
+import {
+  MAX_RANGE_DAYS,
+  TODAY,
+  TOMORROW,
+  addDays,
+  clampRange,
+  dayRange,
+  isSingleDay,
+  monthRange,
+  rangeDays,
+  type DateRange,
+} from "../data/catalogos";
 import { useEstados } from "../hooks/useEstados";
 import type { Trip, TripStatus } from "../types/domain";
 import { Badge } from "../components/ui/Badge";
@@ -28,10 +39,15 @@ interface TripsListProps {
   onQViajeChange: (q: string) => void;
   qPasajero: string;
   onQPasajeroChange: (q: string) => void;
-  // Día que se está mirando. Es del componente de arriba porque es lo que se le
-  // pide al backend; cambiarlo dispara una carga nueva.
-  dateFilter: string;
-  onDateChange: (date: string) => void;
+  // Rango de días que se está mirando (un día suelto es `from === to`). Es del
+  // componente de arriba porque es lo que se le pide al backend; cambiarlo
+  // dispara una carga nueva.
+  range: DateRange;
+  onRangeChange: (r: DateRange) => void;
+  // El orden también vive arriba: con un rango lo resuelve el servidor
+  // (`ordering`), así que es parte del pedido y no estado de la tabla.
+  sort: TripSort;
+  onSortChange: (s: TripSort) => void;
   // Paginación del servidor. `count` es el total del día (todas las páginas).
   page: number;
   pages: number;
@@ -40,9 +56,65 @@ interface TripsListProps {
   loading?: boolean;
 }
 
-type SortKey = keyof Trip | "id" | "pasajero";
+export type SortKey = keyof Trip | "id" | "pasajero";
+
+export interface TripSort {
+  key: SortKey;
+  dir: "asc" | "desc";
+}
 
 type Column = [SortKey, string, number | null];
+
+// Las columnas que el backend sabe ordenar (`ordering` de /viajes/), con el campo
+// suyo que corresponde. Son cuatro de las once: origen, destino, pasajero,
+// categoría, unidad y observaciones no tienen equivalente allá.
+//
+// Por fecha se pide fecha + hora: un rango ordenado solo por día deja las horas
+// de cada día en cualquier orden.
+const ORDERING_FIELD: Partial<Record<SortKey, string>> = {
+  id: "id",
+  date: "fecha_servicio,hora_servicio",
+  time: "hora_servicio",
+  est: "estado",
+};
+
+/**
+ * Si esa columna se puede ordenar con este rango a la vista.
+ *
+ * Un día suelto entra en una página (el backend pagina de a 20), así que el
+ * navegador ordena el resultado ENTERO y valen las once columnas. Un rango no
+ * entra: ahí ordena el servidor, y solo sabe las cuatro de `ORDERING_FIELD`.
+ * Ordenar las otras seis en el navegador ordenaría la página cargada y no el
+ * rango, que se ve igual pero está mal.
+ */
+export function canSort(key: SortKey, range: DateRange): boolean {
+  return isSingleDay(range) || ORDERING_FIELD[key] != null;
+}
+
+/** El `ordering` que hay que pedirle al backend, o nada si ordena el navegador. */
+export function orderingParam(sort: TripSort, range: DateRange): string | undefined {
+  if (isSingleDay(range)) return undefined;
+  const field = ORDERING_FIELD[sort.key] ?? ORDERING_FIELD.date!;
+  if (sort.dir === "asc") return field;
+  return field
+    .split(",")
+    .map((f) => `-${f}`)
+    .join(",");
+}
+
+// Atajos del menú de rango. Son funciones porque `TODAY` se calcula al cargar la
+// app y una pestaña abierta de un día para el otro tiene que dar el rango de hoy.
+const RANGE_PRESETS: { l: string; range: () => DateRange }[] = [
+  { l: "Próx. 7 días", range: () => ({ from: TODAY, to: addDays(TODAY, 6) }) },
+  { l: `Próx. ${MAX_RANGE_DAYS} días`, range: () => ({ from: TODAY, to: addDays(TODAY, MAX_RANGE_DAYS - 1) }) },
+  { l: "Este mes", range: () => monthRange(TODAY) },
+  { l: "Últimos 7 días", range: () => ({ from: addDays(TODAY, -6), to: TODAY }) },
+];
+
+/** Orden inicial: por hora dentro de un día, cronológico en un rango. */
+export function defaultSort(range: DateRange): TripSort {
+  return { key: isSingleDay(range) ? "time" : "date", dir: "asc" };
+}
 
 // Columnas para admin: vista completa (la columna "Observaciones" revela el
 // celular del pasajero al hacer click).
@@ -177,8 +249,10 @@ export function TripsList({
   onQViajeChange,
   qPasajero,
   onQPasajeroChange,
-  dateFilter,
-  onDateChange,
+  range,
+  onRangeChange,
+  sort,
+  onSortChange,
   page,
   pages,
   count,
@@ -188,43 +262,43 @@ export function TripsList({
   const dateInputRef = useRef<HTMLInputElement>(null);
   const { estados, metaOf } = useEstados();
   const statusLabel = (id: TripStatus) => metaOf(id)?.label ?? String(id);
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
-    key: "time",
-    dir: "asc",
-  });
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showRangeMenu, setShowRangeMenu] = useState(false);
+  // El rango que se está armando en el menú. Va aparte del que se está mirando:
+  // mover "Desde" no tiene que disparar una carga hasta que el rango esté entero.
+  const [draft, setDraft] = useState<DateRange>(range);
+  const unDia = isSingleDay(range);
   const [revealPhone, setRevealPhone] = useState<string | null>(null);
 
   const cols = isOperator ? OPERATOR_COLS : ADMIN_COLS;
 
   // Fecha, estado y búsqueda los resuelve el SERVIDOR (ver App → api.listTrips):
   // lo que llega acá ya está filtrado y paginado. El filtro por fecha se repite
-  // igual, para que un viaje recién creado en OTRO día no se cuele en la lista
-  // antes de que la recarga traiga la página correcta.
+  // igual, para que un viaje recién creado FUERA del rango no se cuele en la
+  // lista antes de que la recarga traiga la página correcta.
   //
-  // El ORDEN sí es de esta página, y alcanza porque la lista está acotada a UN
-  // DÍA y un día entra en una página (el backend pagina de a 20). Ordenar acá
-  // ordena entonces el resultado entero, no un pedazo.
+  // El ORDEN es de esta página solo cuando se mira UN DÍA, y ahí alcanza porque
+  // un día entra en una página (el backend pagina de a 20): ordenar acá ordena
+  // el resultado entero, no un pedazo, y valen las once columnas.
   //
-  // No se delega al servidor aunque `ordering` ya funcione para `fecha_servicio`,
-  // `hora_servicio`, `numero_viaje`, `estado` e `id`: son cinco de las once
-  // columnas, y las otras seis (origen, destino, pasajero, categoría, unidad,
-  // observaciones) no tienen equivalente. Mitad y mitad se comporta peor que
-  // todo del mismo lado. Si algún día un día pasa de una página, esto ordena un
-  // pedazo y hay que rehacerlo (ver docs/pendientes.md).
+  // Un rango NO entra en una página, así que el orden viene del servidor
+  // (`ordering`, ver orderingParam) y acá no se toca: reordenar la página
+  // cargada daría una lista que parece ordenada y no lo está.
   const filtered = useMemo(() => {
-    const r = trips.filter((t) => t.date === dateFilter);
+    const r = trips.filter((t) => t.date >= range.from && t.date <= range.to);
+    if (!isSingleDay(range)) return r;
     return [...r].sort((a, b) => {
       const A = sortValue(a, sort.key);
       const B = sortValue(b, sort.key);
       const c = A < B ? -1 : A > B ? 1 : 0;
       return sort.dir === "asc" ? c : -c;
     });
-  }, [trips, dateFilter, sort]);
+  }, [trips, range, sort]);
 
   const sortBy = (key: SortKey) => {
-    setSort((s) =>
-      s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" },
+    if (!canSort(key, range)) return;
+    onSortChange(
+      sort.key === key ? { key, dir: sort.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" },
     );
   };
 
@@ -249,7 +323,8 @@ export function TripsList({
       onExport("No hay viajes para exportar");
       return;
     }
-    downloadTableXls(exportHeaders, filtered.map(rowCells), `viajes-${dateFilter}.xls`);
+    const nombre = unDia ? range.from : `${range.from}_a_${range.to}`;
+    downloadTableXls(exportHeaders, filtered.map(rowCells), `viajes-${nombre}.xls`);
     onExport(`Exportando ${filtered.length} viajes a Excel`);
   };
 
@@ -378,16 +453,31 @@ export function TripsList({
     k: SortKey;
     children: React.ReactNode;
     widthCls?: string | false;
-  }) => (
-    <th onClick={() => sortBy(k)} className={cx(styles.th, widthCls)}>
-      <span className={styles.thInner}>
-        {children}
-        {sort.key === k && (
-          <Icon name="chevdown" size={11} className={sort.dir === "desc" ? styles.flip : undefined} />
-        )}
-      </span>
-    </th>
-  );
+  }) => {
+    const puede = canSort(k, range);
+    return (
+      <th
+        onClick={() => sortBy(k)}
+        className={cx(styles.th, widthCls, !puede && styles.thFixed)}
+        title={
+          puede
+            ? undefined
+            : "Con un rango de fechas el orden lo hace el servidor, que solo ordena por ID, fecha, hora y estado"
+        }
+      >
+        <span className={styles.thInner}>
+          {children}
+          {puede && sort.key === k && (
+            <Icon
+              name="chevdown"
+              size={11}
+              className={sort.dir === "desc" ? styles.flip : undefined}
+            />
+          )}
+        </span>
+      </th>
+    );
+  };
 
   return (
     <div className={styles.page}>
@@ -399,14 +489,14 @@ export function TripsList({
           ].map((o) => (
             <button
               key={o.id}
-              onClick={() => onDateChange(o.id)}
-              className={cx(styles.segBtn, dateFilter === o.id && styles.segBtnActive)}
+              onClick={() => onRangeChange(dayRange(o.id))}
+              className={cx(styles.segBtn, unDia && range.from === o.id && styles.segBtnActive)}
             >
               {o.l}
             </button>
           ))}
-          {dateFilter !== TODAY && dateFilter !== TOMORROW && (
-            <span className={styles.segPill}>{fmtDateLong(dateFilter)}</span>
+          {!(unDia && (range.from === TODAY || range.from === TOMORROW)) && (
+            <span className={styles.segPill}>{rangeLabel(range)}</span>
           )}
           <button
             onClick={() => {
@@ -415,8 +505,8 @@ export function TripsList({
               if (typeof input.showPicker === "function") input.showPicker();
               else input.click();
             }}
-            title="Elegir fecha"
-            aria-label="Elegir fecha"
+            title="Elegir un día"
+            aria-label="Elegir un día"
             className={styles.calBtn}
           >
             <Icon name="calendar" size={14} />
@@ -424,14 +514,105 @@ export function TripsList({
           <input
             ref={dateInputRef}
             type="date"
-            value={dateFilter}
+            // El calendario suelto elige UN día. El rango tiene su propio menú:
+            // son dos gestos distintos y mezclarlos en un solo input obliga a
+            // dos clicks para lo que se hace todo el tiempo (mirar un día).
+            value={unDia ? range.from : ""}
             onChange={(e) => {
-              if (e.target.value) onDateChange(e.target.value);
+              if (e.target.value) onRangeChange(dayRange(e.target.value));
             }}
             className={styles.hiddenDate}
             aria-hidden="true"
             tabIndex={-1}
           />
+        </div>
+
+        {/* Rango de fechas: hasta MAX_RANGE_DAYS días de una. El tope es del
+            front, no del backend (`fecha_servicio__gte/__lte` no lo imponen):
+            la lista se pagina de a 20 y un rango abierto son decenas de
+            llamadas para llenar la tabla. */}
+        <div className={styles.rangeWrap}>
+          <button
+            onClick={() => {
+              setDraft(range);
+              setShowRangeMenu((v) => !v);
+            }}
+            className={cx(styles.statusBtn, !unDia && styles.statusBtnActive)}
+            title={`Ver varios días (hasta ${MAX_RANGE_DAYS})`}
+          >
+            <Icon name="calendar" size={14} />
+            {unDia ? "Rango" : `${rangeDays(range)} días`}
+            <Icon name="chevdown" size={12} />
+          </button>
+          {showRangeMenu && (
+            <div className={styles.rangeMenu}>
+              <div className={styles.rangeRow}>
+                <label className={styles.rangeField}>
+                  <span className={styles.rangeCap}>Desde</span>
+                  <input
+                    type="date"
+                    value={draft.from}
+                    onChange={(e) => {
+                      const from = e.target.value;
+                      if (!from) return;
+                      setDraft(clampRange({ from, to: from > draft.to ? from : draft.to }, "from"));
+                    }}
+                    className={styles.rangeInput}
+                  />
+                </label>
+                <Icon name="arrowright" size={14} className={styles.rangeArrow} />
+                <label className={styles.rangeField}>
+                  <span className={styles.rangeCap}>Hasta</span>
+                  <input
+                    type="date"
+                    value={draft.to}
+                    // El tope de días lo pone el propio calendario: así no hay
+                    // que rechazar nada después de elegirlo.
+                    min={draft.from}
+                    max={addDays(draft.from, MAX_RANGE_DAYS - 1)}
+                    onChange={(e) => {
+                      const to = e.target.value;
+                      if (!to) return;
+                      setDraft(clampRange({ from: to < draft.from ? to : draft.from, to }, "to"));
+                    }}
+                    className={styles.rangeInput}
+                  />
+                </label>
+              </div>
+
+              <div className={styles.rangeHint}>
+                {rangeDays(draft)} {rangeDays(draft) === 1 ? "día" : "días"} · máximo{" "}
+                {MAX_RANGE_DAYS}
+              </div>
+
+              <div className={styles.rangePresets}>
+                {RANGE_PRESETS.map((p) => (
+                  <button
+                    key={p.l}
+                    onClick={() => setDraft(p.range())}
+                    className={styles.presetBtn}
+                  >
+                    {p.l}
+                  </button>
+                ))}
+              </div>
+
+              <div className={styles.rangeActions}>
+                <button onClick={() => setShowRangeMenu(false)} className={styles.clearBtn}>
+                  Cancelar
+                </button>
+                <Button
+                  icon="check"
+                  onClick={() => {
+                    setShowRangeMenu(false);
+                    onRangeChange(draft);
+                  }}
+                >
+                  Ver
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Un solo estado por vez: el backend filtra por `estado=<id>`, que es un
@@ -545,11 +726,11 @@ export function TripsList({
               total: "12 de 47 viajes". */}
           <span className={styles.countNum}>{filtered.length}</span>
           {count > filtered.length ? ` de ${count}` : ""} viajes ·{" "}
-          {dateFilter === TODAY
+          {unDia && range.from === TODAY
             ? "Hoy"
-            : dateFilter === TOMORROW
+            : unDia && range.from === TOMORROW
               ? "Mañana"
-              : fmtDateLong(dateFilter)}
+              : rangeLabel(range)}
         </div>
         <div className={styles.pager}>
           <button
@@ -591,4 +772,10 @@ function fmtDateLong(s: string) {
   const [y, m, d] = s.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   return `${DAYS[dt.getDay()]} ${d} ${MONTHS[m - 1]}`;
+}
+
+/** Cómo se nombra lo que se está mirando: un día, o los dos extremos del rango. */
+function rangeLabel(r: DateRange) {
+  if (isSingleDay(r)) return fmtDateLong(r.from);
+  return `${fmtDateLong(r.from)} – ${fmtDateLong(r.to)}`;
 }
