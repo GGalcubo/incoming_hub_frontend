@@ -11,7 +11,6 @@ import { useUser } from "./context/UserContext";
 import { useEstados } from "./hooks/useEstados";
 import { useMe } from "./hooks/useMe";
 import { Login } from "./pages/Login";
-import { PassengersList } from "./pages/Passengers";
 import { TarifasClientePage, TarifasProveedorPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
 import {
@@ -242,15 +241,9 @@ export function App() {
           path="/viajes/:id"
           element={<EditTripRoute trips={trips} onSave={saveTrip} onCancelTrip={cancelTrip} />}
         />
-        <Route
-          path="/pasajeros"
-          element={
-            <>
-              <Topbar title="Pasajeros" subtitle="Consulta de pasajeros registrados" />
-              <PassengersList />
-            </>
-          }
-        />
+        {/* La vista de pasajeros ya no se usa: el ítem del menú está oculto y la
+            ruta manda a viajes, para que los links viejos no caigan en un 404. */}
+        <Route path="/pasajeros" element={<Navigate to="/viajes" replace />} />
         {/* El tarifario de proveedor muestra el costo: la agencia no entra (se la
             manda al suyo). El proveedor ve solo el suyo, sin el precio cliente. */}
         <Route

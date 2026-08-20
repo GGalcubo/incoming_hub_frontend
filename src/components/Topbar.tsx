@@ -32,13 +32,8 @@ const NAV: NavItem[] = [
     to: "/viajes",
     match: (p) => p === "/viajes" || p.startsWith("/viajes/"),
   },
-  {
-    label: "Pasajeros",
-    icon: "users",
-    to: "/pasajeros",
-    match: (p) => p.startsWith("/pasajeros"),
-    roles: ["admin", "agency_staff", "agency_operator"],
-  },
+  // "Pasajeros" (/pasajeros) se sacó del menú: la vista ya no se pide. La ruta
+  // sigue existiendo en App.tsx pero redirige a /viajes.
   {
     // El tarifario con el COSTO del proveedor. Al admin la tabla le muestra las
     // dos columnas (proveedor y cliente), así que no necesita el ítem "Tarifas
