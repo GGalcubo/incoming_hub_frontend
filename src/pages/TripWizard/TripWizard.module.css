@@ -225,3 +225,34 @@
   color: var(--fg-tertiary);
   margin-bottom: 14px;
 }
+
+/* Errores de las escrituras contra el backend. No se van solos: el detalle que
+   devolvió el servidor queda a la vista mientras se reintenta. */
+.errorBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  flex: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-bg);
+  color: var(--danger-fg);
+  font: 400 13px/18px Heming;
+}
+
+/* guardado: pegado al footer del wizard */
+.saveError {
+  margin: 0 28px 10px;
+}
+
+/* cancelación: al pie del cuerpo del modal */
+.cancelError {
+  margin-top: 14px;
+}
+
+@media (max-width: 768px) {
+  .saveError {
+    margin: 0 16px 8px;
+  }
+}

@@ -86,3 +86,27 @@
 .amber:not(:disabled):hover {
   background: var(--warning-solid-hover);
 }
+
+/* estado "pensando": el botón sigue deshabilitado pero se lee como actividad,
+   no como algo apagado */
+.busy:disabled {
+  opacity: 0.75;
+  cursor: progress;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: btnSpin 0.7s linear infinite;
+}
+
+@keyframes btnSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}

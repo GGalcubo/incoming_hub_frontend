@@ -156,7 +156,14 @@ export function App() {
   const cancelTrip = async (t: Trip): Promise<Trip> => {
     const reasonMatch = t.obs.match(/Cancelado: (.+)$/);
     const reason = reasonMatch ? reasonMatch[1] : "Sin motivo";
-    const updated = await api.cancelTrip(t.id, reason);
+    let updated: Trip;
+    try {
+      updated = await api.cancelTrip(t.id, reason);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : "Error desconocido";
+      flash(`No se pudo cancelar el viaje: ${detail}`, "error");
+      throw err;
+    }
     setTrips((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
     flash(`Viaje ${updated.id} cancelado`);
     return updated;

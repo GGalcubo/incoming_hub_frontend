@@ -30,7 +30,7 @@ interface TripWizardProps {
   // avanzar de pantalla con "Siguiente" en modo edición.
   onStepSave?: (t: Trip) => Promise<unknown>;
   onCancel: () => void;
-  onCancelTrip?: (t: Trip) => void;
+  onCancelTrip?: (t: Trip) => void | Promise<unknown>;
 }
 
 export function TripWizard({
@@ -61,37 +61,78 @@ export function TripWizard({
   const [cancelReason, setCancelReason] = useState("");
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [dirty, setDirty] = useState(false);
-  // Único flag de "guardando": bloquea TODOS los botones de guardar mientras la
-  // request está en vuelo, para que un doble click no cree el viaje duplicado.
-  const [saving, setSaving] = useState(false);
+  // Qué guardado está en vuelo. Bloquea TODOS los botones de guardar mientras la
+  // request no vuelve (para que un doble click no cree el viaje duplicado), pero
+  // el spinner lo muestra sólo el botón que se tocó.
+  const [saving, setSaving] = useState<null | "save" | "saveAndNew" | "step">(null);
+  const isSaving = saving !== null;
+  // Error del último guardado. Queda fijo en pantalla hasta el próximo intento:
+  // el toast dura 2,4s y el detalle del backend suele ser lo único accionable.
+  const [saveError, setSaveError] = useState("");
+  // Cancelación: mismo trato que el guardado, pero el error se muestra dentro
+  // del modal, que se queda abierto para reintentar.
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
+
+  const mensajeError = (err: unknown) =>
+    err instanceof Error && err.message ? err.message : "Error desconocido";
 
   const resetForm = () => {
     setT(EMPTY_TRIP);
     setStepIdx(0);
     setErrs({});
     setDirty(false);
+    setSaveError("");
   };
 
-  // Guarda y bloquea hasta que la request termina. Si falla, el botón se
-  // re-habilita; si tiene éxito, el padre navega a /viajes y desmonta el wizard.
+  // Guarda y bloquea hasta que la request termina. Si falla, se muestra el error
+  // que devolvió el servidor y el botón se re-habilita para reintentar; si tiene
+  // éxito, el padre navega a /viajes y desmonta el wizard.
   const handleSave = async (tripToSave: Trip) => {
-    if (saving) return;
-    setSaving(true);
+    if (isSaving) return;
+    setSaving("save");
+    setSaveError("");
     try {
       await onSave(tripToSave);
+    } catch (err) {
+      setSaveError(mensajeError(err));
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
   const handleSaveAndNew = async () => {
-    if (!onSaveAndNew || saving) return;
-    setSaving(true);
+    if (!onSaveAndNew || isSaving) return;
+    setSaving("saveAndNew");
+    setSaveError("");
     try {
       await onSaveAndNew(t);
       resetForm();
+    } catch (err) {
+      setSaveError(mensajeError(err));
     } finally {
-      setSaving(false);
+      setSaving(null);
+    }
+  };
+
+  // Cancela y bloquea hasta que la request termina. Si el backend la rechaza el
+  // modal queda abierto con el motivo; si sale bien, el padre navega a /viajes.
+  const handleCancelTrip = async () => {
+    if (!onCancelTrip || cancelling) return;
+    setCancelling(true);
+    setCancelError("");
+    try {
+      // El estado lo resuelve la API (api/viajes cancelTrip): acá solo va el
+      // motivo, que se anexa a las observaciones.
+      await onCancelTrip({
+        ...t,
+        obs: t.obs + (t.obs ? " · " : "") + "Cancelado: " + cancelReason,
+      });
+      setShowCancel(false);
+    } catch (err) {
+      setCancelError(mensajeError(err));
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -135,17 +176,19 @@ export function TripWizard({
     // En modo edición persistimos los cambios al avanzar de pantalla, así no se
     // pierde nada si el usuario abandona antes de llegar al final. Si el guardado
     // falla no avanzamos para que el usuario lo reintente.
-    if (mode === "edit" && onStepSave && dirty && !saving) {
+    if (mode === "edit" && onStepSave && dirty && !isSaving) {
       const tripToSave: Trip = marcarModificado(t);
-      setSaving(true);
+      setSaving("step");
+      setSaveError("");
       try {
         await onStepSave(tripToSave);
         setT(tripToSave);
         setDirty(false);
-      } catch {
+      } catch (err) {
+        setSaveError(mensajeError(err));
         return;
       } finally {
-        setSaving(false);
+        setSaving(null);
       }
     }
     advance();
@@ -166,7 +209,10 @@ export function TripWizard({
               </div>
               {mode === "edit" && !esCancelado && puedeCancelar && onCancelTrip && (
                 <button
-                  onClick={() => setShowCancel(true)}
+                  onClick={() => {
+                    setCancelError("");
+                    setShowCancel(true);
+                  }}
                   title="Cancelar viaje"
                   className={styles.mCancelBtn}
                 >
@@ -273,6 +319,13 @@ export function TripWizard({
         </div>
       </div>
 
+      {saveError && (
+        <div className={cx(styles.errorBox, styles.saveError)} role="alert">
+          <Icon name="alert" size={14} />
+          <span>No se pudo guardar el viaje: {saveError}</span>
+        </div>
+      )}
+
       <div className={styles.footer}>
         <Button kind="ghost" size={isMobile ? "sm" : "md"} onClick={onCancel}>
           {mode === "edit" ? "Volver" : "Descartar"}
@@ -289,7 +342,8 @@ export function TripWizard({
                 <Button
                   icon="plus"
                   size={isMobile ? "sm" : "md"}
-                  disabled={saving}
+                  disabled={isSaving}
+                  loading={saving === "saveAndNew"}
                   onClick={handleSaveAndNew}
                 >
                   {isMobile ? "Crear otro" : "Guardar y crear otro"}
@@ -299,7 +353,8 @@ export function TripWizard({
                 kind="primary"
                 icon="check"
                 size={isMobile ? "sm" : "md"}
-                disabled={saving}
+                disabled={isSaving}
+                loading={saving === "save"}
                 onClick={() =>
                   mode === "edit"
                     ? dirty
@@ -308,17 +363,23 @@ export function TripWizard({
                     : handleSave(t)
                 }
               >
-                {mode === "edit" ? "Guardar" : "Guardar viaje"}
+                {saving === "save"
+                  ? "Guardando…"
+                  : mode === "edit"
+                    ? "Guardar"
+                    : "Guardar viaje"}
               </Button>
             </>
           ) : stepIdx < stepsBase.length - 1 ? (
             <Button
               kind="primary"
               size={isMobile ? "sm" : "md"}
-              disabled={saving}
+              disabled={isSaving}
+              loading={saving === "step"}
               onClick={next}
             >
-              Siguiente <Icon name="chevright" size={isMobile ? 12 : 14} />
+              {saving === "step" ? "Guardando…" : "Siguiente"}
+              {saving !== "step" && <Icon name="chevright" size={isMobile ? 12 : 14} />}
             </Button>
           ) : null}
         </div>
@@ -327,26 +388,23 @@ export function TripWizard({
       {showCancel && onCancelTrip && (
         <Modal
           open
-          onClose={() => setShowCancel(false)}
+          onClose={() => {
+            if (!cancelling) setShowCancel(false);
+          }}
           title="Cancelar viaje"
           width={460}
           footer={
             <>
-              <Button onClick={() => setShowCancel(false)}>Volver</Button>
+              <Button disabled={cancelling} onClick={() => setShowCancel(false)}>
+                Volver
+              </Button>
               <Button
                 kind="dangerSolid"
                 disabled={!cancelReason.trim()}
-                onClick={() => {
-                  // El estado lo resuelve la API (api/viajes cancelTrip): acá
-                  // solo va el motivo, que se anexa a las observaciones.
-                  onCancelTrip({
-                    ...t,
-                    obs: t.obs + (t.obs ? " · " : "") + "Cancelado: " + cancelReason,
-                  });
-                  setShowCancel(false);
-                }}
+                loading={cancelling}
+                onClick={handleCancelTrip}
               >
-                Confirmar cancelación
+                {cancelling ? "Cancelando…" : "Confirmar cancelación"}
               </Button>
             </>
           }
@@ -361,6 +419,12 @@ export function TripWizard({
               placeholder="Ej. Cancelado por el pasajero"
             />
           </Field>
+          {cancelError && (
+            <div className={cx(styles.errorBox, styles.cancelError)} role="alert">
+              <Icon name="alert" size={14} />
+              <span>No se pudo cancelar el viaje: {cancelError}</span>
+            </div>
+          )}
         </Modal>
       )}
 
@@ -376,7 +440,7 @@ export function TripWizard({
               <Button
                 kind="primary"
                 icon="check"
-                disabled={saving}
+                disabled={isSaving}
                 onClick={() => {
                   setShowSaveConfirm(false);
                   handleSave(marcarModificado(t));

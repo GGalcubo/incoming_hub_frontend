@@ -21,6 +21,9 @@ interface ButtonProps {
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   disabled?: boolean;
+  // Acción en vuelo: el botón queda bloqueado y muestra el spinner en lugar del
+  // icono, así se ve que está esperando la respuesta del servidor.
+  loading?: boolean;
   className?: string;
   style?: CSSProperties;
 }
@@ -33,18 +36,24 @@ export function Button({
   onClick,
   type = "button",
   disabled,
+  loading,
   className,
   style,
 }: ButtonProps) {
   return (
     <button
       type={type}
-      disabled={disabled}
+      disabled={disabled || loading}
       onClick={onClick}
-      className={cx(styles.btn, styles[size], styles[kind], className)}
+      aria-busy={loading || undefined}
+      className={cx(styles.btn, styles[size], styles[kind], loading && styles.busy, className)}
       style={style}
     >
-      {icon && <Icon name={icon} size={size === "sm" ? 14 : 16} />}
+      {loading ? (
+        <span className={styles.spinner} aria-hidden="true" />
+      ) : (
+        icon && <Icon name={icon} size={size === "sm" ? 14 : 16} />
+      )}
       {children}
     </button>
   );
