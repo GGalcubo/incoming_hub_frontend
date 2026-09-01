@@ -389,7 +389,7 @@ function NewTripRoute({ onSave }: { onSave: (t: Trip, mode: "new" | "edit") => P
   const navigate = useNavigate();
   return (
     <>
-      <Topbar title="Nuevo viaje" subtitle="Completá los datos en 4 pasos." />
+      <Topbar title="Nuevo Viaje." subtitle="Completá los datos en 4 pasos." />
       <TripWizard
         mode="new"
         onSave={async (t) => {

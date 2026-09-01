@@ -41,7 +41,7 @@ export function StepResumen({ t }: { t: Trip }) {
     .join(" · ");
   return (
     <>
-      <h3 className={styles.h2}>Resumen del viaje</h3>
+      <h3 className={styles.h2}>Resumen del Viaje.</h3>
       <div className={styles.summaryList}>
         <Item l="Reserva" v={<span className={styles.mono}>{t.id}</span>} />
         <Item l="Agencia" v={t.agc || "—"} />

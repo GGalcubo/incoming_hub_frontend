@@ -391,15 +391,8 @@ export function StepTarifa({ t, set, errs }: StepProps) {
 
   return (
     <>
-      <h3 className={styles.h2}>Cotización</h3>
-      <p className={styles.p}>
-        El precio sale del primer destino del viaje.{" "}
-        {modalidad === "horas"
-          ? `Horas a disposición: la tarifa es el valor de la hora, y la card muestra el total por las ${horas} hs.`
-          : ""}{" "}
-        Elegí la categoría de vehículo. Montos en dólares (u$s). Las categorías sin tarifa para
-        la ruta se pueden elegir igual: quedan a cotizar por el proveedor.
-      </p>
+      <h3 className={styles.h2}>Cotización.</h3>
+      <p className={styles.p}>Seleccioná tipo de Unidad. Montos representados en USD.</p>
 
       {errs.cat && !t.cat && (
         <div className={styles.catNoPrice} style={{ color: "var(--danger-fg)" }}>

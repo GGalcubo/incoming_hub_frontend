@@ -270,14 +270,14 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
         onClose();
         reset();
       }}
-      title="Cargar viajes por Excel"
+      title="Cargar viajes por Excel."
       width={1480}
       footer={footer}
     >
       {stage === "pick" && (
         <div className={styles.pickWrap}>
           <div className={styles.intro}>
-            Subí un archivo .xlsx. Vas a poder revisar y editar cada fila antes de cargar los viajes.
+            Subí la Plantilla con tus servicios. Vas a poder revisar y editar cada fila antes de cargar los viajes.
           </div>
           {/* El parseo y la validación corren en el navegador (SheetJS); lo que
               necesita a Google es la geocodificación de origen/destino. */}
@@ -312,14 +312,25 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
             >
               <Icon name="upload" size={28} className={styles.dropIcon} />
               <div className={styles.dropTitle}>
-                Arrastrá el archivo o hacé clic para seleccionar
+                Arrastrá el archivo o hacé click para seleccionar.
               </div>
-              <div className={styles.dropSub}>Formato .xlsx · máximo 200 filas</div>
+              <div className={styles.dropSub}>
+                Si no tenés la Plantilla, podés descargarla{" "}
+                <a
+                  href="/plantilla-viajes.xlsx"
+                  download
+                  className={styles.templateLink}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  acá
+                </a>
+                .
+              </div>
               <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
             </label>
           )}
           <a href="/plantilla-viajes.xlsx" download className={styles.templateLink}>
-            Descargar plantilla
+            Descargar Plantilla.
           </a>
         </div>
       )}

@@ -88,11 +88,8 @@ export function StepTramos({ t, set, errs }: StepProps) {
 
   return (
     <>
-      <h3 className={styles.h2}>Destinos del viaje</h3>
-      <p className={styles.p}>
-        Agregá uno o más destinos. Para llegadas/salidas se pide número de
-        vuelo.
-      </p>
+      <h3 className={styles.h2}>Servicio.</h3>
+      <p className={styles.p}>Para IN/OUT desde ARPT, detallar Nro de Vuelo.</p>
 
       {/* Sin API key de Google no hay autocomplete ni mapa: el lugar se escribe a
           mano y el tramo se guarda sin coordenadas. */}

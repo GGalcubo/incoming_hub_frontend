@@ -123,7 +123,7 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
     <Modal
       open={open}
       onClose={onClose}
-      title="Settings de usuario"
+      title="Settings de Usuario."
       width={480}
       footer={
         <>
@@ -142,10 +142,10 @@ export function UserSettingsModal({ open, user, onClose, onSave }: UserSettingsM
 
         <div className={`${styles.section} ${styles.sectionFirst}`}>Datos de sistema</div>
         <div className={styles.row}>
-          <Field label="Usuario" hint="No editable.">
+          <Field label="Usuario">
             <Input value={username} disabled readOnly />
           </Field>
-          <Field label="Rol" hint="Lo asigna un administrador.">
+          <Field label="Rol">
             <Input value={roleLabel} disabled readOnly />
           </Field>
         </div>

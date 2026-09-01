@@ -711,7 +711,7 @@ export function TripsList({
                 <td colSpan={cols.length} className={styles.empty}>
                   <div className={styles.emptyTitle}>No hay viajes para mostrar.</div>
                   <div className={styles.emptySub}>
-                    Probá cambiar la fecha o limpiar los filtros.
+                    Podés ajustar tu búsqueda ajustando las fechas o limpiando filtros.
                   </div>
                 </td>
               </tr>
