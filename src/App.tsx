@@ -10,6 +10,7 @@ import { useToast } from "./context/ToastContext";
 import { useUser } from "./context/UserContext";
 import { useEstados } from "./hooks/useEstados";
 import { useMe } from "./hooks/useMe";
+import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
 import { TarifasClientePage, TarifasProveedorPage } from "./pages/Tarifas";
 import { TripWizard } from "./pages/TripWizard";
@@ -195,6 +196,10 @@ export function App() {
   if (!user) {
     return (
       <Routes>
+        {/* La raíz es la portada pública; desde ahí se entra a /login. Cualquier
+            otra ruta sin sesión (un link a un viaje, por ejemplo) sigue yendo
+            directo al login, que es lo que esa persona quiere hacer. */}
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

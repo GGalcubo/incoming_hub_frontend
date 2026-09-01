@@ -1,0 +1,165 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  color: var(--fg-primary);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* La foto de la slide: pegada a la derecha, siempre a la altura completa. El
+   corte en diagonal está sobre el borde izquierdo del recorte, y como el fondo
+   de la página es el mismo negro, la unión no se nota. Con object-fit cover y
+   el ancho acotado, en pantallas anchas y bajas se recorta por la derecha (la
+   foto) y no por la izquierda (la diagonal). */
+.hero {
+  position: absolute;
+  inset: 0 0 0 auto;
+  height: 100%;
+  width: auto;
+  max-width: 58vw;
+  object-fit: cover;
+  object-position: left center;
+  z-index: -2;
+  pointer-events: none;
+  user-select: none;
+}
+
+.veil {
+  display: none;
+}
+
+.header,
+.main,
+.footer {
+  padding-left: clamp(24px, 5vw, 72px);
+  padding-right: clamp(24px, 5vw, 72px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: clamp(20px, 3.5vh, 40px);
+  padding-bottom: 8px;
+}
+
+.logo {
+  height: clamp(28px, 3.6vw, 44px);
+  width: auto;
+  display: block;
+}
+
+/* En desktop el botón cae sobre el cielo de la foto: va con borde blanco y
+   fondo oscuro translúcido con blur, y detrás la esquina de la foto lleva un
+   velo (.scrim) que la oscurece apenas para que el pill no se pierda. */
+.scrim {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(48vw, 700px);
+  height: 240px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 100% 100% at 100% 0%, rgba(0, 0, 0, 0.78) 0%, rgba(0, 0, 0, 0.5) 40%, rgba(0, 0, 0, 0.18) 75%, transparent 100%);
+}
+
+.login {
+  display: inline-flex;
+  align-items: center;
+  font: 500 14px/20px var(--font-sans);
+  color: var(--fg-primary);
+  text-decoration: none;
+  padding: 9px 20px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background var(--dur-2) var(--ease), color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease);
+}
+
+.login:hover {
+  background: var(--brand-500);
+  border-color: var(--brand-500);
+  color: var(--fg-on-brand);
+}
+
+.login:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 3px;
+}
+
+/* La frase queda a la altura en que está en la slide (un poco por encima del
+   centro), dentro de la columna que deja libre la foto. */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: 10vh;
+  max-width: 60vw;
+  box-sizing: content-box;
+}
+
+.rule {
+  width: 72px;
+  height: 4px;
+  background: #c4d82e;
+  margin-bottom: clamp(20px, 3vh, 32px);
+}
+
+.tagline {
+  margin: 0;
+  font: 400 clamp(26px, 3.4vw, 46px) / 1.2 var(--font-sans);
+  color: var(--fg-muted);
+  letter-spacing: 0;
+}
+
+.footer {
+  padding-bottom: clamp(20px, 3.5vh, 36px);
+  font: 400 11px/16px var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-disabled);
+}
+
+/* En pantallas angostas la foto no cabe al costado: pasa a ser fondo de toda la
+   página, con un velo oscuro para que el texto siga leyéndose. */
+@media (max-width: 760px) {
+  .hero {
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    object-position: 72% center;
+  }
+
+  .veil {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+      linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0.85) 100%),
+      linear-gradient(90deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.2) 100%);
+  }
+
+  .scrim {
+    display: none;
+  }
+
+  .main {
+    max-width: none;
+    padding-bottom: 6vh;
+  }
+
+  .tagline {
+    color: var(--fg-tertiary);
+  }
+}
