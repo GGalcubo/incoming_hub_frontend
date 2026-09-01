@@ -3,6 +3,9 @@
 // reusa el mismo pipeline del wizard para crear los viajes. Cada fila del Excel
 // es un VIAJE; los tramos extra se cargan en Destino 2 / Destino 3 (el origen de
 // cada tramo es el destino del anterior).
+// Formato de referencia: public/plantilla-viajes.xlsx ("INCOMING HUB | PLANTILLA
+// SERVICIOS", generada por scripts/make_plantilla.py): título en la fila 2,
+// encabezados en la fila 4 y datos desde la fila 5.
 import * as XLSX from "xlsx";
 import type { ExcelLeg, ExcelRow, LegType } from "../types/domain";
 import { normalizePlace } from "./places";
@@ -64,14 +67,32 @@ function parseFecha(raw: string): string {
     return toISO(y, m, d);
   }
 
-  // Número de serie de Excel: días desde el 1899-12-30. En UTC para no correrse
-  // un día por la zona horaria.
+  // Número de serie de Excel tipeado como texto.
   const n = Number(s);
-  if (Number.isFinite(n) && n > 0) {
-    const dt = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
-    return toISO(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
-  }
+  if (Number.isFinite(n) && n > 0) return serialToISO(n);
   return "";
+}
+
+// Número de serie de Excel (días desde el 1899-12-30) → ISO. En UTC para no
+// correrse un día por la zona horaria. Es la forma más confiable de leer una
+// celda de fecha real: no depende del formato de visualización (dd/mm, mm-dd-yy…).
+function serialToISO(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "";
+  // Se trunca (una celda fecha+hora es "ese día"), con un minuto de tolerancia
+  // porque algunos generadores guardan 46192.9994 queriendo decir 46193.
+  const days = Math.floor(n + 1 / 1440);
+  const dt = new Date(Date.UTC(1899, 11, 30) + days * 86400000);
+  return toISO(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+}
+
+// Fracción de día de Excel (0.3125 = 07:30) → "HH:MM". Si viene con parte
+// entera (celda fecha+hora) se usa solo la fracción.
+function fractionToHHMM(n: number): string {
+  if (!Number.isFinite(n) || n < 0) return "";
+  const frac = n % 1;
+  if (frac === 0 && n !== 0) return "";
+  const mins = Math.round(frac * 24 * 60) % (24 * 60);
+  return `${pad2(Math.floor(mins / 60))}:${pad2(mins % 60)}`;
 }
 
 // Acepta "07:30", "7:30" o una fracción de día de Excel (por las dudas) → "HH:MM".
@@ -81,31 +102,49 @@ function parseHora(raw: string): string {
   const m = s.match(/^(\d{1,2}):(\d{2})/);
   if (m) {
     const h = Math.min(23, parseInt(m[1], 10));
-    return `${String(h).padStart(2, "0")}:${m[2]}`;
+    return `${pad2(h)}:${m[2]}`;
   }
   const n = Number(s);
-  if (Number.isFinite(n) && n > 0 && n < 1) {
-    const mins = Math.round(n * 24 * 60);
-    return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
-  }
+  if (Number.isFinite(n) && n > 0 && n < 1) return fractionToHHMM(n);
   return "";
 }
 
-// Aliases de header → campo lógico (norm() ya quita acentos y baja a minúsculas).
+// Aliases de header → campo lógico (norm() ya quita acentos y baja a minúsculas,
+// así "CATEGORÍA" → "categoria" y "ORÍGEN" → "origen"). Se aceptan los nombres
+// de la plantilla "INCOMING HUB | PLANTILLA SERVICIOS" (PAX, ORÍGEN, DESTINO3)
+// y los de la plantilla anterior (Pasajeros, Origen, Destino 3).
 const COLS: Record<string, string[]> = {
   fecha: ["fecha"],
   hora: ["hora"],
-  cat: ["categoria"],
-  pax: ["pasajeros"],
+  cat: ["categoria", "cat"],
+  pax: ["pax", "pasajero", "pasajeros"],
   tel: ["telefono", "telefonos", "tel pasajero", "tel"],
   tipo: ["tipo"],
   origen: ["origen"],
-  destino: ["destino"],
+  destino: ["destino", "destino 1", "destino1"],
   vuelo: ["vuelo"],
-  obs: ["observaciones"],
+  obs: ["observaciones", "obs"],
   destino2: ["destino 2", "destino2"],
   destino3: ["destino 3", "destino3"],
 };
+
+// La plantilla tiene un título en la fila 2 y los encabezados en la fila 4 (la
+// anterior los tenía en la fila 1). Se busca, entre las primeras filas, la
+// primera que reconozca al menos 3 columnas conocidas incluida la fecha.
+const HEADER_SCAN_ROWS = 15;
+const HEADER_MIN_MATCHES = 3;
+
+function findHeaderRow(
+  matrix: unknown[][],
+): { index: number; hmap: Record<string, number> } | null {
+  for (let i = 0; i < Math.min(matrix.length, HEADER_SCAN_ROWS); i++) {
+    const hmap = buildHeaderMap(matrix[i] ?? []);
+    if (hmap.fecha != null && Object.keys(hmap).length >= HEADER_MIN_MATCHES) {
+      return { index: i, hmap };
+    }
+  }
+  return null;
+}
 
 function buildHeaderMap(headerRow: unknown[]): Record<string, number> {
   const map: Record<string, number> = {};
@@ -118,12 +157,21 @@ function buildHeaderMap(headerRow: unknown[]): Record<string, number> {
   return map;
 }
 
-function parseRow(get: (field: string) => string, rowNum: number): ExcelRow {
-  // Fecha: una sola columna ("Fecha"), en el formato que traiga la planilla.
+function parseRow(
+  get: (field: string) => string,
+  getRaw: (field: string) => unknown,
+  rowNum: number,
+): ExcelRow {
+  // Fecha: una sola columna ("Fecha"). Si la celda es una fecha real de Excel
+  // se usa el número de serie (independiente del formato con que se muestre,
+  // que en la plantilla es mm-dd-yy); si es texto, se interpreta dd/mm/aaaa.
   const fechaText = get("fecha");
-  const date = parseFecha(fechaText);
+  const fechaRaw = getRaw("fecha");
+  const date = typeof fechaRaw === "number" ? serialToISO(fechaRaw) : parseFecha(fechaText);
 
-  const time = parseHora(get("hora"));
+  // Hora: idem, celda de hora real (fracción de día) o texto "HH:MM".
+  const horaRaw = getRaw("hora");
+  const time = typeof horaRaw === "number" ? fractionToHHMM(horaRaw) : parseHora(get("hora"));
   const cat = get("cat");
 
   const tipoText = get("tipo");
@@ -199,28 +247,36 @@ export async function parseExcelFile(file: File): Promise<ExcelRow[]> {
   const ws = sheetName ? wb.Sheets[sheetName] : undefined;
   if (!ws) return [];
 
-  // raw:false formatea las celdas según su formato (horas → "07:30", etc.).
-  const matrix = XLSX.utils.sheet_to_json<unknown[]>(ws, {
-    header: 1,
-    raw: false,
-    blankrows: false,
-  });
-  if (matrix.length < 2) return [];
+  // Dos lecturas de la misma hoja, alineadas fila a fila (blankrows:true para
+  // que los índices coincidan y se pueda informar la fila real de Excel):
+  //  - text: celdas formateadas según su formato (horas → "07:30", etc.).
+  //  - raw:  valores crudos, para leer fechas/horas reales como número.
+  const opts = { header: 1 as const, blankrows: true };
+  const text = XLSX.utils.sheet_to_json<unknown[]>(ws, { ...opts, raw: false });
+  const raw = XLSX.utils.sheet_to_json<unknown[]>(ws, { ...opts, raw: true });
+  const firstRow = ws["!ref"] ? XLSX.utils.decode_range(ws["!ref"]).s.r : 0;
 
-  const hmap = buildHeaderMap(matrix[0]);
+  const header = findHeaderRow(text);
+  if (!header) return [];
+  const { hmap } = header;
   const fields = Object.keys(hmap);
   const out: ExcelRow[] = [];
 
-  for (let i = 1; i < matrix.length; i++) {
-    const cells = matrix[i];
+  for (let i = header.index + 1; i < text.length; i++) {
+    const cells = text[i] ?? [];
+    const rawCells = raw[i] ?? [];
     const get = (field: string): string => {
       const idx = hmap[field];
       return idx == null ? "" : String(cells[idx] ?? "").trim();
     };
-    // Saltea filas totalmente vacías.
+    const getRaw = (field: string): unknown => {
+      const idx = hmap[field];
+      return idx == null ? undefined : rawCells[idx];
+    };
+    // Saltea filas totalmente vacías (la plantilla trae filas con formato pero sin datos).
     if (fields.every((f) => !get(f))) continue;
-    // matrix[0] es el header (fila 1 de Excel); matrix[i] es la fila i+1.
-    out.push(parseRow(get, i + 1));
+    // Número de fila real en Excel (1-based, contando desde el inicio del rango).
+    out.push(parseRow(get, getRaw, firstRow + i + 1));
   }
   return out;
 }

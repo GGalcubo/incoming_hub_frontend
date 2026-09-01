@@ -318,7 +318,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
                 Si no tenés la Plantilla, podés descargarla{" "}
                 <a
                   href="/plantilla-viajes.xlsx"
-                  download
+                  download="IN_Plantilla_Servicios.xlsx"
                   className={styles.templateLink}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -329,7 +329,7 @@ export function ExcelUploadModal({ open, onClose, onConfirm }: ExcelUploadModalP
               <input type="file" accept=".xlsx,.xls" hidden onChange={onFile} />
             </label>
           )}
-          <a href="/plantilla-viajes.xlsx" download className={styles.templateLink}>
+          <a href="/plantilla-viajes.xlsx" download="IN_Plantilla_Servicios.xlsx" className={styles.templateLink}>
             Descargar Plantilla.
           </a>
         </div>
