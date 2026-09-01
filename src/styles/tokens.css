@@ -135,8 +135,8 @@
 }
 
 /* ================ semantic helper classes ================== */
-.t-display { font:800 28px/34px var(--font-display); letter-spacing:0; color:var(--fg-primary); text-transform:uppercase; }
-.t-h1      { font:700 22px/28px var(--font-display); letter-spacing:0; color:var(--fg-primary); }
+.t-display { font:800 28px/34px var(--font-display); letter-spacing:.01em; color:var(--fg-primary); text-transform:uppercase; }
+.t-h1      { font:700 22px/28px var(--font-display); letter-spacing:.01em; color:var(--fg-primary); }
 .t-h2      { font:600 17px/24px var(--font-sans); color:var(--fg-primary); }
 .t-body    { font:400 14px/20px var(--font-sans); color:var(--fg-primary); }
 .t-small   { font:400 13px/18px var(--font-sans); color:var(--fg-secondary); }
@@ -149,7 +149,7 @@ html, body {
   background:var(--bg-app);
   color:var(--fg-primary);
   font:400 14px/20px var(--font-sans);
-  letter-spacing:0;
+  letter-spacing:.02em;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
 * { box-sizing:border-box; }
