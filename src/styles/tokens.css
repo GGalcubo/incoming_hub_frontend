@@ -63,10 +63,10 @@
 
   /* ---------- FOREGROUND ------------------------------------- */
   --fg-primary:    #FFFFFF;
-  --fg-secondary:  #D8D8D8;
-  --fg-tertiary:   #A8A8A8;
-  --fg-muted:      #7A7A7A;
-  --fg-disabled:   #555555;
+  --fg-secondary:  #EDEDED;
+  --fg-tertiary:   #D8D8D8;
+  --fg-muted:      #B4B4B4;
+  --fg-disabled:   #7A7A7A;
   --fg-on-brand:   #000000;
   --fg-on-danger:  #FFFFFF;
   --fg-link:       #FFFFFF;
@@ -131,12 +131,12 @@
   --login-grid-glow:   rgba(255,255,255,.05);
 
   /* ---------- SELECT CHEVRON --------------------------------- */
-  --select-chevron: %23A8A8A8;
+  --select-chevron: %23D8D8D8;
 }
 
 /* ================ semantic helper classes ================== */
-.t-display { font:800 28px/34px var(--font-display); letter-spacing:-.01em; color:var(--fg-primary); text-transform:uppercase; }
-.t-h1      { font:700 22px/28px var(--font-display); letter-spacing:-.005em; color:var(--fg-primary); }
+.t-display { font:800 28px/34px var(--font-display); letter-spacing:0; color:var(--fg-primary); text-transform:uppercase; }
+.t-h1      { font:700 22px/28px var(--font-display); letter-spacing:0; color:var(--fg-primary); }
 .t-h2      { font:600 17px/24px var(--font-sans); color:var(--fg-primary); }
 .t-body    { font:400 14px/20px var(--font-sans); color:var(--fg-primary); }
 .t-small   { font:400 13px/18px var(--font-sans); color:var(--fg-secondary); }
@@ -149,6 +149,7 @@ html, body {
   background:var(--bg-app);
   color:var(--fg-primary);
   font:400 14px/20px var(--font-sans);
+  letter-spacing:0;
   -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
 }
 * { box-sizing:border-box; }

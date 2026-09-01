@@ -29,7 +29,7 @@
 
 .title {
   font: 600 22px/28px Heming;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   margin-bottom: 6px;
   color: var(--fg-primary);
 }

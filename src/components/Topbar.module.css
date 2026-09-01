@@ -57,7 +57,7 @@
 
 .pageTitle {
   font: 600 17px/24px Heming;
-  letter-spacing: -0.005em;
+  letter-spacing: 0;
   color: var(--fg-primary);
 }
 
