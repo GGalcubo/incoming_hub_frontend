@@ -1,4 +1,25 @@
+/* La portada es negra (slide 1); las otras dos secciones son blancas como sus
+   slides, con el negro de marca (#212121) para el texto. */
 .page {
+  --ink: #212121;
+  --ink-soft: #8a8a8a;
+  --lime: #c4d82e;
+  --gutter: clamp(24px, 5vw, 72px);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* Línea verde de cada slide, debajo de los títulos. */
+.rule {
+  width: 72px;
+  height: 4px;
+  background: var(--lime);
+}
+
+/* =========================== Slide 1: portada ========================== */
+
+.hero {
   position: relative;
   min-height: 100vh;
   min-height: 100dvh;
@@ -12,10 +33,10 @@
 
 /* La foto de la slide: pegada a la derecha, siempre a la altura completa. El
    corte en diagonal está sobre el borde izquierdo del recorte, y como el fondo
-   de la página es el mismo negro, la unión no se nota. Con object-fit cover y
-   el ancho acotado, en pantallas anchas y bajas se recorta por la derecha (la
-   foto) y no por la izquierda (la diagonal). */
-.hero {
+   es el mismo negro, la unión no se nota. Con object-fit cover y el ancho
+   acotado, en pantallas anchas y bajas se recorta por la derecha (la foto) y
+   no por la izquierda (la diagonal). */
+.heroImg {
   position: absolute;
   inset: 0 0 0 auto;
   height: 100%;
@@ -33,10 +54,10 @@
 }
 
 .header,
-.main,
-.footer {
-  padding-left: clamp(24px, 5vw, 72px);
-  padding-right: clamp(24px, 5vw, 72px);
+.heroMain,
+.heroFoot {
+  padding-left: var(--gutter);
+  padding-right: var(--gutter);
 }
 
 .header {
@@ -98,7 +119,7 @@
 
 /* La frase queda a la altura en que está en la slide (un poco por encima del
    centro), dentro de la columna que deja libre la foto. */
-.main {
+.heroMain {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -108,10 +129,7 @@
   box-sizing: content-box;
 }
 
-.rule {
-  width: 72px;
-  height: 4px;
-  background: #c4d82e;
+.heroMain .rule {
   margin-bottom: clamp(20px, 3vh, 32px);
 }
 
@@ -122,7 +140,7 @@
   letter-spacing: 0;
 }
 
-.footer {
+.heroFoot {
   padding-bottom: clamp(20px, 3.5vh, 36px);
   font: 400 11px/16px var(--font-sans);
   letter-spacing: 0.08em;
@@ -130,10 +148,175 @@
   color: var(--fg-disabled);
 }
 
-/* En pantallas angostas la foto no cabe al costado: pasa a ser fondo de toda la
-   página, con un velo oscuro para que el texto siga leyéndose. */
+/* ============================ Slides 2 y 3 ============================= */
+
+.title {
+  margin: 0 0 clamp(16px, 2.5vh, 24px);
+  font: 700 clamp(30px, 3.6vw, 50px) / 1.15 var(--font-sans);
+  letter-spacing: 0;
+  color: var(--ink);
+}
+
+/* ---- Slide 2: texto a la izquierda, ciudad con corte en diagonal a la
+   derecha. La foto llena su columna a lo alto y se recorta por la derecha,
+   nunca por la izquierda, donde está la diagonal sobre fondo blanco. */
+.receptivo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 44%);
+  min-height: 80vh;
+  background: #fff;
+}
+
+.copy {
+  padding: clamp(48px, 9vh, 96px) clamp(32px, 4vw, 64px) clamp(48px, 9vh, 96px) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 62ch;
+  box-sizing: content-box;
+}
+
+.copy .rule {
+  margin-bottom: clamp(32px, 7vh, 72px);
+}
+
+.lead,
+.strong {
+  margin: 0;
+  font: 400 clamp(17px, 1.45vw, 22px) / 1.45 var(--font-sans);
+  color: var(--ink);
+}
+
+.lead + .strong,
+.strong + .lead {
+  margin-top: clamp(20px, 3.5vh, 36px);
+}
+
+.strong {
+  font-weight: 700;
+}
+
+.cityWrap {
+  position: relative;
+  min-height: 420px;
+}
+
+.city {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ---- Slide 3: tres pasos en columnas separadas por líneas, y el cartel. */
+.simple {
+  padding: clamp(56px, 10vh, 104px) var(--gutter) clamp(48px, 8vh, 80px);
+  background: #fff;
+}
+
+.simple .rule {
+  margin-bottom: clamp(40px, 8vh, 88px);
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.step {
+  padding: 8px clamp(24px, 3vw, 56px) 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.step + .step {
+  border-left: 1px solid #d8d8d8;
+  padding-left: clamp(24px, 3vw, 56px);
+}
+
+.stepIcon {
+  height: 44px;
+  width: auto;
+  display: block;
+  margin-bottom: clamp(20px, 3vh, 32px);
+}
+
+.stepNum {
+  font: 700 clamp(40px, 3.6vw, 52px) / 1 var(--font-sans);
+  color: var(--ink);
+  margin-bottom: clamp(16px, 2.5vh, 24px);
+}
+
+.stepText {
+  margin: 0;
+  font: 400 clamp(15px, 1.2vw, 18px) / 1.45 var(--font-sans);
+  color: var(--ink-soft);
+  max-width: 34ch;
+}
+
+/* El cartel gris de la slide, con las dos esquinas cortadas. */
+.banner {
+  margin-top: clamp(48px, 9vh, 96px);
+  padding: clamp(18px, 3vh, 26px) 24px;
+  background: #f2f2f2;
+  border: 1px solid #e5e5e5;
+  clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+  text-align: center;
+  font: 700 clamp(17px, 1.6vw, 24px) / 1.3 var(--font-sans);
+  color: var(--ink);
+}
+
+/* ------------------------------- Pie ---------------------------------- */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px var(--gutter) clamp(24px, 4vh, 40px);
+  background: #fff;
+}
+
+.footerSite {
+  font: 400 11px/16px var(--font-sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a9a9a;
+}
+
+.footerLogin {
+  font: 600 14px/20px var(--font-sans);
+  color: var(--ink);
+  text-decoration: none;
+  padding: 9px 20px;
+  border: 1px solid var(--ink);
+  border-radius: var(--r-pill);
+  transition: background var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
+}
+
+.footerLogin:hover {
+  background: var(--ink);
+  color: #fff;
+}
+
+.footerMark {
+  height: 28px;
+  width: auto;
+  display: block;
+}
+
+/* ============================== Mobile ================================= */
 @media (max-width: 760px) {
-  .hero {
+  /* En pantallas angostas la foto de la portada no cabe al costado: pasa a ser
+     fondo de toda la sección, con un velo oscuro para que el texto se lea. */
+  .heroImg {
     inset: 0;
     width: 100%;
     max-width: none;
@@ -154,12 +337,58 @@
     display: none;
   }
 
-  .main {
+  .heroMain {
     max-width: none;
     padding-bottom: 6vh;
   }
 
   .tagline {
     color: var(--fg-tertiary);
+  }
+
+  /* Slide 2 apilada: texto y debajo la ciudad. */
+  .receptivo {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .copy {
+    padding-right: var(--gutter);
+    max-width: none;
+  }
+
+  .cityWrap {
+    min-height: 0;
+    height: 300px;
+  }
+
+  .city {
+    object-position: center 40%;
+  }
+
+  /* Slide 3 apilada: los pasos uno debajo del otro, sin las líneas. */
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+
+  .step {
+    padding: 0;
+  }
+
+  .step + .step {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .footer {
+    flex-wrap: wrap;
+    row-gap: 12px;
+  }
+
+  .footerLogin {
+    order: 3;
+    width: 100%;
+    text-align: center;
   }
 }
