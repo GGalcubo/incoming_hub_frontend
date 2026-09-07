@@ -1,7 +1,9 @@
 # Backend API — Incoming Hub
 
-- **Base URL:** `https://incoming-hub-00af8e68af77.herokuapp.com/api/v1`
-- **Swagger / docs:** https://incoming-hub-00af8e68af77.herokuapp.com/api/docs/
+- **Base URL producción:** `https://incoming-prod-fc4b538e578c.herokuapp.com/api/v1`
+- **Base URL stage:** `https://incoming-hub-00af8e68af77.herokuapp.com/api/v1`
+- **Swagger / docs producción:** https://incoming-prod-fc4b538e578c.herokuapp.com/api/docs/
+- **Swagger / docs stage:** https://incoming-hub-00af8e68af77.herokuapp.com/api/docs/
 - **OpenAPI schema (JSON):** `/api/schema/`
 - **Auth:** JWT (SimpleJWT). `POST /auth/login/` → `{ access, refresh }`. El resto requiere `Authorization: Bearer <access>`.
 
@@ -21,6 +23,14 @@
 > `id_localidad_*_externo` (tramo); `id_persona_externo` e
 > `id_viaje_persona_externo` (pasajero); `id_proveedor_externo` (proveedor). El
 > front ya está al día. Todos son **read-only**: los escribe la sincronización.
+
+## Configuración de entornos
+
+`npm run build` usa `.env.production`; `npm run build:stage` usa `.env.staging`.
+Ambos configuran la API y el login con el backend del entorno correspondiente.
+El desarrollo local sigue usando `.env.local`.
+Las variables `VITE_API_URL` y `VITE_AUTH_URL` definidas en la plataforma de
+despliegue tienen prioridad sobre estos archivos y deben coincidir con el entorno.
 
 ## Auth
 | Método | Ruta | Descripción |
